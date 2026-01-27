@@ -1,0 +1,36 @@
+<Window x:Class="BaselineMode.WPF.Views.ChannelDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:scott="clr-namespace:ScottPlot;assembly=ScottPlot.WPF"
+        xmlns:vm="clr-namespace:BaselineMode.WPF.ViewModels"
+        d:DataContext="{d:DesignInstance Type=vm:ChannelViewModel}"
+        mc:Ignorable="d"
+        Title="{Binding Title, StringFormat='Detailed View - {0}'}" 
+        Height="600" Width="800"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Background="#F8FAFC" Padding="16">
+            <TextBlock Text="{Binding Title}" 
+                       FontSize="20" 
+                       FontWeight="Bold" 
+                       Foreground="#334155"/>
+        </Border>
+
+        <scott:WpfPlot Grid.Row="1" x:Name="DetailPlot" Margin="8"/>
+
+        <Border Grid.Row="2" Background="#F1F5F9" Padding="12">
+            <TextBlock Text="{Binding StatsText}" 
+                       HorizontalAlignment="Center" 
+                       FontSize="14" 
+                       Foreground="#64748B"/>
+        </Border>
+    </Grid>
+</Window>

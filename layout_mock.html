@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baseline Mode - WPF Layout Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .demo-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #2563EB 0%, #1E40AF 100%);
+            padding: 24px 32px;
+            color: white;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .header .version {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .header .datetime {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Main Layout */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+            padding: 32px;
+            background: #F8FAFC;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Left Panel */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+        }
+
+        .left-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .left-panel::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 3px;
+        }
+
+        /* Card */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1E293B;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-header .icon {
+            font-size: 20px;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748B;
+            margin-bottom: 6px;
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: #2563EB;
+            color: white;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: #1E40AF;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #2563EB;
+            border: 2px solid #2563EB;
+        }
+
+        .btn-secondary:hover {
+            background: #2563EB;
+            color: white;
+        }
+
+        .btn-success {
+            background: #10B981;
+            color: white;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-danger {
+            background: #EF4444;
+            color: white;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: #DC2626;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin: 16px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #F1F5F9;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10B981, #059669);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: #10B981;
+        }
+
+        /* Status Info Grid */
+        .status-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 12px 16px;
+            margin-top: 16px;
+        }
+
+        .status-label {
+            font-size: 13px;
+            color: #64748B;
+            font-weight: 500;
+        }
+
+        .status-value {
+            font-size: 14px;
+            color: #1E293B;
+            font-weight: 600;
+        }
+
+        /* Checkbox */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            cursor: pointer;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            color: #1E293B;
+            cursor: pointer;
+        }
+
+        /* Right Panel */
+        .right-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            background: #F8FAFC;
+            border-bottom: 2px solid #E2E8F0;
+        }
+
+        .tab {
+            padding: 16px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748B;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: #2563EB;
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .tab.active {
+            color: #2563EB;
+            border-bottom-color: #2563EB;
+            background: white;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            padding: 24px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Histogram Grid */
+        .histogram-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .histogram-card {
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 12px;
+            height: 220px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .histogram-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1E293B;
+            margin-bottom: 8px;
+        }
+
+        .histogram-chart {
+            flex: 1;
+            background: white;
+            border-radius: 4px;
+            display: flex;
+            align-items: flex-end;
+            padding: 8px;
+            gap: 2px;
+        }
+
+        .histogram-bar {
+            flex: 1;
+            background: linear-gradient(180deg, #2563EB, #1E40AF);
+            border-radius: 2px 2px 0 0;
+            animation: growUp 0.5s ease;
+        }
+
+        @keyframes growUp {
+            from {
+                height: 0;
+            }
+        }
+
+        .histogram-stats {
+            font-size: 10px;
+            color: #64748B;
+            margin-top: 4px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+        }
+
+        /* Data Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            background: #F8FAFC;
+            padding: 12px;
+            text-align: left;
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748B;
+            border-bottom: 2px solid #E2E8F0;
+        }
+
+        .data-table td {
+            padding: 12px;
+            font-size: 13px;
+            color: #1E293B;
+            border-bottom: 1px solid #F1F5F9;
+        }
+
+        .data-table tr:hover {
+            background: #F8FAFC;
+        }
+
+        /* Header Info */
+        .header-info {
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: #1E293B;
+            background: #F8FAFC;
+            padding: 16px;
+            border-radius: 8px;
+            line-height: 1.8;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-badge.success {
+            background: #D1FAE5;
+            color: #059669;
+        }
+
+        .status-badge.info {
+            background: #DBEAFE;
+            color: #2563EB;
+        }
+
+        .status-badge.warning {
+            background: #FEF3C7;
+            color: #D97706;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .histogram-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Animation */
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="demo-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div>
+                    <h1>Baseline Mode for Charged Particle Detector</h1>
+                    <div class="version">Version 2025.05.17</div>
+                </div>
+                <div class="datetime" id="datetime"></div>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Left Panel -->
+            <div class="left-panel">
+                <!-- File Selection Card -->
+                <div class="card fade-in">
+                    <div class="card-header">
+                        <span class="icon">📁</span>
+                        File Selection
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-primary" onclick="selectFile()">
+                            <span>📂</span>
+                            Select File(s)
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary" onclick="processData()">
+                            <span>⚙️</span>
+                            Process Data
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Output Filename</label>
+                        <input type="text" class="form-input" placeholder="output_file.xlsx" id="outputFile">
+                    </div>
+                    <div id="fileStatus"></div>
+                </div>
+
+                <!-- Test Configuration Card -->
+                <div class="card fade-in" style="animation-delay: 0.1s">
+                    <div class="card-header">
+                        <span class="icon">⚙️</span>
+                        Test Configuration
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Delay Time (μs)</label>
+                            <input type="number" class="form-input" value="0.00" step="0.01">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Threshold</label>
+                            <input type="number" class="form-input" value="0.00" step="0.01">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary" onclick="checkHeader()">
+                            <span>✓</span>
+                            Check Header
+                        </button>
+                    </div>
+                    <div id="headerStatus"></div>
+                </div>
+
+                <!-- Processing Control Card -->
+                <div class="card fade-in" style="animation-delay: 0.2s">
+                    <div class="card-header">
+                        <span class="icon">▶️</span>
+                        Processing Control
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-success" onclick="startProcessing()">
+                            <span>▶️</span>
+                            Start Processing
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-danger" onclick="stopProcessing()">
+                            <span>⏹️</span>
+                            Stop
+                        </button>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary" onclick="resetAll()">
+                            <span>🔄</span>
+                            Reset
+                        </button>
+                    </div>
+
+                    <div class="progress-container">
+                        <label class="form-label">Progress</label>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-text" id="progressText">0%</div>
+                    </div>
+
+                    <div class="status-grid">
+                        <span class="status-label">Start Time:</span>
+                        <span class="status-value" id="startTime">—</span>
+
+                        <span class="status-label">Stop Time:</span>
+                        <span class="status-value" id="stopTime">—</span>
+
+                        <span class="status-label">Duration:</span>
+                        <span class="status-value" id="duration">—</span>
+
+                        <span class="status-label">Data Counts:</span>
+                        <span class="status-value" id="dataCount">—</span>
+                    </div>
+                </div>
+
+                <!-- Analysis Settings Card -->
+                <div class="card fade-in" style="animation-delay: 0.3s">
+                    <div class="card-header">
+                        <span class="icon">📊</span>
+                        Analysis Settings
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">DSSD Layer</label>
+                        <select class="form-select">
+                            <option>DSSD L1</option>
+                            <option>DSSD L2</option>
+                            <option>DSSD L6</option>
+                            <option>DSSD L7</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Display Mode</label>
+                        <select class="form-select">
+                            <option>Before baseline subtraction</option>
+                            <option>After baseline subtraction</option>
+                            <option>Before baseline subtraction, log scale</option>
+                            <option>After baseline subtraction, log scale</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">X-Axis</label>
+                        <select class="form-select">
+                            <option>ADC Channel (0-16384)</option>
+                            <option>Voltage (mV)</option>
+                            <option>Energy (MeV)</option>
+                        </select>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="adaptiveThresh">
+                        <label for="adaptiveThresh">Adaptive Thresholding</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="curveFit">
+                        <label for="curveFit">Curve Fitting</label>
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-secondary">
+                            <span>💾</span>
+                            Save Baseline
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="right-panel">
+                <!-- Tabs -->
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab(0)">📈 Histogram View</div>
+                    <div class="tab" onclick="switchTab(1)">📋 Data View</div>
+                    <div class="tab" onclick="switchTab(2)">📄 Header Information</div>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tab-content active" id="tab0">
+                    <div class="histogram-grid" id="histogramGrid">
+                        <!-- Histograms will be generated here -->
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab1">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Packet No.</th>
+                                <th>Sampling No.</th>
+                                <th>L1 CH1</th>
+                                <th>L1 CH2</th>
+                                <th>L1 CH3</th>
+                                <th>L1 CH4</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>1</td>
+                                <td>8192</td>
+                                <td>8156</td>
+                                <td>8201</td>
+                                <td>8178</td>
+                                <td><span class="status-badge success">Valid</span></td>
+                            </tr>
+                            <tr>
+                                <td>1</td>
+                                <td>2</td>
+                                <td>8195</td>
+                                <td>8160</td>
+                                <td>8198</td>
+                                <td>8182</td>
+                                <td><span class="status-badge success">Valid</span></td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>1</td>
+                                <td>8189</td>
+                                <td>8154</td>
+                                <td>8203</td>
+                                <td>8176</td>
+                                <td><span class="status-badge success">Valid</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="tab-content" id="tab2">
+                    <div class="header-info">
+                        Packet Synchronization Code: E2 25<br>
+                        Package Identification: 00 01<br>
+                        Packet Sequence: 00 00<br>
+                        Packet data length: 08 0E<br>
+                        Timestamp: 2025-Jan-26 14:23:45.123<br>
+                        Data Type: 00 01<br>
+                        Check Sum: A3 2F<br>
+                        Checksum matches!<br>
+                        <br>
+                        Test condition:<br>
+                        Delay Time: 0.00<br>
+                        Threshold: 0.00
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update datetime
+        function updateDateTime() {
+            const now = new Date();
+            const formatted = now.toISOString().replace('T', ' ').substring(0, 19);
+            document.getElementById('datetime').textContent = formatted;
+        }
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // Generate sample histograms
+        function generateHistograms() {
+            const grid = document.getElementById('histogramGrid');
+            const channels = ['X Direction 1', 'X Direction 2', 'X Direction 3', 'X Direction 4',
+                'X Direction 5', 'X Direction 6', 'X Direction 7', 'X Direction 8',
+                'Z Direction 1', 'Z Direction 2', 'Z Direction 3', 'Z Direction 4',
+                'Z Direction 5', 'Z Direction 6', 'Z Direction 7', 'Z Direction 8'];
+
+            grid.innerHTML = '';
+            channels.forEach((channel, idx) => {
+                const card = document.createElement('div');
+                card.className = 'histogram-card fade-in';
+                card.style.animationDelay = `${idx * 0.05}s`;
+
+                const bars = [];
+                for (let i = 0; i < 20; i++) {
+                    const height = Math.random() * 100;
+                    bars.push(`<div class="histogram-bar" style="height: ${height}%"></div>`);
+                }
+
+                const mean = (8150 + Math.random() * 100).toFixed(1);
+                const sigma = (15 + Math.random() * 10).toFixed(1);
+
+                card.innerHTML = `
+                    <div class="histogram-title">${channel}</div>
+                    <div class="histogram-chart">${bars.join('')}</div>
+                    <div class="histogram-stats">
+                        <span>Mean: ${mean}</span>
+                        <span>σ: ${sigma}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        generateHistograms();
+
+        // Tab switching
+        function switchTab(index) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach((tab, i) => {
+                if (i === index) {
+                    tab.classList.add('active');
+                    contents[i].classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                    contents[i].classList.remove('active');
+                }
+            });
+        }
+
+        // Button actions
+        function selectFile() {
+            const status = document.getElementById('fileStatus');
+            status.innerHTML = '<span class="status-badge info">2 files selected</span>';
+            document.getElementById('outputFile').value = 'baseline_data_2025.xlsx';
+        }
+
+        function processData() {
+            const status = document.getElementById('fileStatus');
+            status.innerHTML = '<span class="status-badge success">✓ Data processed successfully</span>';
+        }
+
+        function checkHeader() {
+            const status = document.getElementById('headerStatus');
+            status.innerHTML = '<span class="status-badge success">✓ Header is correct!</span>';
+        }
+
+        let progress = 0;
+        let processing = false;
+
+        function startProcessing() {
+            if (processing) return;
+            processing = true;
+            progress = 0;
+
+            document.getElementById('startTime').textContent = new Date().toLocaleTimeString();
+            document.getElementById('dataCount').textContent = '0 / 1500';
+
+            const interval = setInterval(() => {
+                progress += 2;
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressText').textContent = progress + '%';
+                document.getElementById('dataCount').textContent = Math.floor(progress * 15) + ' / 1500';
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    processing = false;
+                    document.getElementById('stopTime').textContent = new Date().toLocaleTimeString();
+                    document.getElementById('duration').textContent = '45.3 seconds';
+                    generateHistograms();
+                }
+            }, 100);
+        }
+
+        function stopProcessing() {
+            processing = false;
+            document.getElementById('progressText').textContent = 'Stopped by User';
+        }
+
+        function resetAll() {
+            progress = 0;
+            processing = false;
+            document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('progressText').textContent = '0%';
+            document.getElementById('startTime').textContent = '—';
+            document.getElementById('stopTime').textContent = '—';
+            document.getElementById('duration').textContent = '—';
+            document.getElementById('dataCount').textContent = '—';
+            document.getElementById('fileStatus').innerHTML = '';
+            document.getElementById('headerStatus').innerHTML = '';
+            document.getElementById('outputFile').value = '';
+        }
+    </script>
+</body>
+
+</html>
