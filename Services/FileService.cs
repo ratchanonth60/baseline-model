@@ -17,6 +17,7 @@ namespace BaselineMode.WPF.Services
         private const int CHUNK_SIZE = 4128;
         private const int SAMPLES_PER_SEGMENT = 15;
         private const int CHANNELS = 16;
+        private const int BUFFER_SIZE = 64; // size for l1l2Dec and l6l7Dec
 
         // Regex อาจจะไม่จำเป็นถ้าเราใช้ Span Parsing (ซึ่งเร็วกว่า) แต่เก็บไว้สำหรับ clean whitespace ได้
         private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
@@ -71,46 +72,58 @@ namespace BaselineMode.WPF.Services
 
             // ✅ Zero-Allocation Optimization: Allocate ONCE on stack, reuse for all iterations.
             // This prevents Stack Overflow while maintaining high performance.
-            Span<int> l1l2Dec = stackalloc int[64];
-            Span<int> l6l7Dec = stackalloc int[64];
-
-            foreach (var segmentStr in segments)
+            // SAFE: Rent from ArrayPool<int> is thread-safe and re-entrant.
+            var arrayPool = System.Buffers.ArrayPool<int>.Shared;
+            int[] l1l2Dec = arrayPool.Rent(BUFFER_SIZE);
+            int[] l6l7Dec = arrayPool.Rent(BUFFER_SIZE);
+            try
             {
-                // Zero-copy span from string
-                ReadOnlySpan<char> segmentSpan = segmentStr.AsSpan();
-
-                // Extract Packet No
-                int samplingPacket = ExtractSamplingPacket(segmentSpan);
-
-                for (int i = 0; i < SAMPLES_PER_SEGMENT; i++)
+                int segmentIndex = 0;
+                foreach (var segmentStr in segments)
                 {
-                    var data = new BaselineData
-                    {
-                        SamplingPacketNo = samplingPacket,
-                        SamplingNo = i + 1,
-                    };
+                    // Zero-copy span from string
+                    ReadOnlySpan<char> segmentSpan = segmentStr.AsSpan();
+                    // Extract Packet No
+                    int samplingPacket = ExtractSamplingPacket(segmentSpan);
 
-                    int l1l2Offset = 18 + 64 * i * 2;
-                    int l6l7Offset = 978 + 64 * i * 2;
-
-                    // Pass the reusable stack buffers to be filled
-                    if (!ParseHexToSpan(segmentSpan, l1l2Offset, 64, l1l2Dec) ||
-                        !ParseHexToSpan(segmentSpan, l6l7Offset, 64, l6l7Dec))
+                    for (int i = 0; i < SAMPLES_PER_SEGMENT; i++)
                     {
-                        continue;
+                        var data = new BaselineData
+                        {
+                            SamplingPacketNo = samplingPacket,
+                            SamplingNo = i + 1,
+                        };
+
+                        int l1l2Offset = 18 + 64 * i * 2;
+                        int l6l7Offset = 978 + 64 * i * 2;
+
+                        // Create spans for rented buffers
+                        Span<int> l1l2Span = new Span<int>(l1l2Dec, 0, BUFFER_SIZE);
+                        Span<int> l6l7Span = new Span<int>(l6l7Dec, 0, BUFFER_SIZE);
+
+                        // Pass the reusable stack buffers to be filled
+                        if (!ParseHexToSpan(segmentSpan, l1l2Offset, BUFFER_SIZE, l1l2Dec) ||
+                            !ParseHexToSpan(segmentSpan, l6l7Offset, BUFFER_SIZE, l6l7Dec))
+                        {
+                            continue;
+                        }
+
+                        ProcessChannels(data, l1l2Dec, l6l7Dec);
+                        results.Add(data);
                     }
 
-                    ProcessChannels(data, l1l2Dec, l6l7Dec);
-                    results.Add(data);
-                }
-
-                if (progress != null)
-                {
-                    double currentProgress = ((double)results.Count / (segments.Count * SAMPLES_PER_SEGMENT)) * 100;
-                    progress.Report(currentProgress);
+                    if (progress != null && (++segmentIndex % 10 == 0))
+                    {
+                        double currentProgress = (double)segmentIndex / segments.Count * 100;
+                        progress.Report(currentProgress);
+                    }
                 }
             }
-
+            finally
+            {
+                arrayPool.Return(l1l2Dec);
+                arrayPool.Return(l6l7Dec);
+            }
             return results;
         }
 
@@ -196,10 +209,53 @@ namespace BaselineMode.WPF.Services
                 // Build headers efficiently
                 WriteHeaders(ws);
 
-                // Write data in bulk
-                WriteDataRows(ws, dataList, progress);
+                // Write data in bulk using LoadFromArrays (High Performance)
+                int rowCount = dataList.Count;
+                if (rowCount > 0)
+                {
+                    // Create object array in memory
+                    // Columns: 2 (Packet/Sample) + 64 (4 * 16 Channels) = 66
+                    int colCount = 2 + (CHANNELS * 4);
+                    object[,] dataArray = new object[rowCount, colCount];
+
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        var item = dataList[i];
+                        dataArray[i, 0] = item.SamplingPacketNo;
+                        dataArray[i, 1] = item.SamplingNo;
+
+                        int c = 2;
+                        for (int j = 0; j < CHANNELS; j++) dataArray[i, c++] = item.L1[j];
+                        for (int j = 0; j < CHANNELS; j++) dataArray[i, c++] = item.L2[j];
+                        for (int j = 0; j < CHANNELS; j++) dataArray[i, c++] = item.L6[j];
+                        for (int j = 0; j < CHANNELS; j++) dataArray[i, c++] = item.L7[j];
+
+                        if (progress != null && i % 1000 == 0) // Report progress periodically
+                        {
+                            progress.Report(((double)i / rowCount) * 100);
+                        }
+                    }
+
+                    // Write to Excel in one go
+                    ws.Cells[2, 1].LoadFromArrays(ConvertArrayToEnumerable(dataArray));
+                }
 
                 package.Save();
+            }
+        }
+
+        private IEnumerable<object[]> ConvertArrayToEnumerable(object[,] array)
+        {
+            int rows = array.GetLength(0);
+            int cols = array.GetLength(1);
+            for (int i = 0; i < rows; i++)
+            {
+                var row = new object[cols];
+                for (int j = 0; j < cols; j++)
+                {
+                    row[j] = array[i, j];
+                }
+                yield return row;
             }
         }
 
@@ -230,115 +286,74 @@ namespace BaselineMode.WPF.Services
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void WriteDataRows(ExcelWorksheet ws, List<BaselineData> dataList, IProgress<double> progress = null)
-        {
-            int rowCount = dataList.Count;
-
-            for (int i = 0; i < rowCount; i++)
-            {
-                var item = dataList[i];
-                int row = i + 2;
-
-                ws.Cells[row, 1].Value = item.SamplingPacketNo;
-                ws.Cells[row, 2].Value = item.SamplingNo;
-
-                int col = 3;
-
-                // Write all L1 values
-                for (int j = 0; j < CHANNELS; j++)
-                    ws.Cells[row, col++].Value = item.L1[j];
-
-                // Write all L2 values
-                for (int j = 0; j < CHANNELS; j++)
-                    ws.Cells[row, col++].Value = item.L2[j];
-
-                // Write all L6 values
-                for (int j = 0; j < CHANNELS; j++)
-                    ws.Cells[row, col++].Value = item.L6[j];
-
-                // Write all L7 values
-                for (int j = 0; j < CHANNELS; j++)
-                    ws.Cells[row, col++].Value = item.L7[j];
-
-                if (progress != null && i % 100 == 0) // Update every 100 rows to avoid overhead
-                {
-                    progress.Report(((double)i / rowCount) * 100);
-                }
-            }
-        }
-
         public List<BaselineData> ReadExcelFile(string filePath, IProgress<double> progress = null)
         {
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
                 var ws = package.Workbook.Worksheets[0];
+                if (ws.Dimension == null) return new List<BaselineData>();
+
                 int rowCount = ws.Dimension.Rows;
+                int colCount = ws.Dimension.Columns;
+                int dataRows = rowCount - 1;
+
+                // Load all data into memory at once
+                var rawValues = ws.Cells[2, 1, rowCount, colCount].Value as object[,];
 
                 // Pre-allocate with exact capacity
-                var results = new List<BaselineData>(rowCount - 1);
+                var results = new List<BaselineData>(dataRows);
 
-                // Parallel processing for large files (optional - remove if ordering is critical)
-                // For sequential processing, use regular loop
-                for (int row = 2; row <= rowCount; row++)
+                for (int r = 0; r < dataRows; r++)
                 {
-                    var data = ReadDataRow(ws, row);
+                    var data = new BaselineData();
+
+                    // Direct array access (High Performance)
+                    data.SamplingPacketNo = Convert.ToInt32(rawValues[r, 0]);
+                    data.SamplingNo = Convert.ToInt32(rawValues[r, 1]);
+
+                    int c = 2;
+                    // Read L1
+                    for (int i = 0; i < CHANNELS; i++)
+                    {
+                        int val = Convert.ToInt32(rawValues[r, c++]);
+                        data.L1[i] = val;
+                        data.L1_Voltage[i] = val * VOLTAGE_FACTOR;
+                    }
+
+                    // Read L2
+                    for (int i = 0; i < CHANNELS; i++)
+                    {
+                        int val = Convert.ToInt32(rawValues[r, c++]);
+                        data.L2[i] = val;
+                        data.L2_Voltage[i] = val * VOLTAGE_FACTOR;
+                    }
+
+                    // Read L6
+                    for (int i = 0; i < CHANNELS; i++)
+                    {
+                        int val = Convert.ToInt32(rawValues[r, c++]);
+                        data.L6[i] = val;
+                        data.L6_Voltage[i] = val * VOLTAGE_FACTOR;
+                    }
+
+                    // Read L7
+                    for (int i = 0; i < CHANNELS; i++)
+                    {
+                        int val = Convert.ToInt32(rawValues[r, c++]);
+                        data.L7[i] = val;
+                        data.L7_Voltage[i] = val * VOLTAGE_FACTOR;
+                    }
+
                     results.Add(data);
 
-                    if (progress != null && (row % 100 == 0))
+                    if (progress != null && (r % 1000 == 0))
                     {
-                        progress.Report(((double)(row - 1) / (rowCount - 1)) * 100);
+                        progress.Report(((double)(r) / dataRows) * 100);
                     }
                 }
 
                 return results;
             }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private BaselineData ReadDataRow(ExcelWorksheet ws, int row)
-        {
-            var data = new BaselineData
-            {
-                SamplingPacketNo = Convert.ToInt32(ws.Cells[row, 1].Value),
-                SamplingNo = Convert.ToInt32(ws.Cells[row, 2].Value)
-            };
-
-            int col = 3;
-
-            // Read L1
-            for (int i = 0; i < CHANNELS; i++)
-            {
-                int val = Convert.ToInt32(ws.Cells[row, col++].Value);
-                data.L1[i] = val;
-                data.L1_Voltage[i] = val * VOLTAGE_FACTOR;
-            }
-
-            // Read L2
-            for (int i = 0; i < CHANNELS; i++)
-            {
-                int val = Convert.ToInt32(ws.Cells[row, col++].Value);
-                data.L2[i] = val;
-                data.L2_Voltage[i] = val * VOLTAGE_FACTOR;
-            }
-
-            // Read L6
-            for (int i = 0; i < CHANNELS; i++)
-            {
-                int val = Convert.ToInt32(ws.Cells[row, col++].Value);
-                data.L6[i] = val;
-                data.L6_Voltage[i] = val * VOLTAGE_FACTOR;
-            }
-
-            // Read L7
-            for (int i = 0; i < CHANNELS; i++)
-            {
-                int val = Convert.ToInt32(ws.Cells[row, col++].Value);
-                data.L7[i] = val;
-                data.L7_Voltage[i] = val * VOLTAGE_FACTOR;
-            }
-
-            return data;
         }
     }
 }

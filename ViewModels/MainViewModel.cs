@@ -166,6 +166,7 @@ namespace BaselineMode.WPF.ViewModels
             InitializeChannels();
             StatusMessage = "Reset complete.";
             ProgressValue = 0;
+            CurrentPage = 1;
             // Notify view to clear plots if needed, or binding handles it (mostly)
             RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(null));
         }
@@ -423,11 +424,44 @@ namespace BaselineMode.WPF.ViewModels
             RefreshIfHasData();
         }
 
+        [ObservableProperty]
+        private int _currentPage = 1;
+
+        [ObservableProperty]
+        private int _pageSize = 100;
+
+        [ObservableProperty]
+        private int _totalPages = 1;
+
+        [ObservableProperty]
+        private string _pageInfoText = "Page 0 of 0";
+
+        [RelayCommand]
+        private void NextPage()
+        {
+            if (CurrentPage < TotalPages)
+            {
+                CurrentPage++;
+                UpdateDisplayTable();
+            }
+        }
+
+        [RelayCommand]
+        private void PreviousPage()
+        {
+            if (CurrentPage > 1)
+            {
+                CurrentPage--;
+                UpdateDisplayTable();
+            }
+        }
+
         private void UpdateDisplayTable()
         {
             if (ProcessedData == null || !ProcessedData.Any())
             {
                 DisplayDataTable = new System.Data.DataTable();
+                PageInfoText = "No Data";
                 return;
             }
 
@@ -435,6 +469,18 @@ namespace BaselineMode.WPF.ViewModels
 
             Task.Run(() =>
             {
+                // Calculate Pagination
+                int totalRecords = ProcessedData.Count;
+                int totalPages = (int)Math.Ceiling((double)totalRecords / PageSize);
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    TotalPages = totalPages;
+                    if (CurrentPage > TotalPages) CurrentPage = TotalPages;
+                    if (CurrentPage < 1) CurrentPage = 1;
+                    PageInfoText = $"Page {CurrentPage} of {TotalPages} ({totalRecords} items)";
+                });
+
                 var table = new System.Data.DataTable();
                 table.Columns.Add("Packet No", typeof(int));
                 table.Columns.Add("Sample No", typeof(int));
@@ -450,7 +496,11 @@ namespace BaselineMode.WPF.ViewModels
                     _ => (d) => d.L1
                 };
 
-                foreach (var item in ProcessedData)
+                // Apply Pagination
+                int skip = (CurrentPage - 1) * PageSize;
+                var pageData = ProcessedData.Skip(skip).Take(PageSize);
+
+                foreach (var item in pageData)
                 {
                     var row = table.NewRow();
                     row["Packet No"] = item.SamplingPacketNo;
@@ -1064,5 +1114,6 @@ namespace BaselineMode.WPF.ViewModels
     {
         public List<BaselineData> Data { get; }
         public PlotUpdateEventArgs(List<BaselineData> data) { Data = data; }
+
     }
 }

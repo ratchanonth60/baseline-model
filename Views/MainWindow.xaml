@@ -424,15 +424,29 @@
 
                     <!-- Data View Tab -->
                     <TabItem Header="📋 Data View">
-                        <DataGrid ItemsSource="{Binding DisplayDataTable}" 
-                                AutoGenerateColumns="True" 
-                                HeadersVisibility="Column" 
-                                GridLinesVisibility="Horizontal"
-                                Background="White" 
-                                BorderThickness="0" 
-                                RowBackground="White" 
-                                AlternatingRowBackground="{StaticResource DividerBrush}"
-                                Margin="20"/>
+                        <Grid Margin="20">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <DataGrid Grid.Row="0"
+                                    ItemsSource="{Binding DisplayDataTable}" 
+                                    AutoGenerateColumns="True" 
+                                    HeadersVisibility="Column" 
+                                    GridLinesVisibility="Horizontal"
+                                    Background="White" 
+                                    BorderThickness="0" 
+                                    RowBackground="White" 
+                                    AlternatingRowBackground="{StaticResource DividerBrush}"
+                                    Margin="0,0,0,12"/>
+
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Content="Before" Command="{Binding PreviousPageCommand}" Style="{StaticResource SecondaryBtn}" Margin="0,0,16,0" Width="100"/>
+                                <TextBlock Text="{Binding PageInfoText}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <Button Content="Next" Command="{Binding NextPageCommand}" Style="{StaticResource SecondaryBtn}" Margin="16,0,0,0" Width="100"/>
+                            </StackPanel>
+                        </Grid>
                     </TabItem>
 
                     <!-- Header Information Tab -->

@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -12,6 +13,10 @@ namespace BaselineMode.WPF.Services
         private static readonly double SQRT_2 = Math.Sqrt(2);
         private const double MIN_VALUE = 1e-9;
         private const double MAX_EXP_ARG = 100;
+
+        // ✅ SAFE: Reusable ArrayPool
+        private static readonly ArrayPool<double> _doublePool = ArrayPool<double>.Shared;
+        private static readonly ArrayPool<double[]> _jaggedPool = ArrayPool<double[]>.Shared;
 
         public class KalmanFilter
         {
@@ -113,6 +118,7 @@ namespace BaselineMode.WPF.Services
 
         /// <summary>
         /// Performs Levenberg-Marquardt optimization to fit a Gaussian curve.
+        /// ✅ SAFE MEMORY: Uses ArrayPool for all temporary allocations
         /// </summary>
         public (double[] fitCurve, double mu, double sigma, double peak, double rms) GaussianFit(
             double[] xData, double[] yData)
@@ -130,93 +136,118 @@ namespace BaselineMode.WPF.Services
             double tolerance = 1e-6;
             int length = xData.Length;
 
-            // Pre-allocate arrays to avoid repeated allocations
-            double[] residuals = new double[length];
-            double[][] J = new double[length][];
-            for (int i = 0; i < length; i++)
-                J[i] = new double[3];
+            // ✅ SAFE: Rent from ArrayPool instead of direct allocation
+            double[] residuals = _doublePool.Rent(length);
+            double[] JtR = _doublePool.Rent(3);
+            double[][] J = _jaggedPool.Rent(length);
+            double[][] JtJ = _jaggedPool.Rent(3);
 
-            double[] JtR = new double[3];
-            double[][] JtJ = new double[3][];
-            for (int i = 0; i < 3; i++)
-                JtJ[i] = new double[3];
-
-            for (int iter = 0; iter < maxIter; iter++)
+            try
             {
-                // Clear JtJ and JtR for reuse
-                Array.Clear(JtR, 0, 3);
+                // Initialize jagged arrays
+                for (int i = 0; i < length; i++)
+                    J[i] = _doublePool.Rent(3);
+
                 for (int i = 0; i < 3; i++)
-                    Array.Clear(JtJ[i], 0, 3);
+                    JtJ[i] = _doublePool.Rent(3);
 
-                double A = p[0];
-                double mu = p[1];
-                double sigma = p[2];
-                double sigma2 = sigma * sigma;
-                double sigma3 = sigma2 * sigma;
-
-                // Calculate residuals and Jacobian
-                for (int i = 0; i < length; i++)
+                for (int iter = 0; iter < maxIter; iter++)
                 {
-                    double x = xData[i];
-                    double diff = x - mu;
-                    double expTerm = Math.Exp(-0.5 * diff * diff / sigma2);
-                    double f = A * expTerm;
+                    // Clear JtJ and JtR for reuse
+                    Array.Clear(JtR, 0, 3);
+                    for (int i = 0; i < 3; i++)
+                        Array.Clear(JtJ[i], 0, 3);
 
-                    residuals[i] = yData[i] - f;
+                    double A = p[0];
+                    double mu = p[1];
+                    double sigma = p[2];
+                    double sigma2 = sigma * sigma;
+                    double sigma3 = sigma2 * sigma;
 
-                    J[i][0] = expTerm;
-                    J[i][1] = f * diff / sigma2;
-                    J[i][2] = f * diff * diff / sigma3;
-                }
-
-                // Compute JtJ and JtR in one pass
-                for (int i = 0; i < length; i++)
-                {
-                    for (int k = 0; k < 3; k++)
+                    // Calculate residuals and Jacobian
+                    for (int i = 0; i < length; i++)
                     {
-                        double Jik = J[i][k];
-                        JtR[k] += Jik * residuals[i];
-                        for (int j = 0; j < 3; j++)
+                        double x = xData[i];
+                        double diff = x - mu;
+                        double expTerm = Math.Exp(-0.5 * diff * diff / sigma2);
+                        double f = A * expTerm;
+
+                        residuals[i] = yData[i] - f;
+
+                        J[i][0] = expTerm;
+                        J[i][1] = f * diff / sigma2;
+                        J[i][2] = f * diff * diff / sigma3;
+                    }
+
+                    // Compute JtJ and JtR in one pass
+                    for (int i = 0; i < length; i++)
+                    {
+                        for (int k = 0; k < 3; k++)
                         {
-                            JtJ[k][j] += Jik * J[i][j];
+                            double Jik = J[i][k];
+                            JtR[k] += Jik * residuals[i];
+                            for (int j = 0; j < 3; j++)
+                            {
+                                JtJ[k][j] += Jik * J[i][j];
+                            }
                         }
+                    }
+
+                    // Add damping
+                    for (int k = 0; k < 3; k++)
+                        JtJ[k][k] += lambda;
+
+                    try
+                    {
+                        double[] delta = SolveLinearSystem3x3(JtJ, JtR);
+
+                        p[0] += delta[0];
+                        p[1] += delta[1];
+                        p[2] += delta[2];
+
+                        if (Math.Abs(delta[0]) < tolerance &&
+                            Math.Abs(delta[1]) < tolerance &&
+                            Math.Abs(delta[2]) < tolerance)
+                            break;
+                    }
+                    catch
+                    {
+                        break;
                     }
                 }
 
-                // Add damping
-                for (int k = 0; k < 3; k++)
-                    JtJ[k][k] += lambda;
-
-                try
+                // Generate fit curve
+                double[] fitCurve = new double[length];
+                double sigma2Final = p[2] * p[2];
+                for (int i = 0; i < length; i++)
                 {
-                    double[] delta = SolveLinearSystem3x3(JtJ, JtR);
-
-                    p[0] += delta[0];
-                    p[1] += delta[1];
-                    p[2] += delta[2];
-
-                    if (Math.Abs(delta[0]) < tolerance &&
-                        Math.Abs(delta[1]) < tolerance &&
-                        Math.Abs(delta[2]) < tolerance)
-                        break;
+                    double diff = xData[i] - p[1];
+                    fitCurve[i] = p[0] * Math.Exp(-0.5 * diff * diff / sigma2Final);
                 }
-                catch
-                {
-                    break;
-                }
+
+                double finalRMS = CalculateRMS(xData, fitCurve, p[1]);
+                return (fitCurve, p[1], p[2], p[0], finalRMS);
             }
-
-            // Generate fit curve
-            double[] fitCurve = new double[length];
-            double sigma2Final = p[2] * p[2];
-            for (int i = 0; i < length; i++)
+            finally
             {
-                double diff = xData[i] - p[1];
-                fitCurve[i] = p[0] * Math.Exp(-0.5 * diff * diff / sigma2Final);
-            }
+                // ✅ CRITICAL: Always return all rented arrays
+                _doublePool.Return(residuals);
+                _doublePool.Return(JtR);
 
-            double finalRMS = CalculateRMS(xData, fitCurve, p[1]);
-            return (fitCurve, p[1], p[2], p[0], finalRMS);
+                for (int i = 0; i < length; i++)
+                {
+                    if (J[i] != null)
+                        _doublePool.Return(J[i]);
+                }
+                _jaggedPool.Return(J);
+
+                for (int i = 0; i < 3; i++)
+                {
+                    if (JtJ[i] != null)
+                        _doublePool.Return(JtJ[i]);
+                }
+                _jaggedPool.Return(JtJ);
+            }
         }
 
         /// <summary>
@@ -252,6 +283,7 @@ namespace BaselineMode.WPF.Services
 
         /// <summary>
         /// Performs Levenberg-Marquardt optimization to fit a Hyper-EMG curve.
+        /// ✅ SAFE MEMORY: Uses ArrayPool for all temporary allocations
         /// </summary>
         public (double[] fitCurve, double mu, double sigma, double peak, double rms) HyperEMGFit(
             double[] xData, double[] yData)
@@ -273,89 +305,115 @@ namespace BaselineMode.WPF.Services
             int length = xData.Length;
             const int nParams = 4;
 
-            // Pre-allocate arrays
-            double[] residuals = new double[length];
-            double[][] J = new double[length][];
-            for (int i = 0; i < length; i++)
-                J[i] = new double[nParams];
+            // ✅ SAFE: Rent from ArrayPool
+            double[] residuals = _doublePool.Rent(length);
+            double[] JtR = _doublePool.Rent(nParams);
+            double[] p_step = _doublePool.Rent(nParams);
+            double[][] J = _jaggedPool.Rent(length);
+            double[][] JtJ = _jaggedPool.Rent(nParams);
 
-            double[] JtR = new double[nParams];
-            double[][] JtJ = new double[nParams][];
-            for (int i = 0; i < nParams; i++)
-                JtJ[i] = new double[nParams];
-
-            double[] p_step = new double[nParams];
-            const double epsilon = 1e-5;
-
-            for (int iter = 0; iter < maxIter; iter++)
+            try
             {
-                Array.Clear(JtR, 0, nParams);
+                // Initialize jagged arrays
+                for (int i = 0; i < length; i++)
+                    J[i] = _doublePool.Rent(nParams);
+
                 for (int i = 0; i < nParams; i++)
-                    Array.Clear(JtJ[i], 0, nParams);
+                    JtJ[i] = _doublePool.Rent(nParams);
 
-                for (int i = 0; i < length; i++)
+                const double epsilon = 1e-5;
+
+                for (int iter = 0; iter < maxIter; iter++)
                 {
-                    double x = xData[i];
-                    double val = EMG(x, p[0], p[1], p[2], p[3]);
-                    residuals[i] = yData[i] - val;
+                    Array.Clear(JtR, 0, nParams);
+                    for (int i = 0; i < nParams; i++)
+                        Array.Clear(JtJ[i], 0, nParams);
 
-                    // Numerical Jacobian
-                    for (int k = 0; k < nParams; k++)
+                    for (int i = 0; i < length; i++)
                     {
-                        Array.Copy(p, p_step, nParams);
-                        p_step[k] += epsilon;
-                        double val_step = EMG(x, p_step[0], p_step[1], p_step[2], p_step[3]);
-                        J[i][k] = (val_step - val) / epsilon;
-                    }
-                }
+                        double x = xData[i];
+                        double val = EMG(x, p[0], p[1], p[2], p[3]);
+                        residuals[i] = yData[i] - val;
 
-                // Compute JtJ and JtR
-                for (int i = 0; i < length; i++)
-                {
-                    for (int k = 0; k < nParams; k++)
-                    {
-                        double Jik = J[i][k];
-                        JtR[k] += Jik * residuals[i];
-                        for (int j = 0; j < nParams; j++)
+                        // Numerical Jacobian
+                        for (int k = 0; k < nParams; k++)
                         {
-                            JtJ[k][j] += Jik * J[i][j];
+                            Array.Copy(p, p_step, nParams);
+                            p_step[k] += epsilon;
+                            double val_step = EMG(x, p_step[0], p_step[1], p_step[2], p_step[3]);
+                            J[i][k] = (val_step - val) / epsilon;
                         }
                     }
-                }
 
-                // Add damping
-                for (int k = 0; k < nParams; k++)
-                    JtJ[k][k] += lambda;
+                    // Compute JtJ and JtR
+                    for (int i = 0; i < length; i++)
+                    {
+                        for (int k = 0; k < nParams; k++)
+                        {
+                            double Jik = J[i][k];
+                            JtR[k] += Jik * residuals[i];
+                            for (int j = 0; j < nParams; j++)
+                            {
+                                JtJ[k][j] += Jik * J[i][j];
+                            }
+                        }
+                    }
 
-                try
-                {
-                    double[] delta = SolveLinearSystem(JtJ, JtR);
-
+                    // Add damping
                     for (int k = 0; k < nParams; k++)
-                        p[k] += delta[k];
+                        JtJ[k][k] += lambda;
 
-                    // Constraints
-                    if (p[0] < MIN_VALUE) p[0] = MIN_VALUE;
-                    if (p[2] < MIN_VALUE) p[2] = MIN_VALUE;
-                    if (p[3] < MIN_VALUE) p[3] = MIN_VALUE;
+                    try
+                    {
+                        double[] delta = SolveLinearSystem(JtJ, JtR, nParams);
 
-                    if (Math.Abs(delta[0]) < tolerance && Math.Abs(delta[1]) < tolerance)
-                        break;
+                        for (int k = 0; k < nParams; k++)
+                            p[k] += delta[k];
+
+                        // Constraints
+                        if (p[0] < MIN_VALUE) p[0] = MIN_VALUE;
+                        if (p[2] < MIN_VALUE) p[2] = MIN_VALUE;
+                        if (p[3] < MIN_VALUE) p[3] = MIN_VALUE;
+
+                        if (Math.Abs(delta[0]) < tolerance && Math.Abs(delta[1]) < tolerance)
+                            break;
+                    }
+                    catch { break; }
                 }
-                catch { break; }
-            }
 
-            // Generate fit curve
-            double[] fitCurve = new double[length];
-            double maxVal = 0;
-            for (int i = 0; i < length; i++)
+                // Generate fit curve
+                double[] fitCurve = new double[length];
+                double maxVal = 0;
+                for (int i = 0; i < length; i++)
+                {
+                    fitCurve[i] = EMG(xData[i], p[0], p[1], p[2], p[3]);
+                    if (fitCurve[i] > maxVal) maxVal = fitCurve[i];
+                }
+
+                double finalRMS = CalculateRMS(xData, fitCurve, p[1]);
+                return (fitCurve, p[1], p[2], maxVal, finalRMS);
+            }
+            finally
             {
-                fitCurve[i] = EMG(xData[i], p[0], p[1], p[2], p[3]);
-                if (fitCurve[i] > maxVal) maxVal = fitCurve[i];
-            }
+                // ✅ CRITICAL: Always return all rented arrays
+                _doublePool.Return(residuals);
+                _doublePool.Return(JtR);
+                _doublePool.Return(p_step);
 
-            double finalRMS = CalculateRMS(xData, fitCurve, p[1]);
-            return (fitCurve, p[1], p[2], maxVal, finalRMS);
+                for (int i = 0; i < length; i++)
+                {
+                    if (J[i] != null)
+                        _doublePool.Return(J[i]);
+                }
+                _jaggedPool.Return(J);
+
+                for (int i = 0; i < nParams; i++)
+                {
+                    if (JtJ[i] != null)
+                        _doublePool.Return(JtJ[i]);
+                }
+                _jaggedPool.Return(JtJ);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -393,52 +451,77 @@ namespace BaselineMode.WPF.Services
             return sign == 1 ? y : 2.0 - y;
         }
 
-        // Generic solver for larger systems
-        private double[] SolveLinearSystem(double[][] A, double[] b)
+        /// <summary>
+        /// Generic solver for larger systems using Gaussian elimination
+        /// ✅ SAFE MEMORY: Uses ArrayPool for temporary allocations
+        /// </summary>
+        private double[] SolveLinearSystem(double[][] A, double[] b, int n)
         {
-            int n = A.Length;
-
             // Use optimized 3x3 solver if applicable
             if (n == 3)
                 return SolveLinearSystem3x3(A, b);
 
-            double[][] M = new double[n][];
-            for (int i = 0; i < n; i++)
+            // ✅ SAFE: Rent working matrix from pool
+            double[][] M = _jaggedPool.Rent(n);
+
+            try
             {
-                M[i] = new double[n + 1];
-                Array.Copy(A[i], M[i], n);
-                M[i][n] = b[i];
-            }
-
-            for (int k = 0; k < n; k++)
-            {
-                int max = k;
-                for (int i = k + 1; i < n; i++)
-                    if (Math.Abs(M[i][k]) > Math.Abs(M[max][k])) max = i;
-
-                var temp = M[k]; M[k] = M[max]; M[max] = temp;
-
-                if (Math.Abs(M[k][k]) < MIN_VALUE)
-                    throw new Exception("Singular matrix");
-
-                double invPivot = 1.0 / M[k][k];
-                for (int i = k + 1; i < n; i++)
+                // Initialize augmented matrix
+                for (int i = 0; i < n; i++)
                 {
-                    double factor = M[i][k] * invPivot;
-                    for (int j = k; j <= n; j++)
-                        M[i][j] -= factor * M[k][j];
+                    M[i] = _doublePool.Rent(n + 1);
+                    Array.Copy(A[i], M[i], n);
+                    M[i][n] = b[i];
                 }
-            }
 
-            double[] x = new double[n];
-            for (int i = n - 1; i >= 0; i--)
-            {
-                double sum = 0;
-                for (int j = i + 1; j < n; j++)
-                    sum += M[i][j] * x[j];
-                x[i] = (M[i][n] - sum) / M[i][i];
+                // Gaussian elimination with partial pivoting
+                for (int k = 0; k < n; k++)
+                {
+                    // Find pivot
+                    int max = k;
+                    for (int i = k + 1; i < n; i++)
+                        if (Math.Abs(M[i][k]) > Math.Abs(M[max][k])) max = i;
+
+                    // Swap rows
+                    var temp = M[k];
+                    M[k] = M[max];
+                    M[max] = temp;
+
+                    if (Math.Abs(M[k][k]) < MIN_VALUE)
+                        throw new Exception("Singular matrix");
+
+                    // Eliminate
+                    double invPivot = 1.0 / M[k][k];
+                    for (int i = k + 1; i < n; i++)
+                    {
+                        double factor = M[i][k] * invPivot;
+                        for (int j = k; j <= n; j++)
+                            M[i][j] -= factor * M[k][j];
+                    }
+                }
+
+                // Back substitution
+                double[] x = new double[n];
+                for (int i = n - 1; i >= 0; i--)
+                {
+                    double sum = 0;
+                    for (int j = i + 1; j < n; j++)
+                        sum += M[i][j] * x[j];
+                    x[i] = (M[i][n] - sum) / M[i][i];
+                }
+
+                return x;
             }
-            return x;
+            finally
+            {
+                // ✅ CRITICAL: Return all rented arrays
+                for (int i = 0; i < n; i++)
+                {
+                    if (M[i] != null)
+                        _doublePool.Return(M[i]);
+                }
+                _jaggedPool.Return(M);
+            }
         }
     }
 }
