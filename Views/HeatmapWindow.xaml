@@ -1,0 +1,25 @@
+<Window x:Class="BaselineMode.WPF.Views.HeatmapWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:scott="clr-namespace:ScottPlot;assembly=ScottPlot.WPF"
+        mc:Ignorable="d"
+        Title="{Binding Title}" Height="600" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Margin="10">
+            <TextBlock Text="Total Events:" FontWeight="Bold" Margin="0,0,5,0"/>
+            <TextBlock x:Name="TxtTotalEvents" Text="-" Margin="0,0,20,0"/>
+            
+            <TextBlock Text="Max Coincidence:" FontWeight="Bold" Margin="0,0,5,0"/>
+            <TextBlock x:Name="TxtMaxCount" Text="-" Margin="0,0,20,0"/>
+        </StackPanel>
+
+        <scott:WpfPlot Name="HeatmapPlot" Grid.Row="1"/>
+    </Grid>
+</Window>

@@ -267,6 +267,11 @@
                                 <ComboBoxItem Content="Gaussian"/>
                                 <ComboBoxItem Content="Hyper-EMG single tail"/>
                             </ComboBox>
+
+                            <Button Content="🔥 Show 2D Heatmap" 
+                                    Command="{Binding ShowHeatmapCommand}" 
+                                    Style="{StaticResource SecondaryBtn}"
+                                    Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -351,7 +351,6 @@ namespace BaselineMode.WPF.Services
                         progress.Report(((double)(r) / dataRows) * 100);
                     }
                 }
-
                 return results;
             }
         }

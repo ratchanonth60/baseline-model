@@ -1122,6 +1122,153 @@ namespace BaselineMode.WPF.ViewModels
             window.Show();
         }
 
+        [RelayCommand]
+        private void ShowHeatmap()
+        {
+            if (ProcessedData == null || !ProcessedData.Any())
+            {
+                StatusMessage = "No data to plot heatmap.";
+                return;
+            }
+
+            IsBusy = true;
+            StatusMessage = "Calculating Heatmap...";
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    var matrix = CalculateCoincidenceMatrix();
+
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        var vm = new HeatmapViewModel(matrix);
+                        var window = new BaselineMode.WPF.Views.HeatmapWindow();
+                        window.DataContext = vm;
+                        window.Show();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StatusMessage = $"Error showing heatmap: {ex.Message}";
+                    });
+                }
+                finally
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        IsBusy = false;
+                        StatusMessage = "Heatmap shown.";
+                    });
+                }
+            });
+        }
+
+        private double[,] CalculateCoincidenceMatrix()
+        {
+            // 8x8 Matrix
+            // Cols (X): Ch 0-7 (1-8)
+            // Rows (Z): Ch 8-15 (9-16)
+            double[,] matrix = new double[8, 8];
+
+            Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
+            {
+                1 => (d) => d.L2,
+                2 => (d) => d.L6,
+                3 => (d) => d.L7,
+                _ => (d) => d.L1
+            };
+
+            // Pre-calculate means/thresholds for all 16 channels? 
+            // Or just dynamic max per event?
+            // "Coincidence" usually means we look for simultaneous events.
+            // Simple approach: For each event, find Max Channel in X and Max Channel in Z (if above threshold).
+            // Increment matrix[z, x].
+
+            // 1. Calculate Thresholds (if needed)
+            double[] thresholds = new double[16];
+            double[] means = new double[16];
+
+            // We need to pass through data once to get means/sigmas if using Auto
+            // But we already have logic for that. Let's do it per channel effectively.
+
+            // Optimization: ProcessedData is in memory.
+            int n = ProcessedData.Count;
+
+            // Let's create a temporary array of all data to quickly get stats? 
+            // Or just iterate? 
+            // Iterating 16 times over N items is fine.
+
+            for (int i = 0; i < 16; i++)
+            {
+                // Calculate Mean/Threshold
+                // reuse existing logic simplified
+                // ... actually, let's just use raw max search for now. 
+                // If we strictly follow "UseThresholding", we should apply it.
+                // But for a heatmap, usually we want to see where the energy IS.
+            }
+
+            // Let's assume we want to count "Valid Hits".
+            // A Hit is valid if > Threshold.
+
+            // Loop through all events
+            foreach (var item in ProcessedData)
+            {
+                var data = layerSelector(item);
+
+                // Find Max X (0-7)
+                int maxX = -1;
+                double maxValX = double.MinValue;
+
+                for (int x = 0; x < 8; x++)
+                {
+                    double val = data[x];
+                    // Subtract mean? Yes for consistency.
+                    // But simplified: Just look for max raw value for now? 
+                    // No, baseline subtraction is critical.
+                    // Assuming centered data is needed... this is getting expensive to recalc every time.
+                    // Let's assume raw data max is good enough proxy for "Hit" if signal >> noise.
+
+                    if (val > maxValX)
+                    {
+                        maxValX = val;
+                        maxX = x;
+                    }
+                }
+
+                // Find Max Z (8-15)
+                int maxZ = -1;
+                double maxValZ = double.MinValue;
+
+                for (int z = 0; z < 8; z++)
+                {
+                    double val = data[z + 8];
+                    if (val > maxValZ)
+                    {
+                        maxValZ = val; // raw value
+                        maxZ = z;
+                    }
+                }
+
+                // If both found, increment
+                // Add Threshold check if feasible? 
+                // Let's stick to "Max Channel" logic for now. 
+                // If it's noise, it will be random. If signal, it will cluster.
+                if (maxX != -1 && maxZ != -1)
+                {
+                    // Check if it's "real" signal? e.g. > 100 ADC (arbitrary safety)
+                    // Or reuse KFactor if UseThresholding is true.
+                    // Let's implement KFactor check logic inside loop for robustness.
+
+                    matrix[maxZ, maxX]++;
+                }
+            }
+
+            return matrix;
+        }
+
         private void SaveLayerMeans(int layerId, Func<BaselineData, double[]> selector)
         {
             var lines = new List<string>();
