@@ -289,9 +289,17 @@ namespace BaselineMode.WPF.Services
             if (sign < 0) x = -x;
 
             double t = 1.0 / (1.0 + p * x);
-            double y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.Exp(-x * x);
 
-            return sign == 1 ? y : 2.0 - y;
+            // Calculate the polynomial result directly (this attempts to calculate part of Erfc)
+            // The original code was: double y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.Exp(-x * x);
+            // which is 1 - Erf approximation = Erfc approximation? No, typically this polynomial IS the approximation for Erf(x) or near it.
+            // Abramowitz and Stegun 7.1.26: erf(x) = 1 - (a1*t + a2*t^2 + ...)*exp(-x^2) + epsilon
+            // So the polynomial part * exp(-x^2) IS the approximation for erfc(x).
+            // So we just want the polynomial part * exp.
+
+            double val = (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.Exp(-x * x);
+
+            return sign == 1 ? val : 2.0 - val;
         }
 
         /// <summary>
