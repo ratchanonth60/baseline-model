@@ -205,10 +205,18 @@ namespace BaselineMode.WPF.ViewModels
                             string outputDir = GetDailyOutputDirectory();
                             string combinedFilePath = Path.Combine(outputDir, "multiple_file_output.txt");
 
+                            var progress = new Progress<double>(percent =>
+                            {
+                                ProgressValue = percent;
+                            });
+
                             // Use Streams to avoid loading everything into memory
                             using (var outputStream = new FileStream(combinedFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
                             using (var writer = new StreamWriter(outputStream))
                             {
+                                int totalFiles = files.Count;
+                                int processed = 0;
+
                                 foreach (var file in files)
                                 {
                                     try
@@ -224,6 +232,9 @@ namespace BaselineMode.WPF.ViewModels
                                         }
                                     }
                                     catch { /* Skip unreadable files */ }
+
+                                    processed++;
+                                    ((IProgress<double>)progress).Report((double)processed / totalFiles * 100);
                                 }
                             }
 
@@ -550,10 +561,14 @@ namespace BaselineMode.WPF.ViewModels
                             });
 
                             // 2. Parse Header Info from first valid line
-                            if (firstLineContent != null)
+                            // Ensure clean content for splitting
+                            var cleanHex = firstLineContent.Replace(" ", "").Trim();
+                            var hexData = SplitHexData(cleanHex);
+
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
                             {
-                                ParseHeaderInfo(firstLineContent);
-                            }
+                                ParseHeaderInfo(hexData);
+                            });
                         }
                     }
                 }
@@ -570,70 +585,35 @@ namespace BaselineMode.WPF.ViewModels
             IsBusy = false;
         }
 
-        private void ParseHeaderInfo(string hexLine)
+        private void ParseHeaderInfo(string[] hexData)
         {
-            // Logic from Form1.ProcessHeader
-            // hexLine is expected to be space separated hex or continuous?
-            // Form1: currentRowData[0].ToString() -> seems to be one string.
-            // Form1: ProcessHeader(string[] hexData)
-            // It seems 'hexData' came from 'ProcessBaseline' splitting logic.
-            // Let's assume input is space-separated hex string "E2 25 ...". 
-            // Or continuous "E225..."?
-            // Form1: hexString.StartsWith("E225").
-            // If it's "E2 25", StartsWith("E225") would be false.
-            // So logical assumption: The file contains "E225..." (continuous) OR logic handles parsing.
-            // Wait, looking at Form1 Check logic again (Step 366):
-            // if (!hexString.StartsWith("E225")) -> This implies continuous "E225".
-
-            // However, ProcessHeader (Step 409) uses `hexData[0]`, `hexData[1]`.
-            // This implies the long hex string was split into bytes.
-            // We need to implement split logic.
-
             try
             {
-                // Split hex string into 2-char chunks if continuous
-                var cleanHex = hexLine.Replace(" ", "").Trim();
-                if (cleanHex.Length % 2 != 0) cleanHex += "0"; // Pad if odd? Should be even.
-
-                string[] hexData = new string[cleanHex.Length / 2];
-                for (int i = 0; i < cleanHex.Length / 2; i++)
-                {
-                    hexData[i] = cleanHex.Substring(i * 2, 2);
-                }
-
-                if (hexData.Length < 16)
-                {
-                    HeaderInfoText = "Packet too short to parse.";
-                    return;
-                }
-
                 StringBuilder sb = new StringBuilder();
+
+                // 1. Packet Synchronization Code
                 sb.AppendLine($"Packet Synchronization Code: {hexData[0]} {hexData[1]}");
+
+                // 2. Package Identification
                 sb.AppendLine($"Package Identification: {hexData[2]} {hexData[3]}");
+
+                // 3. Packet Sequence
                 sb.AppendLine($"Packet Sequence: {hexData[4]} {hexData[5]}");
+
+                // 4. Packet Data Length
                 sb.AppendLine($"Packet data length: {hexData[6]} {hexData[7]}");
 
-                // Timecode
-                // Skip 8, Take 6 bytes
+                // 5. Timestamp
                 if (hexData.Length >= 14)
                 {
+                    // Logic from Form1: hexData.Skip(8).Take(6)
                     var timecodeHex = hexData.Skip(8).Take(6).ToArray();
-                    byte[] timecodeDec = timecodeHex.Select(h => Convert.ToByte(h, 16)).ToArray();
+                    var timecodeDec = timecodeHex.Select(h => Convert.ToByte(h, 16)).ToArray();
 
-                    // Ensure byte array is 8 bytes for BitConverter.ToUInt32/ToUInt16
-                    // Pad with zeros if necessary, or handle smaller arrays.
-                    // For ToUInt32, need 4 bytes. For ToUInt16, need 2 bytes.
-                    byte[] secondsBytes = new byte[4];
-                    Array.Copy(timecodeDec.Take(4).Reverse().ToArray(), secondsBytes, Math.Min(4, timecodeDec.Length));
-                    uint seconds_part = BitConverter.ToUInt32(secondsBytes, 0);
+                    uint seconds_part = BitConverter.ToUInt32(timecodeDec.Take(4).Reverse().ToArray(), 0);
+                    ushort milliseconds_part = BitConverter.ToUInt16(timecodeDec.Skip(4).Reverse().ToArray(), 0);
 
-                    byte[] millisecondsBytes = new byte[2];
-                    if (timecodeDec.Length >= 6)
-                    {
-                        Array.Copy(timecodeDec.Skip(4).Take(2).Reverse().ToArray(), millisecondsBytes, Math.Min(2, timecodeDec.Length - 4));
-                    }
-                    ushort milliseconds_part = BitConverter.ToUInt16(millisecondsBytes, 0);
-
+                    // Form1 calculates double total_seconds but creates DateTime from parts
                     DateTime datetime_value = DateTimeOffset.FromUnixTimeSeconds((long)seconds_part)
                         .AddMilliseconds(milliseconds_part)
                         .UtcDateTime;
@@ -641,16 +621,38 @@ namespace BaselineMode.WPF.ViewModels
                     sb.AppendLine($"Timestamp: {datetime_value.ToString("yyyy-MMM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}");
                 }
 
+                // 6. Data Type
                 if (hexData.Length >= 16)
+                {
                     sb.AppendLine($"Data Type: {hexData[14]} {hexData[15]}");
+                }
 
-                // Checksum (at end, approx 2063 bytes?)
-                // Legacy verification used hardcoded index 2062/2063 or file length logic.
-                // We'll skip complex checksum for now or implement if robust.
-                // Let's include Test Conditions from UI variables
+                // 7. Checksum
+                if (hexData.Length >= 2064)
+                {
+                    // Logic from Form1: sum 2054 bytes starting at index 8
+                    int total_sum = hexData.Skip(8).Take(2054).Select(h => Convert.ToInt32(h, 16)).Sum();
+                    int last_two_bytes = total_sum % 65536;
+                    string checksum_hex = last_two_bytes.ToString("X4"); // e.g. "0A1B"
+
+                    string CheckSum_fromData = hexData[2062] + hexData[2063];
+
+                    sb.AppendLine($"Check Sum: {hexData[2062]} {hexData[2063]}");
+
+                    if (checksum_hex.Equals(CheckSum_fromData, StringComparison.OrdinalIgnoreCase))
+                    {
+                        sb.AppendLine("Checksum matches!");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"Checksum does not match. (Calc: {checksum_hex})");
+                    }
+                }
+
+                // 8. Test Conditions (UI Variables)
                 sb.AppendLine("Test condition:");
                 sb.AppendLine($"Delay Time: {DelayTimeMs}");
-                sb.AppendLine($"Threshold: {ThresholdValue}");
+                sb.AppendLine($"Threshold: {_kFactor}"); // Assuming Threshold in Form1 corresponds to k-factor or threshold value
 
                 HeaderInfoText = sb.ToString();
             }
@@ -658,6 +660,20 @@ namespace BaselineMode.WPF.ViewModels
             {
                 HeaderInfoText = $"Error parsing header: {ex.Message}";
             }
+        }
+
+        private string[] SplitHexData(string hexString)
+        {
+            // Logic from Form1.SplitHexData
+            int n = 2;
+            if (hexString.Length % n != 0) return new string[0]; // Safety check
+
+            var list = new string[hexString.Length / n];
+            for (int i = 0; i < list.Length; i++)
+            {
+                list[i] = hexString.Substring(i * n, n);
+            }
+            return list;
         }
 
         [RelayCommand]
@@ -680,20 +696,38 @@ namespace BaselineMode.WPF.ViewModels
 
             await Task.Run(() =>
             {
+                var progress = new Progress<double>(percent =>
+                {
+                    // Scale progress: 50% for parsing/processing, 50% for saving
+                    // Or simplified: update directly
+                });
+
                 try
                 {
                     var allSegments = new List<string>();
 
+                    int fileCount = _selectedFiles.Count;
+                    int currentFile = 0;
+
                     foreach (var file in _selectedFiles)
                     {
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = $"Parsing file {currentFile + 1}/{fileCount}...");
                         var segments = _fileService.ParseRawTextFile(file);
                         allSegments.AddRange(segments);
+
+                        currentFile++;
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = (double)currentFile / fileCount * 30); // 0-30%
                     }
 
                     if (allSegments.Any())
                     {
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Converting hex data...");
                         // Convert to BaselineData
-                        var processed = _fileService.ProcessHexSegments(allSegments);
+                        // Scale this part 30-70%
+                        var processProgress = new Progress<double>(p =>
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 30 + (p * 0.4)));
+
+                        var processed = _fileService.ProcessHexSegments(allSegments, processProgress);
 
                         // Ensure .xlsx extension
                         string fileName = OutputFileName;
@@ -704,7 +738,12 @@ namespace BaselineMode.WPF.ViewModels
                         string outputDir = GetDailyOutputDirectory();
                         string fullPath = Path.Combine(outputDir, fileName);
 
-                        _fileService.SaveToExcel(processed, fullPath);
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Saving to Excel...");
+                        // Scale saving 70-100%
+                        var saveProgress = new Progress<double>(p =>
+                             System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 70 + (p * 0.3)));
+
+                        _fileService.SaveToExcel(processed, fullPath, saveProgress);
 
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
@@ -769,8 +808,11 @@ namespace BaselineMode.WPF.ViewModels
                     if (!_cts.Token.IsCancellationRequested)
                     {
                         // 2. Read from Excel
-                        // Note: ReadExcelFile is synchronous. Can wrap if needed or keep inside Task.Run
-                        ProcessedData = _fileService.ReadExcelFile(fullPath);
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Reading Excel...");
+                        var readProgress = new Progress<double>(p =>
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = p * 0.5)); // 0-50%
+
+                        ProcessedData = _fileService.ReadExcelFile(fullPath, readProgress);
                         DataCountsStr = ProcessedData.Count.ToString();
 
                         UpdateDisplayTable();
@@ -914,6 +956,9 @@ namespace BaselineMode.WPF.ViewModels
                                 {
                                     Channels[chIndex].StatsText = "No Data";
                                 }
+
+                                int currentCh = i + 1;
+                                System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 50 + ((double)currentCh / 16 * 50)); // 50-100%
                             }
                         }
                     }

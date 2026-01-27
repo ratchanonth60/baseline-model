@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Runtime.CompilerServices;
 using BaselineMode.WPF.Models;
 using OfficeOpenXml;
 
@@ -12,33 +12,38 @@ namespace BaselineMode.WPF.Services
 {
     public class FileService
     {
-        // Pre-compiled regex for better performance
-        private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
-        private static readonly Regex E225Regex = new Regex(@"E225[0-9A-F]+", RegexOptions.Compiled);
-
-        // Pre-computed constants
+        // Constants
         private const double VOLTAGE_FACTOR = (5.0 / 16383.0) * 1000.0;
         private const int CHUNK_SIZE = 4128;
         private const int SAMPLES_PER_SEGMENT = 15;
         private const int CHANNELS = 16;
+
+        // Regex อาจจะไม่จำเป็นถ้าเราใช้ Span Parsing (ซึ่งเร็วกว่า) แต่เก็บไว้สำหรับ clean whitespace ได้
+        private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
 
         public FileService()
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         }
 
+        // ---------------------------------------------------------
+        // 1. Parsing แบบ Zero-Allocation (สไตล์ Rust)
+        // ---------------------------------------------------------
+
+        // เปลี่ยน Return Type เป็น List<string> เหมือนเดิมเพื่อให้เข้ากับโค้ดส่วนอื่น 
+        // แต่ภายในเราจะลด allocation ให้น้อยที่สุด
         public List<string> ParseRawTextFile(string filePath)
         {
             // Read file with optimized buffer size
-            var content = File.ReadAllText(filePath, Encoding.ASCII);
+            // Note: For extremely large files, FileStream with buffer is better, but ReadAllText is simplified here.
+            string content = File.ReadAllText(filePath, Encoding.ASCII);
 
-            // Remove whitespace in one pass
+            // Manual whitespace cleaning logic could be here for zero-allocation,
+            // but keeping Regex + Substring for now as it's not the crash cause.
+            // The user focused on ProcessHexSegments optimization.
             var cleanedData = WhitespaceRegex.Replace(content, string.Empty);
+            var matches = Regex.Matches(cleanedData, @"E225[0-9A-F]+");
 
-            // Find all matches
-            var matches = E225Regex.Matches(cleanedData);
-
-            // Pre-allocate list with estimated capacity
             var segments = new List<string>(matches.Count * 2);
 
             foreach (Match match in matches)
@@ -46,7 +51,6 @@ namespace BaselineMode.WPF.Services
                 var segment = match.Value;
                 int segmentLength = segment.Length;
 
-                // Process chunks
                 for (int i = 0; i < segmentLength; i += CHUNK_SIZE)
                 {
                     int remainingLength = segmentLength - i;
@@ -60,19 +64,23 @@ namespace BaselineMode.WPF.Services
             return segments;
         }
 
-        public List<BaselineData> ProcessHexSegments(List<string> segments)
+        public List<BaselineData> ProcessHexSegments(List<string> segments, IProgress<double> progress = null)
         {
             // Pre-allocate with exact capacity
             var results = new List<BaselineData>(segments.Count * SAMPLES_PER_SEGMENT);
 
-            // Reusable buffers to avoid allocations
-            int[] l1l2Dec = new int[64];
-            int[] l6l7Dec = new int[64];
+            // ✅ Zero-Allocation Optimization: Allocate ONCE on stack, reuse for all iterations.
+            // This prevents Stack Overflow while maintaining high performance.
+            Span<int> l1l2Dec = stackalloc int[64];
+            Span<int> l6l7Dec = stackalloc int[64];
 
-            foreach (var hexDataStr in segments)
+            foreach (var segmentStr in segments)
             {
-                // Extract sampling packet number once
-                int samplingPacket = ExtractSamplingPacket(hexDataStr);
+                // Zero-copy span from string
+                ReadOnlySpan<char> segmentSpan = segmentStr.AsSpan();
+
+                // Extract Packet No
+                int samplingPacket = ExtractSamplingPacket(segmentSpan);
 
                 for (int i = 0; i < SAMPLES_PER_SEGMENT; i++)
                 {
@@ -82,21 +90,24 @@ namespace BaselineMode.WPF.Services
                         SamplingNo = i + 1,
                     };
 
-                    // Calculate offsets
-                    int l1l2Offset = 18 + 64 * i * 2; // *2 because each byte is 2 hex chars
+                    int l1l2Offset = 18 + 64 * i * 2;
                     int l6l7Offset = 978 + 64 * i * 2;
 
-                    // Parse hex directly without creating intermediate arrays
-                    if (!ParseHexToInts(hexDataStr, l1l2Offset, 64, l1l2Dec) ||
-                        !ParseHexToInts(hexDataStr, l6l7Offset, 64, l6l7Dec))
+                    // Pass the reusable stack buffers to be filled
+                    if (!ParseHexToSpan(segmentSpan, l1l2Offset, 64, l1l2Dec) ||
+                        !ParseHexToSpan(segmentSpan, l6l7Offset, 64, l6l7Dec))
                     {
                         continue;
                     }
 
-                    // Process all 16 channels
                     ProcessChannels(data, l1l2Dec, l6l7Dec);
-
                     results.Add(data);
+                }
+
+                if (progress != null)
+                {
+                    double currentProgress = ((double)results.Count / (segments.Count * SAMPLES_PER_SEGMENT)) * 100;
+                    progress.Report(currentProgress);
                 }
             }
 
@@ -104,24 +115,24 @@ namespace BaselineMode.WPF.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private int ExtractSamplingPacket(string hexDataStr)
+        private int ExtractSamplingPacket(ReadOnlySpan<char> hexDataSpan)
         {
             // Position 16*2 = 32, take 2 bytes (4 chars)
-            int byte1 = HexCharToInt(hexDataStr[32]) * 16 + HexCharToInt(hexDataStr[33]);
-            int byte2 = HexCharToInt(hexDataStr[34]) * 16 + HexCharToInt(hexDataStr[35]);
+            int byte1 = HexCharToInt(hexDataSpan[32]) * 16 + HexCharToInt(hexDataSpan[33]);
+            int byte2 = HexCharToInt(hexDataSpan[34]) * 16 + HexCharToInt(hexDataSpan[35]);
             return (byte1 << 8) | byte2;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool ParseHexToInts(string hexStr, int startOffset, int byteCount, int[] output)
+        private bool ParseHexToSpan(ReadOnlySpan<char> hexDataSpan, int startOffset, int byteCount, Span<int> output)
         {
-            if (startOffset + byteCount * 2 > hexStr.Length)
+            if (startOffset + byteCount * 2 > hexDataSpan.Length)
                 return false;
 
             for (int i = 0; i < byteCount; i++)
             {
                 int pos = startOffset + i * 2;
-                output[i] = HexCharToInt(hexStr[pos]) * 16 + HexCharToInt(hexStr[pos + 1]);
+                output[i] = HexCharToInt(hexDataSpan[pos]) * 16 + HexCharToInt(hexDataSpan[pos + 1]);
             }
             return true;
         }
@@ -136,7 +147,7 @@ namespace BaselineMode.WPF.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ProcessChannels(BaselineData data, int[] l1l2Dec, int[] l6l7Dec)
+        private void ProcessChannels(BaselineData data, Span<int> l1l2Dec, Span<int> l6l7Dec)
         {
             for (int j = 0; j < CHANNELS; j++)
             {
@@ -165,7 +176,7 @@ namespace BaselineMode.WPF.Services
             }
         }
 
-        public void SaveToExcel(List<BaselineData> dataList, string filePath)
+        public void SaveToExcel(List<BaselineData> dataList, string filePath, IProgress<double> progress = null)
         {
             // Ensure directory exists
             var dir = Path.GetDirectoryName(filePath);
@@ -186,7 +197,7 @@ namespace BaselineMode.WPF.Services
                 WriteHeaders(ws);
 
                 // Write data in bulk
-                WriteDataRows(ws, dataList);
+                WriteDataRows(ws, dataList, progress);
 
                 package.Save();
             }
@@ -220,7 +231,7 @@ namespace BaselineMode.WPF.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void WriteDataRows(ExcelWorksheet ws, List<BaselineData> dataList)
+        private void WriteDataRows(ExcelWorksheet ws, List<BaselineData> dataList, IProgress<double> progress = null)
         {
             int rowCount = dataList.Count;
 
@@ -249,10 +260,15 @@ namespace BaselineMode.WPF.Services
                 // Write all L7 values
                 for (int j = 0; j < CHANNELS; j++)
                     ws.Cells[row, col++].Value = item.L7[j];
+
+                if (progress != null && i % 100 == 0) // Update every 100 rows to avoid overhead
+                {
+                    progress.Report(((double)i / rowCount) * 100);
+                }
             }
         }
 
-        public List<BaselineData> ReadExcelFile(string filePath)
+        public List<BaselineData> ReadExcelFile(string filePath, IProgress<double> progress = null)
         {
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
@@ -268,6 +284,11 @@ namespace BaselineMode.WPF.Services
                 {
                     var data = ReadDataRow(ws, row);
                     results.Add(data);
+
+                    if (progress != null && (row % 100 == 0))
+                    {
+                        progress.Report(((double)(row - 1) / (rowCount - 1)) * 100);
+                    }
                 }
 
                 return results;
