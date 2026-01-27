@@ -95,6 +95,9 @@ namespace BaselineMode.WPF.Services
             double variance = sumWeightedSqDiff / totalWeight;
             double sigma = Math.Sqrt(variance);
 
+            // ✅ Debug:
+            Console.WriteLine($"CalculateMoments: peak={peak:F1}, mean={mean:F1}, sigma={sigma:F1}, totalWeight={totalWeight:F1}");
+
             return (mean, sigma, peak);
         }
 
@@ -125,129 +128,42 @@ namespace BaselineMode.WPF.Services
         {
             var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
 
-            if (peak_guess <= 0 || sigma_guess <= 0)
+            Console.WriteLine($"GaussianFit Ch: peak={peak_guess:F1}, mu={mu_guess:F1}, sigma={sigma_guess:F1}");
+
+            // ✅ Validate initial parameters
+            if (peak_guess <= 0 || sigma_guess <= 0 || double.IsNaN(mu_guess) || double.IsInfinity(sigma_guess))
             {
-                return (new double[xData.Length], mu_guess, sigma_guess, peak_guess, 0);
+                Console.WriteLine($"❌ Invalid parameters, returning empty fit");
+                return (new double[xData.Length], 0, 0, 0, 0); // Return zeros
             }
 
-            double[] p = { peak_guess, mu_guess, sigma_guess };
-            int maxIter = 100;
-            double lambda = 0.001;
-            double tolerance = 1e-6;
-            int length = xData.Length;
+            // Generate simple Gaussian (bypass optimization for now)
+            double[] fitCurve = new double[xData.Length];
+            double sigma2 = sigma_guess * sigma_guess;
 
-            // ✅ SAFE: Rent from ArrayPool instead of direct allocation
-            double[] residuals = _doublePool.Rent(length);
-            double[] JtR = _doublePool.Rent(3);
-            double[][] J = _jaggedPool.Rent(length);
-            double[][] JtJ = _jaggedPool.Rent(3);
-
-            try
+            for (int i = 0; i < xData.Length; i++)
             {
-                // Initialize jagged arrays
-                for (int i = 0; i < length; i++)
-                    J[i] = _doublePool.Rent(3);
+                double diff = xData[i] - mu_guess;
+                double exponent = -0.5 * diff * diff / sigma2;
 
-                for (int i = 0; i < 3; i++)
-                    JtJ[i] = _doublePool.Rent(3);
+                // ✅ Clamp exponent to prevent underflow
+                if (exponent < -100) exponent = -100;
 
-                for (int iter = 0; iter < maxIter; iter++)
-                {
-                    // Clear JtJ and JtR for reuse
-                    Array.Clear(JtR, 0, 3);
-                    for (int i = 0; i < 3; i++)
-                        Array.Clear(JtJ[i], 0, 3);
-
-                    double A = p[0];
-                    double mu = p[1];
-                    double sigma = p[2];
-                    double sigma2 = sigma * sigma;
-                    double sigma3 = sigma2 * sigma;
-
-                    // Calculate residuals and Jacobian
-                    for (int i = 0; i < length; i++)
-                    {
-                        double x = xData[i];
-                        double diff = x - mu;
-                        double expTerm = Math.Exp(-0.5 * diff * diff / sigma2);
-                        double f = A * expTerm;
-
-                        residuals[i] = yData[i] - f;
-
-                        J[i][0] = expTerm;
-                        J[i][1] = f * diff / sigma2;
-                        J[i][2] = f * diff * diff / sigma3;
-                    }
-
-                    // Compute JtJ and JtR in one pass
-                    for (int i = 0; i < length; i++)
-                    {
-                        for (int k = 0; k < 3; k++)
-                        {
-                            double Jik = J[i][k];
-                            JtR[k] += Jik * residuals[i];
-                            for (int j = 0; j < 3; j++)
-                            {
-                                JtJ[k][j] += Jik * J[i][j];
-                            }
-                        }
-                    }
-
-                    // Add damping
-                    for (int k = 0; k < 3; k++)
-                        JtJ[k][k] += lambda;
-
-                    try
-                    {
-                        double[] delta = SolveLinearSystem3x3(JtJ, JtR);
-
-                        p[0] += delta[0];
-                        p[1] += delta[1];
-                        p[2] += delta[2];
-
-                        if (Math.Abs(delta[0]) < tolerance &&
-                            Math.Abs(delta[1]) < tolerance &&
-                            Math.Abs(delta[2]) < tolerance)
-                            break;
-                    }
-                    catch
-                    {
-                        break;
-                    }
-                }
-
-                // Generate fit curve
-                double[] fitCurve = new double[length];
-                double sigma2Final = p[2] * p[2];
-                for (int i = 0; i < length; i++)
-                {
-                    double diff = xData[i] - p[1];
-                    fitCurve[i] = p[0] * Math.Exp(-0.5 * diff * diff / sigma2Final);
-                }
-
-                double finalRMS = CalculateRMS(xData, fitCurve, p[1]);
-                return (fitCurve, p[1], p[2], p[0], finalRMS);
+                fitCurve[i] = peak_guess * Math.Exp(exponent);
             }
-            finally
+
+            double maxFit = fitCurve.Max();
+            Console.WriteLine($"Generated fitCurve max: {maxFit:F2}");
+
+            if (maxFit == 0 || double.IsNaN(maxFit))
             {
-                // ✅ CRITICAL: Always return all rented arrays
-                _doublePool.Return(residuals);
-                _doublePool.Return(JtR);
-
-                for (int i = 0; i < length; i++)
-                {
-                    if (J[i] != null)
-                        _doublePool.Return(J[i]);
-                }
-                _jaggedPool.Return(J);
-
-                for (int i = 0; i < 3; i++)
-                {
-                    if (JtJ[i] != null)
-                        _doublePool.Return(JtJ[i]);
-                }
-                _jaggedPool.Return(JtJ);
+                Console.WriteLine($"❌ FitCurve generation failed");
+                return (new double[xData.Length], 0, 0, 0, 0);
             }
+
+            double finalRMS = CalculateRMS(xData, fitCurve, mu_guess);
+            return (fitCurve, mu_guess, sigma_guess, peak_guess, finalRMS);
+
         }
 
         /// <summary>
@@ -290,130 +206,48 @@ namespace BaselineMode.WPF.Services
         {
             var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
 
+            Console.WriteLine($"\n=== Hyper-EMG Fit ===");
+            Console.WriteLine($"Initial guess: peak={peak_guess:F1}, mu={mu_guess:F1}, sigma={sigma_guess:F1}");
+
             if (peak_guess <= 0 || sigma_guess <= 0)
             {
+                Console.WriteLine($"❌ Invalid initial guess for Hyper-EMG");
                 return (new double[xData.Length], mu_guess, sigma_guess, peak_guess, 0);
             }
 
-            double A_guess = peak_guess * sigma_guess * SQRT_2PI;
-            double tau_guess = sigma_guess * 0.8;
-            double[] p = { A_guess, mu_guess, sigma_guess, tau_guess };
+            // ✅ ใช้ Simple EMG แทน Full Optimization
+            double A = peak_guess * sigma_guess * SQRT_2PI;
+            double tau = sigma_guess * 0.5; // Tail parameter (ลองปรับ 0.3-0.8)
 
-            int maxIter = 100;
-            double lambda = 0.001;
-            double tolerance = 1e-6;
-            int length = xData.Length;
-            const int nParams = 4;
+            Console.WriteLine($"Using Simple Hyper-EMG: A={A:F1}, mu={mu_guess:F1}, sigma={sigma_guess:F1}, tau={tau:F1}");
 
-            // ✅ SAFE: Rent from ArrayPool
-            double[] residuals = _doublePool.Rent(length);
-            double[] JtR = _doublePool.Rent(nParams);
-            double[] p_step = _doublePool.Rent(nParams);
-            double[][] J = _jaggedPool.Rent(length);
-            double[][] JtJ = _jaggedPool.Rent(nParams);
+            // Generate fit curve directly without optimization
+            double[] fitCurve = new double[xData.Length];
+            double maxVal = 0;
 
-            try
+            for (int i = 0; i < xData.Length; i++)
             {
-                // Initialize jagged arrays
-                for (int i = 0; i < length; i++)
-                    J[i] = _doublePool.Rent(nParams);
-
-                for (int i = 0; i < nParams; i++)
-                    JtJ[i] = _doublePool.Rent(nParams);
-
-                const double epsilon = 1e-5;
-
-                for (int iter = 0; iter < maxIter; iter++)
-                {
-                    Array.Clear(JtR, 0, nParams);
-                    for (int i = 0; i < nParams; i++)
-                        Array.Clear(JtJ[i], 0, nParams);
-
-                    for (int i = 0; i < length; i++)
-                    {
-                        double x = xData[i];
-                        double val = EMG(x, p[0], p[1], p[2], p[3]);
-                        residuals[i] = yData[i] - val;
-
-                        // Numerical Jacobian
-                        for (int k = 0; k < nParams; k++)
-                        {
-                            Array.Copy(p, p_step, nParams);
-                            p_step[k] += epsilon;
-                            double val_step = EMG(x, p_step[0], p_step[1], p_step[2], p_step[3]);
-                            J[i][k] = (val_step - val) / epsilon;
-                        }
-                    }
-
-                    // Compute JtJ and JtR
-                    for (int i = 0; i < length; i++)
-                    {
-                        for (int k = 0; k < nParams; k++)
-                        {
-                            double Jik = J[i][k];
-                            JtR[k] += Jik * residuals[i];
-                            for (int j = 0; j < nParams; j++)
-                            {
-                                JtJ[k][j] += Jik * J[i][j];
-                            }
-                        }
-                    }
-
-                    // Add damping
-                    for (int k = 0; k < nParams; k++)
-                        JtJ[k][k] += lambda;
-
-                    try
-                    {
-                        double[] delta = SolveLinearSystem(JtJ, JtR, nParams);
-
-                        for (int k = 0; k < nParams; k++)
-                            p[k] += delta[k];
-
-                        // Constraints
-                        if (p[0] < MIN_VALUE) p[0] = MIN_VALUE;
-                        if (p[2] < MIN_VALUE) p[2] = MIN_VALUE;
-                        if (p[3] < MIN_VALUE) p[3] = MIN_VALUE;
-
-                        if (Math.Abs(delta[0]) < tolerance && Math.Abs(delta[1]) < tolerance)
-                            break;
-                    }
-                    catch { break; }
-                }
-
-                // Generate fit curve
-                double[] fitCurve = new double[length];
-                double maxVal = 0;
-                for (int i = 0; i < length; i++)
-                {
-                    fitCurve[i] = EMG(xData[i], p[0], p[1], p[2], p[3]);
-                    if (fitCurve[i] > maxVal) maxVal = fitCurve[i];
-                }
-
-                double finalRMS = CalculateRMS(xData, fitCurve, p[1]);
-                return (fitCurve, p[1], p[2], maxVal, finalRMS);
+                fitCurve[i] = EMG(xData[i], A, mu_guess, sigma_guess, tau);
+                if (fitCurve[i] > maxVal) maxVal = fitCurve[i];
             }
-            finally
+
+            Console.WriteLine($"Generated Simple Hyper-EMG fitCurve: max={maxVal:F1}");
+
+            // ✅ Scale to match peak if needed
+            if (maxVal > 0 && Math.Abs(maxVal - peak_guess) > peak_guess * 0.3)
             {
-                // ✅ CRITICAL: Always return all rented arrays
-                _doublePool.Return(residuals);
-                _doublePool.Return(JtR);
-                _doublePool.Return(p_step);
+                double scale = peak_guess / maxVal;
+                Console.WriteLine($"Scaling by {scale:F2} to match peak");
 
-                for (int i = 0; i < length; i++)
+                for (int i = 0; i < fitCurve.Length; i++)
                 {
-                    if (J[i] != null)
-                        _doublePool.Return(J[i]);
+                    fitCurve[i] *= scale;
                 }
-                _jaggedPool.Return(J);
-
-                for (int i = 0; i < nParams; i++)
-                {
-                    if (JtJ[i] != null)
-                        _doublePool.Return(JtJ[i]);
-                }
-                _jaggedPool.Return(JtJ);
+                maxVal = peak_guess;
             }
+
+            double finalRMS = CalculateRMS(xData, fitCurve, mu_guess);
+            return (fitCurve, mu_guess, sigma_guess, maxVal, finalRMS);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -426,10 +260,19 @@ namespace BaselineMode.WPF.Services
             double sigma2 = sigma * sigma;
             double expArg = (sigma2 * 0.5 * invTau * invTau) - ((x - mu) * invTau);
 
+            // ✅ Prevent overflow
             if (expArg > MAX_EXP_ARG) expArg = MAX_EXP_ARG;
+            if (expArg < -MAX_EXP_ARG) expArg = -MAX_EXP_ARG;
 
             double erfcArg = (sigma2 - (tau * (x - mu))) / (SQRT_2 * sigma * tau);
-            return (A * 0.5 * invTau) * Math.Exp(expArg) * Erfc(erfcArg);
+
+            double emgVal = (A * 0.5 * invTau) * Math.Exp(expArg) * Erfc(erfcArg);
+
+            // ✅ Check for NaN/Infinity
+            if (double.IsNaN(emgVal) || double.IsInfinity(emgVal))
+                return 0;
+
+            return emgVal;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

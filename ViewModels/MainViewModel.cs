@@ -84,7 +84,7 @@ namespace BaselineMode.WPF.ViewModels
         private double _kFactor = 2.0;
 
         [ObservableProperty]
-        private int _selectedFitMethod = 0; // 0=Gaussian, 1=HEMG
+        private int _selectedFitMethod = 0; // 0=Gaussian, 1=Hyper-EMG
 
         [ObservableProperty]
         private int _selectedXAxisIndex = 0; // 0=ADC, 1=Voltage
@@ -348,6 +348,25 @@ namespace BaselineMode.WPF.ViewModels
 
                         if (UseGaussianFit)
                         {
+                            // ✅ Debug ก่อน fit:
+                            Console.WriteLine($"\n=== Channel {chIndex} (Ch {chIndex + 1}) ===");
+                            Console.WriteLine($"filteredData length: {filteredData.Length}");
+                            Console.WriteLine($"counts.Max():: {counts.Max():F0}");
+                            Console.WriteLine($"binCenters: min={binCenters.Min():F1}, max={binCenters.Max():F1}, len={binCenters.Length}");
+
+                            int nonZeroCounts = counts.Count(c => c > 0);
+                            Console.WriteLine($"Non-zero bins: {nonZeroCounts}");
+
+                            if (filteredData.Length <= 5 || counts.Max() == 0)
+                            {
+                                Console.WriteLine($"⚠️ Channel {chIndex}: Insufficient data, skipping fit");
+                                Channels[chIndex].BinCenters = binCenters;
+                                Channels[chIndex].Counts = counts;
+                                Channels[chIndex].FitCurve = null; // ✅ Set null explicitly
+                                Channels[chIndex].StatsText = "No Signal";
+                                continue;
+                            }
+
                             if (SelectedFitMethod == 1) // Hyper-EMG
                             {
                                 var result = _mathService.HyperEMGFit(binCenters, counts);
@@ -363,6 +382,9 @@ namespace BaselineMode.WPF.ViewModels
                                 mu = result.mu;
                                 sigma = result.sigma;
                                 peak = result.peak;
+
+                                // ✅ Debug หลัง fit:
+                                Console.WriteLine($"After Gaussian Fit: peak={peak:F1}, mu={mu:F1}, sigma={sigma:F1}");
                             }
                         }
                         else
@@ -964,6 +986,20 @@ namespace BaselineMode.WPF.ViewModels
                                                 mu = result.mu;
                                                 sigma = result.sigma;
                                                 peak = result.peak;
+                                            }
+                                            // ✅ เพิ่ม Debug Output ตรงนี้:
+                                            System.Diagnostics.Debug.WriteLine($"\n=== Channel {chIndex} ===");
+                                            System.Diagnostics.Debug.WriteLine($"Counts: min={counts.Min():F1}, max={counts.Max():F1}, len={counts.Length}");
+                                            System.Diagnostics.Debug.WriteLine($"BinCenters: min={binCenters.Min():F1}, max={binCenters.Max():F1}, len={binCenters.Length}");
+                                            System.Diagnostics.Debug.WriteLine($"Fit params: peak={peak:F1}, mu={mu:F1}, sigma={sigma:F1}");
+
+                                            if (fitCurve != null)
+                                            {
+                                                System.Diagnostics.Debug.WriteLine($"FitCurve: min={fitCurve.Min():F1}, max={fitCurve.Max():F1}, len={fitCurve.Length}");
+                                            }
+                                            else
+                                            {
+                                                System.Diagnostics.Debug.WriteLine("FitCurve is NULL!");
                                             }
                                         }
                                         else

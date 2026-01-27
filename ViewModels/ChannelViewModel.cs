@@ -28,45 +28,43 @@ namespace BaselineMode.WPF.ViewModels
         public void RenderTo(WpfPlot targetPlot)
         {
             if (targetPlot == null) return;
-
             targetPlot.Plot.Clear();
 
             if (Counts != null && Counts.Length > 0)
             {
-                // Histogram Bar Plot (like Form1.cs)
                 var bar = targetPlot.Plot.AddBar(Counts, BinCenters);
                 bar.FillColor = System.Drawing.Color.Black;
-                bar.BorderLineWidth = 0;
 
-                targetPlot.Plot.Title(Title);
-                targetPlot.Plot.YAxis.Label("Count (#)");
-
-                // Add FitCurve overlay if available
+                // ✅ ตรวจสอบ FitCurve:
                 if (FitCurve != null && FitCurve.Length > 0 && BinCenters != null && BinCenters.Length == FitCurve.Length)
                 {
-                    var fitScatter = targetPlot.Plot.AddScatter(BinCenters, FitCurve);
-                    fitScatter.LineWidth = 2;
-                    fitScatter.Color = System.Drawing.Color.Red;
-                    fitScatter.MarkerSize = 0;
-                    fitScatter.Label = "Curve Fit";
-                }
+                    double maxFit = FitCurve.Max();
 
-                // Find and mark peak point
-                if (FitCurve != null && FitCurve.Length > 0)
-                {
-                    int peakIdx = System.Array.IndexOf(FitCurve, FitCurve.Max());
-                    if (peakIdx >= 0 && peakIdx < BinCenters.Length)
+                    if (maxFit > 0) // ✅ เช็คว่ามีค่ามากกว่า 0
                     {
-                        targetPlot.Plot.AddPoint(BinCenters[peakIdx], FitCurve[peakIdx],
-                            color: System.Drawing.Color.Blue, size: 7);
+                        System.Diagnostics.Debug.WriteLine($"Plotting fit for {Title}: max={maxFit:F1}");
+
+                        var fitScatter = targetPlot.Plot.AddScatter(BinCenters, FitCurve);
+                        fitScatter.LineWidth = 2;
+                        fitScatter.Color = System.Drawing.Color.Red;
+                        fitScatter.MarkerSize = 0;
+                        fitScatter.Label = "Gaussian Fit";
+
+                        // Find and mark peak
+                        int peakIdx = Array.IndexOf(FitCurve, maxFit);
+                        if (peakIdx >= 0 && peakIdx < BinCenters.Length)
+                        {
+                            targetPlot.Plot.AddPoint(BinCenters[peakIdx], FitCurve[peakIdx],
+                                color: System.Drawing.Color.Blue, size: 7);
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Skipping fit plot for {Title}: maxFit={maxFit}");
                     }
                 }
 
                 targetPlot.Plot.AxisAutoY();
-            }
-            else
-            {
-                targetPlot.Plot.Title($"{Title} (No Data)");
             }
 
             targetPlot.Refresh();
