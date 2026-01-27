@@ -14,7 +14,7 @@ namespace BaselineMode.WPF.ViewModels
         // We can hold the plot data here to update the specific WpfPlot
         public double[] BinCenters { get; set; }
         public double[] Counts { get; set; }
-        public double[] FitCurve { get; set; }
+        public double[]? FitCurve { get; set; }
 
         // Reference to the actual control for refreshing
         public WpfPlot? PlotControl { get; set; }

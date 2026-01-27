@@ -298,7 +298,7 @@ namespace BaselineMode.WPF.ViewModels
 
         private void RefreshIfHasData()
         {
-            if (_processedData != null && _processedData.Any())
+            if (ProcessedData != null && ProcessedData.Any())
             {
                 RefreshChannelPlots();
             }
@@ -306,9 +306,9 @@ namespace BaselineMode.WPF.ViewModels
 
         private void RefreshChannelPlots()
         {
-            if (_processedData == null || !_processedData.Any()) return;
+            if (ProcessedData == null || !ProcessedData.Any()) return;
 
-            Func<BaselineData, double[]> layerSelector = _selectedLayerIndex switch
+            Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
             {
                 1 => (d) => d.L2,
                 2 => (d) => d.L6,
@@ -319,20 +319,14 @@ namespace BaselineMode.WPF.ViewModels
             for (int i = 0; i < 16; i++)
             {
                 int chIndex = i;
-                var rawData = _processedData.Select(d => layerSelector(d)[chIndex]).ToArray();
+                var rawData = ProcessedData.Select(d => layerSelector(d)[chIndex]).ToArray();
 
                 if (rawData.Length > 0)
                 {
                     double meanToSubtract = SelectedBaselineMode == 0 ? rawData.Average() : LoadMeanFromFile(chIndex);
                     var centeredData = rawData.Select(x => x - meanToSubtract).ToArray();
 
-                    var filteredData = centeredData;
-                    if (UseThresholding)
-                    {
-                        double sigma = Math.Sqrt(centeredData.Select(x => x * x).Average());
-                        double threshold = KFactor * sigma;
-                        filteredData = centeredData.Where(v => v > threshold).ToArray();
-                    }
+                    var filteredData = ApplyThresholding(centeredData);
 
                     if (filteredData.Length > 0)
                     {
@@ -342,64 +336,7 @@ namespace BaselineMode.WPF.ViewModels
                         if (SelectedXAxisIndex == 1)
                             binCenters = binCenters.Select(v => ((v / 16383.0) * 5) * 1000).ToArray();
 
-                        // Calculate fit curve if enabled
-                        double[] fitCurve = null;
-                        double mu = 0, sigma = 0, peak = 0;
-
-                        if (UseGaussianFit)
-                        {
-                            // ✅ Debug ก่อน fit:
-                            Console.WriteLine($"\n=== Channel {chIndex} (Ch {chIndex + 1}) ===");
-                            Console.WriteLine($"filteredData length: {filteredData.Length}");
-                            Console.WriteLine($"counts.Max():: {counts.Max():F0}");
-                            Console.WriteLine($"binCenters: min={binCenters.Min():F1}, max={binCenters.Max():F1}, len={binCenters.Length}");
-
-                            int nonZeroCounts = counts.Count(c => c > 0);
-                            Console.WriteLine($"Non-zero bins: {nonZeroCounts}");
-
-                            if (filteredData.Length <= 5 || counts.Max() == 0)
-                            {
-                                Console.WriteLine($"⚠️ Channel {chIndex}: Insufficient data, skipping fit");
-                                Channels[chIndex].BinCenters = binCenters;
-                                Channels[chIndex].Counts = counts;
-                                Channels[chIndex].FitCurve = null; // ✅ Set null explicitly
-                                Channels[chIndex].StatsText = "No Signal";
-                                continue;
-                            }
-
-                            if (SelectedFitMethod == 1) // Hyper-EMG
-                            {
-                                var result = _mathService.HyperEMGFit(binCenters, counts);
-                                fitCurve = result.fitCurve;
-                                mu = result.mu;
-                                sigma = result.sigma;
-                                peak = result.peak;
-                            }
-                            else // Gaussian
-                            {
-                                var result = _mathService.GaussianFit(binCenters, counts);
-                                fitCurve = result.fitCurve;
-                                mu = result.mu;
-                                sigma = result.sigma;
-                                peak = result.peak;
-
-                                // ✅ Debug หลัง fit:
-                                Console.WriteLine($"After Gaussian Fit: peak={peak:F1}, mu={mu:F1}, sigma={sigma:F1}");
-                            }
-                        }
-                        else
-                        {
-                            var moments = _mathService.CalculateMoments(binCenters, counts);
-                            mu = moments.mean;
-                            sigma = moments.sigma;
-                            peak = moments.peak;
-                        }
-
-                        var chVM = Channels[chIndex];
-                        chVM.BinCenters = binCenters;
-                        chVM.Counts = counts; // Use raw counts, not log
-                        chVM.FitCurve = fitCurve;
-                        chVM.StatsText = $"P:{peak:F1} M:{mu:F1} S:{sigma:F1}";
+                        ProcessChannelData(chIndex, filteredData, counts, binCenters);
                     }
                     else
                     {
@@ -413,12 +350,78 @@ namespace BaselineMode.WPF.ViewModels
                 }
             }
 
-            RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(_processedData));
+            RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        }
+
+        private double[] ApplyThresholding(double[] centeredData)
+        {
+            if (!UseThresholding) return centeredData;
+
+            double sigma = Math.Sqrt(centeredData.Select(x => x * x).Average());
+            double threshold = KFactor * sigma;
+            return centeredData.Where(v => v > threshold).ToArray();
+        }
+
+        private void ProcessChannelData(int chIndex, double[] filteredData, double[] counts, double[] binCenters)
+        {
+            double[] fitCurve = null;
+            double mu = 0, sigma = 0, peak = 0;
+
+            if (UseGaussianFit)
+            {
+                if (HasSufficientData(filteredData, counts))
+                {
+                    var result = PerformFit(binCenters, counts);
+                    fitCurve = result.fitCurve;
+                    mu = result.mu;
+                    sigma = result.sigma;
+                    peak = result.peak;
+                }
+                else
+                {
+                    Channels[chIndex].StatsText = "No Signal";
+                    Channels[chIndex].FitCurve = null;
+                    return; // Skip remaining update to avoid overwriting "No Signal" with partial data if desired, or proceed.
+                            // Actually, let's just fall through to update the chart with raw data but no fit.
+                }
+            }
+            else
+            {
+                var moments = _mathService.CalculateMoments(binCenters, counts);
+                mu = moments.mean;
+                sigma = moments.sigma;
+                peak = moments.peak;
+            }
+
+            var chVM = Channels[chIndex];
+            chVM.BinCenters = binCenters;
+            chVM.Counts = counts;
+            chVM.FitCurve = fitCurve;
+            chVM.StatsText = $"P:{peak:F1} M:{mu:F1} S:{sigma:F1}";
+        }
+
+        private bool HasSufficientData(double[] filteredData, double[] counts)
+        {
+            return filteredData.Length > 5 && counts.Max() > 0;
+        }
+
+        private (double[] fitCurve, double mu, double sigma, double peak) PerformFit(double[] binCenters, double[] counts)
+        {
+            if (SelectedFitMethod == 1) // Hyper-EMG
+            {
+                var result = _mathService.HyperEMGFit(binCenters, counts);
+                return (result.fitCurve, result.mu, result.sigma, result.peak); // Assuming HyperEMGFit returns these tuple elements
+            }
+            else // Gaussian
+            {
+                var result = _mathService.GaussianFit(binCenters, counts);
+                return (result.fitCurve, result.mu, result.sigma, result.peak);
+            }
         }
 
         private double LoadMeanFromFile(int channelIndex)
         {
-            string layerFile = _selectedLayerIndex switch
+            string layerFile = SelectedLayerIndex switch
             {
                 1 => "MeanValues2.txt",
                 2 => "MeanValues6.txt",
@@ -510,7 +513,7 @@ namespace BaselineMode.WPF.ViewModels
                 for (int i = 1; i <= 16; i++)
                     table.Columns.Add($"Ch {i}", typeof(double));
 
-                Func<BaselineData, double[]> selector = _selectedLayerIndex switch
+                Func<BaselineData, double[]> selector = SelectedLayerIndex switch
                 {
                     1 => (d) => d.L2,
                     2 => (d) => d.L6,
@@ -724,7 +727,7 @@ namespace BaselineMode.WPF.ViewModels
                 // 8. Test Conditions (UI Variables)
                 sb.AppendLine("Test condition:");
                 sb.AppendLine($"Delay Time: {DelayTimeMs}");
-                sb.AppendLine($"Threshold: {_kFactor}"); // Assuming Threshold in Form1 corresponds to k-factor or threshold value
+                sb.AppendLine($"Threshold: {KFactor}"); // Assuming Threshold in Form1 corresponds to k-factor or threshold value
 
                 HeaderInfoText = sb.ToString();
             }
@@ -892,7 +895,7 @@ namespace BaselineMode.WPF.ViewModels
                         // 3. Analyze Data - loop for all 16 channels
                         if (ProcessedData.Any())
                         {
-                            Func<BaselineData, double[]> layerSelector = _selectedLayerIndex switch
+                            Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
                             {
                                 1 => (d) => d.L2,
                                 2 => (d) => d.L6,
@@ -907,7 +910,7 @@ namespace BaselineMode.WPF.ViewModels
                                 if (DelayTimeMs > 0) await Task.Delay(DelayTimeMs);
 
                                 int chIndex = i;
-                                var rawData = _processedData.Select(d => layerSelector(d)[chIndex]).ToArray();
+                                var rawData = ProcessedData.Select(d => layerSelector(d)[chIndex]).ToArray();
 
                                 if (rawData.Length > 0)
                                 {
@@ -1061,8 +1064,8 @@ namespace BaselineMode.WPF.ViewModels
                 else
                 {
                     // Notify View
-                    RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(_processedData));
-                    StatusMessage = $"Processed {_processedData.Count} events.";
+                    RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+                    StatusMessage = $"Processed {ProcessedData.Count} events.";
                     CanSaveMean = true;
                 }
             }
@@ -1080,7 +1083,7 @@ namespace BaselineMode.WPF.ViewModels
         [RelayCommand]
         private async Task SaveMean()
         {
-            if (!_processedData.Any()) return;
+            if (!ProcessedData.Any()) return;
 
             StatusMessage = "Saving Mean Values...";
             await Task.Run(() =>
@@ -1125,7 +1128,7 @@ namespace BaselineMode.WPF.ViewModels
             for (int i = 0; i < 16; i++)
             {
                 int ch = i;
-                var data = _processedData.Select(d => selector(d)[ch]).ToArray();
+                var data = ProcessedData.Select(d => selector(d)[ch]).ToArray();
                 if (data.Any())
                 {
                     var (mean, _, _) = _mathService.CalculateMoments(
