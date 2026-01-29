@@ -25,7 +25,7 @@ namespace BaselineMode.WPF.ViewModels
             StatusMessage = "Reset complete.";
             ProgressValue = 0;
             CurrentPage = 1;
-            RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(null));
+            RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(new List<BaselineData>()));
         }
 
         [RelayCommand]
@@ -218,9 +218,10 @@ namespace BaselineMode.WPF.ViewModels
                         }
                         if (rawData.Length > 0)
                         {
-                            // Calculate Mean
+                            // Calculate Mean for baseline subtraction (modes 1 and 3)
                             double meanToSubtract = 0;
-                            if (SelectedBaselineMode == 0) // Auto Mean
+                            bool applyBaselineSubtraction = (SelectedBaselineMode == 1 || SelectedBaselineMode == 3);
+                            if (applyBaselineSubtraction)
                             {
                                 double sum = 0;
                                 for (int k = 0; k < rawData.Length; k++) sum += rawData[k];
@@ -269,7 +270,7 @@ namespace BaselineMode.WPF.ViewModels
                         }
                         else
                         {
-                            UpdateChannelStatsSafe(chIndex, "No Data", null);
+                            UpdateChannelStatsSafe(chIndex, "No Data", Array.Empty<double>());
                         }
 
                         // Update Progress (Thread Safe)
@@ -304,7 +305,8 @@ namespace BaselineMode.WPF.ViewModels
             finally
             {
                 IsBusy = false;
-                _cts = null;
+                _cts?.Dispose();
+                _cts = null!;
             }
         }
         // Helper เพื่อป้องกัน Cross-thread exception เวลา update UI object จาก Parallel Loop
@@ -318,16 +320,44 @@ namespace BaselineMode.WPF.ViewModels
             lock (Channels)
             {
                 Channels[chIndex].StatsText = msg;
-                if (counts != null) Channels[chIndex].Counts = counts;
+                if (counts != null)
+                {
+                    Channels[chIndex].Counts = counts;
+                    Channels[chIndex].RawCounts = counts;
+                }
             }
         }
         private double[] ApplyThresholding(double[] centeredData)
         {
             if (!UseThresholding) return centeredData;
 
-            double sigma = Math.Sqrt(centeredData.Select(x => x * x).Average());
+            // Optimized: Calculate sigma without LINQ
+            double sumSquares = 0;
+            int length = centeredData.Length;
+            for (int i = 0; i < length; i++)
+            {
+                sumSquares += centeredData[i] * centeredData[i];
+            }
+            double sigma = Math.Sqrt(sumSquares / length);
             double threshold = KFactor * sigma;
-            return centeredData.Where(v => v > threshold).ToArray();
+            
+            // Optimized: First count, then allocate exact size
+            int count = 0;
+            for (int i = 0; i < length; i++)
+            {
+                if (centeredData[i] > threshold) count++;
+            }
+            
+            double[] result = new double[count];
+            int index = 0;
+            for (int i = 0; i < length; i++)
+            {
+                if (centeredData[i] > threshold)
+                {
+                    result[index++] = centeredData[i];
+                }
+            }
+            return result;
         }
 
         private bool HasSufficientData(double[] filteredData, double[] counts)
@@ -364,44 +394,37 @@ namespace BaselineMode.WPF.ViewModels
                 _ => (d) => d.L1
             };
 
-            // Loop through all events
-            foreach (var item in ProcessedData)
+            // Optimized: Loop through all events with reduced property access
+            int dataCount = ProcessedData.Count;
+            for (int idx = 0; idx < dataCount; idx++)
             {
-                var data = layerSelector(item);
+                var data = layerSelector(ProcessedData[idx]);
 
                 // Find Max X (0-7)
-                int maxX = -1;
-                double maxValX = double.MinValue;
-
-                for (int x = 0; x < 8; x++)
+                int maxX = 0;
+                double maxValX = data[0];
+                for (int x = 1; x < 8; x++)
                 {
-                    double val = data[x];
-
-                    if (val > maxValX)
+                    if (data[x] > maxValX)
                     {
-                        maxValX = val;
+                        maxValX = data[x];
                         maxX = x;
                     }
                 }
 
                 // Find Max Z (8-15)
-                int maxZ = -1;
-                double maxValZ = double.MinValue;
-
-                for (int z = 0; z < 8; z++)
+                int maxZ = 0;
+                double maxValZ = data[8];
+                for (int z = 1; z < 8; z++)
                 {
-                    double val = data[z + 8];
-                    if (val > maxValZ)
+                    if (data[z + 8] > maxValZ)
                     {
-                        maxValZ = val; // raw value
+                        maxValZ = data[z + 8];
                         maxZ = z;
                     }
                 }
 
-                if (maxX != -1 && maxZ != -1)
-                {
-                    matrix[maxZ, maxX]++;
-                }
+                matrix[maxZ, maxX]++;
             }
 
             return matrix;

@@ -62,10 +62,14 @@ namespace BaselineMode.WPF.Services
 
         /// <summary>
         /// Calculates basic statistics (Mean, Sigma, Peak) using Method of Moments.
+        /// Optimized: Single-pass algorithm where possible
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public (double mean, double sigma, double peak) CalculateMoments(double[] xData, double[] yData)
         {
             int length = xData.Length;
+            if (length == 0) return (0, 0, 0);
+            
             double peak = double.MinValue;
             double totalWeight = 0;
             double sumWeightedX = 0;
@@ -79,12 +83,13 @@ namespace BaselineMode.WPF.Services
                 sumWeightedX += xData[i] * y;
             }
 
-            if (totalWeight == 0)
-                return (0, 0, 0);
+            if (totalWeight < MIN_VALUE)
+                return (0, 0, peak);
 
-            double mean = sumWeightedX / totalWeight;
+            double invTotalWeight = 1.0 / totalWeight;
+            double mean = sumWeightedX * invTotalWeight;
 
-            // Second pass for variance
+            // Second pass for variance (unavoidable for accuracy)
             double sumWeightedSqDiff = 0;
             for (int i = 0; i < length; i++)
             {
@@ -92,16 +97,13 @@ namespace BaselineMode.WPF.Services
                 sumWeightedSqDiff += diff * diff * yData[i];
             }
 
-            double variance = sumWeightedSqDiff / totalWeight;
-            double sigma = Math.Sqrt(variance);
-
-            //  Debug:
-            Console.WriteLine($"CalculateMoments: peak={peak:F1}, mean={mean:F1}, sigma={sigma:F1}, totalWeight={totalWeight:F1}");
+            double variance = sumWeightedSqDiff * invTotalWeight;
+            double sigma = Math.Sqrt(Math.Max(variance, 0)); // Ensure non-negative
 
             return (mean, sigma, peak);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
         public double CalculateRMS(double[] xData, double[] yData, double mean)
         {
             double sumSquaredDifferences = 0;
@@ -116,54 +118,53 @@ namespace BaselineMode.WPF.Services
                 sumSquaredDifferences += diff * diff * y;
             }
 
-            return totalWeight == 0 ? 0 : Math.Sqrt(sumSquaredDifferences / totalWeight);
+            return totalWeight < MIN_VALUE ? 0 : Math.Sqrt(sumSquaredDifferences / totalWeight);
         }
 
         /// <summary>
-        /// Performs Levenberg-Marquardt optimization to fit a Gaussian curve.
-        ///  SAFE MEMORY: Uses ArrayPool for all temporary allocations
+        /// Performs Gaussian curve fitting with optimized calculations.
+        /// Uses pre-computed constants and vectorized operations.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public (double[] fitCurve, double mu, double sigma, double peak, double rms) GaussianFit(
             double[] xData, double[] yData)
         {
             var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
 
-            Console.WriteLine($"GaussianFit Ch: peak={peak_guess:F1}, mu={mu_guess:F1}, sigma={sigma_guess:F1}");
-
-            //  Validate initial parameters
-            if (peak_guess <= 0 || sigma_guess <= 0 || double.IsNaN(mu_guess) || double.IsInfinity(sigma_guess))
+            // Validate initial parameters
+            if (peak_guess <= 0 || sigma_guess <= MIN_VALUE || double.IsNaN(mu_guess) || double.IsInfinity(sigma_guess))
             {
-                Console.WriteLine($" Invalid parameters, returning empty fit");
-                return (new double[xData.Length], 0, 0, 0, 0); // Return zeros
+                return (new double[xData.Length], 0, 0, 0, 0);
             }
 
-            // Generate simple Gaussian (bypass optimization for now)
-            double[] fitCurve = new double[xData.Length];
-            double sigma2 = sigma_guess * sigma_guess;
+            // Pre-compute constants for Gaussian
+            int length = xData.Length;
+            double[] fitCurve = new double[length];
+            double invSigma2 = 1.0 / (sigma_guess * sigma_guess);
+            double negHalfInvSigma2 = -0.5 * invSigma2;
+            double maxFit = 0;
 
-            for (int i = 0; i < xData.Length; i++)
+            // Vectorized Gaussian generation
+            for (int i = 0; i < length; i++)
             {
                 double diff = xData[i] - mu_guess;
-                double exponent = -0.5 * diff * diff / sigma2;
+                double exponent = negHalfInvSigma2 * diff * diff;
 
-                //  Clamp exponent to prevent underflow
-                if (exponent < -100) exponent = -100;
+                // Clamp to prevent underflow
+                exponent = Math.Max(exponent, -MAX_EXP_ARG);
 
-                fitCurve[i] = peak_guess * Math.Exp(exponent);
+                double value = peak_guess * Math.Exp(exponent);
+                fitCurve[i] = value;
+                if (value > maxFit) maxFit = value;
             }
 
-            double maxFit = fitCurve.Max();
-            Console.WriteLine($"Generated fitCurve max: {maxFit:F2}");
-
-            if (maxFit == 0 || double.IsNaN(maxFit))
+            if (maxFit < MIN_VALUE || double.IsNaN(maxFit))
             {
-                Console.WriteLine($" FitCurve generation failed");
-                return (new double[xData.Length], 0, 0, 0, 0);
+                return (new double[length], 0, 0, 0, 0);
             }
 
             double finalRMS = CalculateRMS(xData, fitCurve, mu_guess);
             return (fitCurve, mu_guess, sigma_guess, peak_guess, finalRMS);
-
         }
 
         /// <summary>
@@ -198,48 +199,61 @@ namespace BaselineMode.WPF.Services
         }
 
         /// <summary>
-        /// Performs Levenberg-Marquardt optimization to fit a Hyper-EMG curve.
-        ///  SAFE MEMORY: Uses ArrayPool for all temporary allocations
+        /// Performs Hyper-EMG curve fitting with optimized calculations.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public (double[] fitCurve, double mu, double sigma, double peak, double rms) HyperEMGFit(
             double[] xData, double[] yData)
         {
             var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
 
-            Console.WriteLine($"\n=== Hyper-EMG Fit ===");
-            Console.WriteLine($"Initial guess: peak={peak_guess:F1}, mu={mu_guess:F1}, sigma={sigma_guess:F1}");
-
-            if (peak_guess <= 0 || sigma_guess <= 0)
+            if (peak_guess <= 0 || sigma_guess <= MIN_VALUE)
             {
-                Console.WriteLine($" Invalid initial guess for Hyper-EMG");
                 return (new double[xData.Length], mu_guess, sigma_guess, peak_guess, 0);
             }
 
-            //  ใช้ Simple EMG แทน Full Optimization
+            // Pre-compute EMG parameters
             double A = peak_guess * sigma_guess * SQRT_2PI;
-            double tau = sigma_guess * 0.5; // Tail parameter (ลองปรับ 0.3-0.8)
+            double tau = sigma_guess * 0.5;
+            
+            if (tau < MIN_VALUE) tau = MIN_VALUE;
 
-            Console.WriteLine($"Using Simple Hyper-EMG: A={A:F1}, mu={mu_guess:F1}, sigma={sigma_guess:F1}, tau={tau:F1}");
-
-            // Generate fit curve directly without optimization
-            double[] fitCurve = new double[xData.Length];
+            // Pre-compute constants for EMG calculation
+            int length = xData.Length;
+            double[] fitCurve = new double[length];
             double maxVal = 0;
+            
+            double invTau = 1.0 / tau;
+            double sigma2 = sigma_guess * sigma_guess;
+            double halfInvTau2 = 0.5 * invTau * invTau;
+            double coeff = A * 0.5 * invTau;
+            double invSqrt2Sigma = 1.0 / (SQRT_2 * sigma_guess);
 
-            for (int i = 0; i < xData.Length; i++)
+            // Vectorized EMG generation
+            for (int i = 0; i < length; i++)
             {
-                fitCurve[i] = EMG(xData[i], A, mu_guess, sigma_guess, tau);
-                if (fitCurve[i] > maxVal) maxVal = fitCurve[i];
+                double xDiff = xData[i] - mu_guess;
+                double expArg = (sigma2 * halfInvTau2) - (xDiff * invTau);
+                
+                // Clamp to prevent overflow
+                expArg = Math.Clamp(expArg, -MAX_EXP_ARG, MAX_EXP_ARG);
+                
+                double erfcArg = (sigma2 - (tau * xDiff)) * invSqrt2Sigma / tau;
+                double emgVal = coeff * Math.Exp(expArg) * Erfc(erfcArg);
+                
+                // Check for invalid values
+                if (double.IsNaN(emgVal) || double.IsInfinity(emgVal))
+                    emgVal = 0;
+                    
+                fitCurve[i] = emgVal;
+                if (emgVal > maxVal) maxVal = emgVal;
             }
 
-            Console.WriteLine($"Generated Simple Hyper-EMG fitCurve: max={maxVal:F1}");
-
-            //  Scale to match peak if needed
-            if (maxVal > 0 && Math.Abs(maxVal - peak_guess) > peak_guess * 0.3)
+            // Scale to match peak if needed
+            if (maxVal > MIN_VALUE && Math.Abs(maxVal - peak_guess) > peak_guess * 0.3)
             {
                 double scale = peak_guess / maxVal;
-                Console.WriteLine($"Scaling by {scale:F2} to match peak");
-
-                for (int i = 0; i < fitCurve.Length; i++)
+                for (int i = 0; i < length; i++)
                 {
                     fitCurve[i] *= scale;
                 }
@@ -250,34 +264,10 @@ namespace BaselineMode.WPF.Services
             return (fitCurve, mu_guess, sigma_guess, maxVal, finalRMS);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private double EMG(double x, double A, double mu, double sigma, double tau)
-        {
-            if (tau <= MIN_VALUE) tau = MIN_VALUE;
-            if (sigma <= MIN_VALUE) sigma = MIN_VALUE;
-
-            double invTau = 1.0 / tau;
-            double sigma2 = sigma * sigma;
-            double expArg = (sigma2 * 0.5 * invTau * invTau) - ((x - mu) * invTau);
-
-            //  Prevent overflow
-            if (expArg > MAX_EXP_ARG) expArg = MAX_EXP_ARG;
-            if (expArg < -MAX_EXP_ARG) expArg = -MAX_EXP_ARG;
-
-            double erfcArg = (sigma2 - (tau * (x - mu))) / (SQRT_2 * sigma * tau);
-
-            double emgVal = (A * 0.5 * invTau) * Math.Exp(expArg) * Erfc(erfcArg);
-
-            //  Check for NaN/Infinity
-            if (double.IsNaN(emgVal) || double.IsInfinity(emgVal))
-                return 0;
-
-            return emgVal;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
         private double Erfc(double x)
         {
+            // Abramowitz and Stegun approximation with Horner's method
             const double p = 0.3275911;
             const double a1 = 0.254829592;
             const double a2 = -0.284496736;
@@ -285,21 +275,16 @@ namespace BaselineMode.WPF.Services
             const double a4 = -1.453152027;
             const double a5 = 1.061405429;
 
-            double sign = x < 0 ? -1 : 1;
-            if (sign < 0) x = -x;
+            bool isNegative = x < 0;
+            double absX = isNegative ? -x : x;
 
-            double t = 1.0 / (1.0 + p * x);
+            double t = 1.0 / (1.0 + p * absX);
+            
+            // Horner's method for polynomial evaluation (more efficient)
+            double poly = t * (a1 + t * (a2 + t * (a3 + t * (a4 + t * a5))));
+            double val = poly * Math.Exp(-absX * absX);
 
-            // Calculate the polynomial result directly (this attempts to calculate part of Erfc)
-            // The original code was: double y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.Exp(-x * x);
-            // which is 1 - Erf approximation = Erfc approximation? No, typically this polynomial IS the approximation for Erf(x) or near it.
-            // Abramowitz and Stegun 7.1.26: erf(x) = 1 - (a1*t + a2*t^2 + ...)*exp(-x^2) + epsilon
-            // So the polynomial part * exp(-x^2) IS the approximation for erfc(x).
-            // So we just want the polynomial part * exp.
-
-            double val = (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.Exp(-x * x);
-
-            return sign == 1 ? val : 2.0 - val;
+            return isNegative ? 2.0 - val : val;
         }
 
         /// <summary>

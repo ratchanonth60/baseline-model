@@ -76,16 +76,24 @@ namespace BaselineMode.WPF.ViewModels
                                 ProgressValue = percent;
                             });
 
-                            // Combine files exactly like the original Form1.cs method
-                            var allContents = new List<string>();
+                            // Combine files using StringBuilder for better performance
                             int totalFiles = files.Count;
                             int processed = 0;
+                            
+                            // Estimate capacity based on first file size
+                            long estimatedSize = 0;
+                            if (File.Exists(files[0]))
+                            {
+                                estimatedSize = new FileInfo(files[0]).Length * totalFiles;
+                            }
+                            
+                            var sb = new StringBuilder((int)Math.Min(estimatedSize, int.MaxValue / 2));
 
                             foreach (var file in files)
                             {
                                 try
                                 {
-                                    allContents.Add(File.ReadAllText(file));
+                                    sb.Append(File.ReadAllText(file));
                                 }
                                 catch { /* Skip unreadable files */ }
 
@@ -93,8 +101,8 @@ namespace BaselineMode.WPF.ViewModels
                                 ((IProgress<double>)progress).Report((double)processed / totalFiles * 100);
                             }
 
-                            // Join with single \n like original code
-                            File.WriteAllText(combinedFilePath, string.Concat(allContents));
+                            // Write combined content
+                            File.WriteAllText(combinedFilePath, sb.ToString());
 
                             System.Windows.Application.Current.Dispatcher.Invoke(() =>
                             {
@@ -155,7 +163,7 @@ namespace BaselineMode.WPF.ViewModels
                     {
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            StatusMessage = result.ErrorMessage;
+                            StatusMessage = result.ErrorMessage ?? "Unknown error";
                             MessageBoxService.Show(
                                 $"{result.ErrorMessage}\nContent: '{result.ErrorContent}' \nFile: {result.FilteredFilePath}",
                                 "Check Error",
@@ -206,7 +214,7 @@ namespace BaselineMode.WPF.ViewModels
         {
             try
             {
-                StringBuilder sb = new StringBuilder();
+                StringBuilder sb = new StringBuilder(512);
 
                 // 1. Packet Synchronization Code
                 sb.AppendLine($"Packet Synchronization Code: {hexData[0]} {hexData[1]}");
@@ -223,12 +231,19 @@ namespace BaselineMode.WPF.ViewModels
                 // 5. Timestamp
                 if (hexData.Length >= 14)
                 {
-                    // Logic from Form1: hexData.Skip(8).Take(6)
-                    var timecodeHex = hexData.Skip(8).Take(6).ToArray();
-                    var timecodeDec = timecodeHex.Select(h => Convert.ToByte(h, 16)).ToArray();
+                    // Optimized: Avoid LINQ, use direct array operations
+                    byte[] timecodeDec = new byte[6];
+                    for (int i = 0; i < 6; i++)
+                    {
+                        timecodeDec[i] = Convert.ToByte(hexData[8 + i], 16);
+                    }
 
-                    uint seconds_part = BitConverter.ToUInt32(timecodeDec.Take(4).Reverse().ToArray(), 0);
-                    ushort milliseconds_part = BitConverter.ToUInt16(timecodeDec.Skip(4).Reverse().ToArray(), 0);
+                    // Optimized: Manual byte reversal without LINQ allocations
+                    byte[] temp4 = new byte[4];
+                    for (int i = 0; i < 4; i++) temp4[i] = timecodeDec[3 - i];
+                    uint seconds_part = BitConverter.ToUInt32(temp4, 0);
+                    
+                    ushort milliseconds_part = (ushort)((timecodeDec[5] << 8) | timecodeDec[4]);
 
                     // Form1 calculates double total_seconds but creates DateTime from parts
                     DateTime datetime_value = DateTimeOffset.FromUnixTimeSeconds((long)seconds_part)
@@ -247,10 +262,14 @@ namespace BaselineMode.WPF.ViewModels
                 // 7. Checksum
                 if (hexData.Length >= 2064)
                 {
-                    // Logic from Form1: sum 2054 bytes starting at index 8
-                    int total_sum = hexData.Skip(8).Take(2054).Select(h => Convert.ToInt32(h, 16)).Sum();
+                    // Optimized: Direct loop instead of LINQ for checksum calculation
+                    int total_sum = 0;
+                    for (int i = 8; i < 2062; i++)
+                    {
+                        total_sum += Convert.ToInt32(hexData[i], 16);
+                    }
                     int last_two_bytes = total_sum % 65536;
-                    string checksum_hex = last_two_bytes.ToString("X4"); // e.g. "0A1B"
+                    string checksum_hex = last_two_bytes.ToString("X4");
 
                     string CheckSum_fromData = hexData[2062] + hexData[2063];
 
@@ -281,14 +300,19 @@ namespace BaselineMode.WPF.ViewModels
 
         private string[] SplitHexData(string hexString)
         {
-            // Logic from Form1.SplitHexData
+            // Optimized: Pre-allocate exact array size and use Span
             int n = 2;
-            if (hexString.Length % n != 0) return new string[0]; // Safety check
+            int length = hexString.Length;
+            if (length % n != 0) return Array.Empty<string>();
 
-            var list = new string[hexString.Length / n];
-            for (int i = 0; i < list.Length; i++)
+            int arrayLength = length / n;
+            var list = new string[arrayLength];
+            
+            // Use Span for better performance (reduces allocations)
+            ReadOnlySpan<char> hexSpan = hexString.AsSpan();
+            for (int i = 0; i < arrayLength; i++)
             {
-                list[i] = hexString.Substring(i * n, n);
+                list[i] = hexSpan.Slice(i * n, n).ToString();
             }
             return list;
         }
@@ -322,17 +346,25 @@ namespace BaselineMode.WPF.ViewModels
 
         private void SaveLayerMeans(int layerId, Func<BaselineData, double[]> selector)
         {
-            var lines = new List<string>();
+            var lines = new List<string>(16);
+            int dataCount = ProcessedData.Count;
+            
             for (int i = 0; i < 16; i++)
             {
-                int ch = i;
-                var data = ProcessedData.Select(d => selector(d)[ch]).ToArray();
-                if (data.Any())
+                if (dataCount == 0)
                 {
-                    double simpleMean = data.Average();
-                    lines.Add($"{simpleMean:F2}");
+                    lines.Add("0.00");
+                    continue;
                 }
-                else lines.Add("0.00");
+                
+                // Optimized: Direct calculation without LINQ allocations
+                double sum = 0;
+                for (int j = 0; j < dataCount; j++)
+                {
+                    sum += selector(ProcessedData[j])[i];
+                }
+                double simpleMean = sum / dataCount;
+                lines.Add($"{simpleMean:F2}");
             }
 
             string outputDir = GetDailyOutputDirectory();

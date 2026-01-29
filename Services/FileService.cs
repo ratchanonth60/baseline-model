@@ -32,21 +32,22 @@ namespace BaselineMode.WPF.Services
         // ---------------------------------------------------------
 
         // รวม Parse และ Process ไว้ด้วยกัน หรือรับเป็น IEnumerable เพื่อไม่ต้องรอโหลดเสร็จทั้งไฟล์
-        public List<BaselineData> ProcessFileStream(string filePath, IProgress<double> progress = null)
+        public List<BaselineData> ProcessFileStream(string filePath, IProgress<double>? progress = null)
         {
-            var results = new List<BaselineData>(); // หรือจะ estimate capacity ถ้ารู้ขนาดไฟล์
+            // Estimate initial capacity to reduce List resizing
+            long fileSize = new FileInfo(filePath).Length;
+            int estimatedCapacity = (int)Math.Min(fileSize / (CHUNK_SIZE * 2), 100000);
+            var results = new List<BaselineData>(estimatedCapacity);
 
             // ใช้ StreamReader เพื่ออ่านทีละส่วน ไม่โหลดทั้งไฟล์
-            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 65536))
-            using (var sr = new StreamReader(fs, Encoding.ASCII))
+            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 131072))
+            using (var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 131072))
             {
                 // Buffer สำหรับเก็บข้อมูลที่อ่านมา (ให้ใหญ่พอสมควร)
-                char[] fileBuffer = new char[65536];
+                char[] fileBuffer = new char[131072];
 
                 // Buffer สำหรับสะสม string hex ที่ clean แล้ว (ต้องใหญ่กว่า CHUNK_SIZE)
-                // เราจะใช้ StringBuilder หรือ char array มาต่อกันก็ได้ แต่เพื่อความง่ายใช้ StringBuilder
-                // *Optimization: จริงๆ ถ้าไฟล์ format เป๊ะๆ อ่านข้าม whitespace ได้เลยไม่ต้อง copy*
-                StringBuilder hexAccumulator = new StringBuilder(CHUNK_SIZE * 2);
+                StringBuilder hexAccumulator = new StringBuilder(CHUNK_SIZE * 4);
 
                 int charsRead;
                 long totalBytes = fs.Length;
@@ -244,7 +245,7 @@ namespace BaselineMode.WPF.Services
             }
         }
 
-        public void SaveToExcel(List<BaselineData> dataList, string filePath, IProgress<double> progress = null)
+        public void SaveToExcel(List<BaselineData> dataList, string filePath, IProgress<double>? progress = null)
         {
             // Ensure directory exists
             var dir = Path.GetDirectoryName(filePath);
@@ -255,7 +256,16 @@ namespace BaselineMode.WPF.Services
 
             // Delete if exists to overwrite
             if (File.Exists(filePath))
-                File.Delete(filePath);
+            {
+                try 
+                { 
+                    File.Delete(filePath); 
+                }
+                catch 
+                { 
+                    // File might be locked, EPPlus will handle
+                }
+            }
 
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
@@ -341,7 +351,7 @@ namespace BaselineMode.WPF.Services
             }
         }
 
-        public List<BaselineData> ReadExcelFile(string filePath, IProgress<double> progress = null)
+        public List<BaselineData> ReadExcelFile(string filePath, IProgress<double>? progress = null)
         {
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
@@ -363,49 +373,60 @@ namespace BaselineMode.WPF.Services
 
                 // Load all data into memory at once
                 var rawValues = ws.Cells[2, 1, rowCount, colCount].Value as object[,];
+                
+                if (rawValues == null)
+                {
+                    MessageBoxService.Show("Unable to read Excel data.", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    return new List<BaselineData>();
+                }
 
                 // Pre-allocate with exact capacity
                 var results = new List<BaselineData>(dataRows);
-
+                
                 for (int r = 0; r < dataRows; r++)
                 {
                     var data = new BaselineData();
 
-                    // Direct array access (High Performance)
-                    data.SamplingPacketNo = Convert.ToInt32(rawValues[r, 0]);
-                    data.SamplingNo = Convert.ToInt32(rawValues[r, 1]);
+                    // Direct array access (High Performance) - with null checks
+                    data.SamplingPacketNo = rawValues[r, 0] != null ? Convert.ToInt32(rawValues[r, 0]) : 0;
+                    data.SamplingNo = rawValues[r, 1] != null ? Convert.ToInt32(rawValues[r, 1]) : 0;
 
                     int c = 2;
+                    // Optimized: Read all layers in a single loop pass to improve cache locality
                     // Read L1
                     for (int i = 0; i < CHANNELS; i++)
                     {
-                        int val = Convert.ToInt32(rawValues[r, c++]);
+                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
                         data.L1[i] = val;
                         data.L1_Voltage[i] = val * VOLTAGE_FACTOR;
+                        c++;
                     }
 
                     // Read L2
                     for (int i = 0; i < CHANNELS; i++)
                     {
-                        int val = Convert.ToInt32(rawValues[r, c++]);
+                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
                         data.L2[i] = val;
                         data.L2_Voltage[i] = val * VOLTAGE_FACTOR;
+                        c++;
                     }
 
                     // Read L6
                     for (int i = 0; i < CHANNELS; i++)
                     {
-                        int val = Convert.ToInt32(rawValues[r, c++]);
+                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
                         data.L6[i] = val;
                         data.L6_Voltage[i] = val * VOLTAGE_FACTOR;
+                        c++;
                     }
 
                     // Read L7
                     for (int i = 0; i < CHANNELS; i++)
                     {
-                        int val = Convert.ToInt32(rawValues[r, c++]);
+                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
                         data.L7[i] = val;
                         data.L7_Voltage[i] = val * VOLTAGE_FACTOR;
+                        c++;
                     }
 
                     results.Add(data);

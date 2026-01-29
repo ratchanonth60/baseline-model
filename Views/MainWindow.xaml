@@ -237,10 +237,24 @@
                                 <ComboBoxItem Content="DSSD L7"/>
                             </ComboBox>
 
-                            <TextBlock Text="Display Mode" Style="{StaticResource LabelStyle}"/>
+                            <TextBlock Text="Select Mode" Style="{StaticResource LabelStyle}"/>
+                            <ComboBox SelectedIndex="{Binding SelectedMode}" Margin="0,0,0,12">
+                                <ComboBoxItem Content="Cut off baseline"/>
+                                <ComboBoxItem Content="Baseline setting"/>
+                            </ComboBox>
+
+                            <TextBlock Text="Baseline Subtraction" Style="{StaticResource LabelStyle}"/>
                             <ComboBox SelectedIndex="{Binding SelectedBaselineMode}" Margin="0,0,0,12">
-                                <ComboBoxItem Content="Auto Mean Subtraction"/>
-                                <ComboBoxItem Content="Load from File"/>
+                                <ComboBoxItem Content="Before baseline subtraction"/>
+                                <ComboBoxItem Content="After baseline subtraction"/>
+                                <ComboBoxItem Content="Before baseline subtraction, log scale"/>
+                                <ComboBoxItem Content="After baseline subtraction, log scale"/>
+                            </ComboBox>
+
+                            <TextBlock Text="Strip Direction" Style="{StaticResource LabelStyle}"/>
+                            <ComboBox SelectedIndex="{Binding SelectedDirectionIndex}" Margin="0,0,0,12">
+                                <ComboBoxItem Content="X Strip (1-8)"/>
+                                <ComboBoxItem Content="Z Strip (9-16)"/>
                             </ComboBox>
                             
                             <TextBlock Text="X-Axis" Style="{StaticResource LabelStyle}"/>

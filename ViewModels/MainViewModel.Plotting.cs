@@ -45,6 +45,7 @@ namespace BaselineMode.WPF.ViewModels
             RefreshIfHasData();
         }
 
+        partial void OnSelectedDirectionIndexChanged(int value) => RefreshIfHasData();
         partial void OnUseGaussianFitChanged(bool value) => RefreshIfHasData();
         partial void OnSelectedFitMethodChanged(int value) => RefreshIfHasData();
         partial void OnUseThresholdingChanged(bool value) => RefreshIfHasData();
@@ -53,7 +54,8 @@ namespace BaselineMode.WPF.ViewModels
 
         partial void OnSelectedBaselineModeChanged(int value)
         {
-            CanSaveMean = value == 0; // 0 = Auto
+            // Enable save mean only when not using log scale
+            CanSaveMean = value < 2;
             RefreshIfHasData();
         }
 
@@ -77,14 +79,31 @@ namespace BaselineMode.WPF.ViewModels
                 _ => (d) => d.L1
             };
 
+            // Determine channel range based on direction
+            // 0 = X Strip (channels 0-7), 1 = Z Strip (channels 8-15)
+            int startChannel = SelectedDirectionIndex == 0 ? 0 : 8;
+            int endChannel = SelectedDirectionIndex == 0 ? 8 : 16;
+
             for (int i = 0; i < 16; i++)
             {
                 int chIndex = i;
+                
+                // Skip channels not in selected direction
+                if (chIndex < startChannel || chIndex >= endChannel)
+                {
+                    Channels[chIndex].StatsText = "Not Selected";
+                    Channels[chIndex].Counts = new double[0];
+                    Channels[chIndex].RawCounts = new double[0];
+                    continue;
+                }
+                
                 var rawData = ProcessedData.Select(d => layerSelector(d)[chIndex]).ToArray();
 
                 if (rawData.Length > 0)
                 {
-                    double meanToSubtract = SelectedBaselineMode == 0 ? rawData.Average() : LoadMeanFromFile(chIndex);
+                    // Determine if baseline subtraction is needed (modes 1 and 3)
+                    bool applyBaselineSubtraction = (SelectedBaselineMode == 1 || SelectedBaselineMode == 3);
+                    double meanToSubtract = applyBaselineSubtraction ? rawData.Average() : 0;
                     var centeredData = rawData.Select(x => x - meanToSubtract).ToArray();
 
                     var filteredData = ApplyThresholding(centeredData);
@@ -97,17 +116,25 @@ namespace BaselineMode.WPF.ViewModels
                         if (SelectedXAxisIndex == 1)
                             binCenters = binCenters.Select(v => ((v / 16383.0) * 5) * 1000).ToArray();
 
+                        // Apply log scale if modes 2 or 3 (log scale modes)
+                        if (SelectedBaselineMode == 2 || SelectedBaselineMode == 3)
+                        {
+                            counts = counts.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
+                        }
+
                         ProcessChannelData(chIndex, filteredData, counts, binCenters);
                     }
                     else
                     {
                         Channels[chIndex].StatsText = "No Signal";
                         Channels[chIndex].Counts = new double[0];
+                        Channels[chIndex].RawCounts = new double[0];
                     }
                 }
                 else
                 {
                     Channels[chIndex].StatsText = "No Data";
+                    Channels[chIndex].RawCounts = new double[0];
                 }
             }
 
@@ -116,23 +143,29 @@ namespace BaselineMode.WPF.ViewModels
 
         private void ProcessChannelData(int chIndex, double[] filteredData, double[] counts, double[] binCenters)
         {
-            double[] fitCurve = null;
+            double[]? fitCurveLinear = null;
             double mu = 0, sigma = 0, peak = 0;
+            double fwhm = 0, resolution = 0;
 
             if (UseGaussianFit)
             {
                 if (HasSufficientData(filteredData, counts))
                 {
                     var result = PerformFit(binCenters, counts);
-                    fitCurve = result.fitCurve;
+                    fitCurveLinear = result.fitCurve;
                     mu = result.mu;
                     sigma = result.sigma;
                     peak = result.peak;
+                    
+                    // คำนวณ FWHM และ Resolution
+                    fwhm = 2.355 * sigma; // FWHM = 2.355 * σ สำหรับ Gaussian
+                    resolution = mu != 0 ? (fwhm / mu) * 100 : 0; // Resolution as percentage
                 }
                 else
                 {
                     Channels[chIndex].StatsText = "No Signal";
                     Channels[chIndex].FitCurve = null;
+                    Channels[chIndex].RawCounts = new double[0];
                     return;
                 }
             }
@@ -142,14 +175,26 @@ namespace BaselineMode.WPF.ViewModels
                 mu = moments.mean;
                 sigma = moments.sigma;
                 peak = moments.peak;
+                fwhm = 2.355 * sigma;
+                resolution = mu != 0 ? (fwhm / mu) * 100 : 0;
             }
 
             var chVM = Channels[chIndex];
             chVM.BinCenters = binCenters;
-            double[] logCounts = counts.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
-            chVM.Counts = logCounts;
-            chVM.FitCurve = fitCurve;
-            chVM.StatsText = $"P:{peak:F1} M:{mu:F1} S:{sigma:F1}";
+            chVM.RawCounts = counts;
+            
+            // ใช้ linear scale (ไม่แปลงเป็น log)
+            chVM.Counts = counts;
+            chVM.FitCurve = fitCurveLinear; // ใช้ linear fit curve
+            
+            // เก็บ statistics
+            chVM.Mu = mu;
+            chVM.Sigma = sigma;
+            chVM.Peak = peak;
+            chVM.FWHM = fwhm;
+            chVM.Resolution = resolution;
+            
+            chVM.StatsText = $"μ={mu:F2}, σ={sigma:F2}, FWHM={fwhm:F2}, Res={resolution:F2}%";
         }
 
         [RelayCommand]

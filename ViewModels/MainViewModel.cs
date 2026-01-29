@@ -43,6 +43,9 @@ namespace BaselineMode.WPF.ViewModels
         private int _selectedDirectionIndex = 0; // 0=X, 1=Z
 
         [ObservableProperty]
+        private int _selectedMode = 0; // 0=Cut off baseline, 1=Baseline setting
+
+        [ObservableProperty]
         private bool _useKalmanFilter = false;
 
         [ObservableProperty]
@@ -61,7 +64,7 @@ namespace BaselineMode.WPF.ViewModels
         private int _selectedXAxisIndex = 0; // 0=ADC, 1=Voltage
 
         [ObservableProperty]
-        private int _selectedBaselineMode = 0; // 0=Auto, 1=File
+        private int _selectedBaselineMode = 0; // 0=Before, 1=After, 2=Before log, 3=After log
 
         private List<string> _selectedFiles = new List<string>();
         // We will store result as list of objects
