@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace BaselineMode.WPF.ViewModels
+namespace BaselineMode.WPF.Views.models
 {
     public partial class HeatmapViewModel : ObservableObject
     {

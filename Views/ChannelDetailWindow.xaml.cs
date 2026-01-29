@@ -1,5 +1,5 @@
 using System.Windows;
-using BaselineMode.WPF.ViewModels;
+using BaselineMode.WPF.Views.models;
 
 namespace BaselineMode.WPF.Views
 {
@@ -8,7 +8,7 @@ namespace BaselineMode.WPF.Views
         public ChannelDetailWindow()
         {
             InitializeComponent();
-            
+
             this.Loaded += ChannelDetailWindow_Loaded;
         }
 

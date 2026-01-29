@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:vm="clr-namespace:BaselineMode.WPF.ViewModels"
+        xmlns:vm="clr-namespace:BaselineMode.WPF.Views.models"
         xmlns:scott="clr-namespace:ScottPlot;assembly=ScottPlot.WPF"
         mc:Ignorable="d"
         Title="Baseline Mode" 
@@ -14,9 +14,9 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/Resources/Colors.xaml"/>
-                <ResourceDictionary Source="/Resources/Styles.xaml"/>
-                <ResourceDictionary Source="/Resources/Buttons.xaml"/>
+                <ResourceDictionary Source="Resources/Colors.xaml"/>
+                <ResourceDictionary Source="Resources/Styles.xaml"/>
+                <ResourceDictionary Source="Resources/Buttons.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>

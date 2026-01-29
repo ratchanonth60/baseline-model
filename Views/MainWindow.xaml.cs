@@ -1,5 +1,5 @@
 ﻿using System.Windows;
-using BaselineMode.WPF.ViewModels;
+using BaselineMode.WPF.Views.models;
 using ScottPlot;
 using BaselineMode.WPF.Models;
 

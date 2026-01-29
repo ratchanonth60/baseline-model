@@ -10,7 +10,7 @@ using BaselineMode.WPF.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BaselineMode.WPF.ViewModels
+namespace BaselineMode.WPF.Views.models
 {
     public partial class MainViewModel
     {

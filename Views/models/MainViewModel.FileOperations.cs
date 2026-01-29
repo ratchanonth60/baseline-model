@@ -10,7 +10,7 @@ using BaselineMode.WPF.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BaselineMode.WPF.ViewModels
+namespace BaselineMode.WPF.Views.models
 {
     public partial class MainViewModel
     {
@@ -79,14 +79,14 @@ namespace BaselineMode.WPF.ViewModels
                             // Combine files using StringBuilder for better performance
                             int totalFiles = files.Count;
                             int processed = 0;
-                            
+
                             // Estimate capacity based on first file size
                             long estimatedSize = 0;
                             if (File.Exists(files[0]))
                             {
                                 estimatedSize = new FileInfo(files[0]).Length * totalFiles;
                             }
-                            
+
                             var sb = new StringBuilder((int)Math.Min(estimatedSize, int.MaxValue / 2));
 
                             foreach (var file in files)
@@ -242,7 +242,7 @@ namespace BaselineMode.WPF.ViewModels
                     byte[] temp4 = new byte[4];
                     for (int i = 0; i < 4; i++) temp4[i] = timecodeDec[3 - i];
                     uint seconds_part = BitConverter.ToUInt32(temp4, 0);
-                    
+
                     ushort milliseconds_part = (ushort)((timecodeDec[5] << 8) | timecodeDec[4]);
 
                     // Form1 calculates double total_seconds but creates DateTime from parts
@@ -307,7 +307,7 @@ namespace BaselineMode.WPF.ViewModels
 
             int arrayLength = length / n;
             var list = new string[arrayLength];
-            
+
             // Use Span for better performance (reduces allocations)
             ReadOnlySpan<char> hexSpan = hexString.AsSpan();
             for (int i = 0; i < arrayLength; i++)
@@ -348,7 +348,7 @@ namespace BaselineMode.WPF.ViewModels
         {
             var lines = new List<string>(16);
             int dataCount = ProcessedData.Count;
-            
+
             for (int i = 0; i < 16; i++)
             {
                 if (dataCount == 0)
@@ -356,7 +356,7 @@ namespace BaselineMode.WPF.ViewModels
                     lines.Add("0.00");
                     continue;
                 }
-                
+
                 // Optimized: Direct calculation without LINQ allocations
                 double sum = 0;
                 for (int j = 0; j < dataCount; j++)

@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScottPlot;
 
-namespace BaselineMode.WPF.ViewModels
+namespace BaselineMode.WPF.Views.models
 {
     public partial class ChannelViewModel : ObservableObject
     {
@@ -16,7 +16,7 @@ namespace BaselineMode.WPF.ViewModels
         public double[]? Counts { get; set; } // Log scale counts for display
         public double[]? RawCounts { get; set; } // Linear scale counts (original)
         public double[]? FitCurve { get; set; }
-        
+
         // Statistics
         public double Mu { get; set; }
         public double Sigma { get; set; }
@@ -63,7 +63,7 @@ namespace BaselineMode.WPF.ViewModels
                         fitScatter.Label = "Fit";
                     }
                 }
-                
+
                 // Add statistics text annotation
                 if (Mu > 0)
                 {
@@ -78,10 +78,10 @@ namespace BaselineMode.WPF.ViewModels
 
                 targetPlot.Plot.XLabel("ADC Channel (0-16384)");
                 targetPlot.Plot.YLabel("Count (#)");
-                
+
                 // Set axis limits to avoid log(0) issues
                 targetPlot.Plot.SetAxisLimitsY(0.1, double.NaN);
-                
+
                 targetPlot.Plot.AxisAuto();
             }
 

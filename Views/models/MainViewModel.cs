@@ -13,12 +13,13 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScottPlot;
 
-namespace BaselineMode.WPF.ViewModels
+namespace BaselineMode.WPF.Views.models
 {
-    public partial class MainViewModel : ObservableObject
+    public partial class MainViewModel : ObservableObject, IDisposable
     {
-        private readonly FileService _fileService;
-        private readonly MathService _mathService;
+        private readonly IFileService _fileService;
+        private readonly IMathService _mathService;
+        private bool _disposed = false;
 
         [ObservableProperty]
         private string _statusMessage = "Ready";
@@ -154,6 +155,33 @@ namespace BaselineMode.WPF.ViewModels
 
         private CancellationTokenSource _cts;
 
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    _cts?.Cancel();
+                    _cts?.Dispose();
+                    _fileService?.Dispose();
+                    _mathService?.Dispose();
+                    
+                    // Clear large data structures
+                    ProcessedData?.Clear();
+                    Channels?.Clear();
+                    ChannelsX?.Clear();
+                    ChannelsZ?.Clear();
+                }
+                _disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
     }
 
     // PlotUpdateEventArgs moved to Models namespace

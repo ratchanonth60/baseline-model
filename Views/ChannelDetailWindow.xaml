@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:scott="clr-namespace:ScottPlot;assembly=ScottPlot.WPF"
-        xmlns:vm="clr-namespace:BaselineMode.WPF.ViewModels"
+        xmlns:vm="clr-namespace:BaselineMode.WPF.Views.models"
         d:DataContext="{d:DesignInstance Type=vm:ChannelViewModel}"
         mc:Ignorable="d"
         Title="{Binding Title, StringFormat='Detailed View - {0}'}" 
