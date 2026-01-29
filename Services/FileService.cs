@@ -10,7 +10,7 @@ using OfficeOpenXml;
 
 namespace BaselineMode.WPF.Services
 {
-    public class FileService
+    public class FileService : IFileService
     {
         // Constants
         private const double VOLTAGE_FACTOR = (5.0 / 16383.0) * 1000.0;
@@ -21,6 +21,8 @@ namespace BaselineMode.WPF.Services
 
         // Regex อาจจะไม่จำเป็นถ้าเราใช้ Span Parsing (ซึ่งเร็วกว่า) แต่เก็บไว้สำหรับ clean whitespace ได้
         private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
+
+        private bool _disposed = false;
 
         public FileService()
         {
@@ -34,6 +36,15 @@ namespace BaselineMode.WPF.Services
         // รวม Parse และ Process ไว้ด้วยกัน หรือรับเป็น IEnumerable เพื่อไม่ต้องรอโหลดเสร็จทั้งไฟล์
         public List<BaselineData> ProcessFileStream(string filePath, IProgress<double>? progress = null)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(FileService));
+            
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentNullException(nameof(filePath));
+            
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException("File not found", filePath);
+            
             // Estimate initial capacity to reduce List resizing
             long fileSize = new FileInfo(filePath).Length;
             int estimatedCapacity = (int)Math.Min(fileSize / (CHUNK_SIZE * 2), 100000);
@@ -90,8 +101,16 @@ namespace BaselineMode.WPF.Services
                 }
                 finally
                 {
+                    // Clear sensitive data before returning to pool
+                    Array.Clear(l1l2Dec, 0, l1l2Dec.Length);
+                    Array.Clear(l6l7Dec, 0, l6l7Dec.Length);
+                    Array.Clear(fileBuffer, 0, fileBuffer.Length);
+                    
                     arrayPool.Return(l1l2Dec);
                     arrayPool.Return(l6l7Dec);
+                    
+                    // Clear string builder
+                    hexAccumulator.Clear();
                 }
             }
 
@@ -247,6 +266,15 @@ namespace BaselineMode.WPF.Services
 
         public void SaveToExcel(List<BaselineData> dataList, string filePath, IProgress<double>? progress = null)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(FileService));
+            
+            if (dataList == null)
+                throw new ArgumentNullException(nameof(dataList));
+            
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentNullException(nameof(filePath));
+            
             // Ensure directory exists
             var dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
@@ -353,6 +381,15 @@ namespace BaselineMode.WPF.Services
 
         public List<BaselineData> ReadExcelFile(string filePath, IProgress<double>? progress = null)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(FileService));
+            
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentNullException(nameof(filePath));
+            
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException("Excel file not found", filePath);
+            
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
                 var ws = package.Workbook.Worksheets[0];
@@ -438,6 +475,25 @@ namespace BaselineMode.WPF.Services
                 }
                 return results;
             }
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Managed resources cleanup (if any)
+                    // Currently no managed resources to dispose
+                }
+                _disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -7,7 +7,7 @@ using BaselineMode.WPF.Models;
 
 namespace BaselineMode.WPF.Services
 {
-    public class MathService
+    public class MathService : IMathService
     {
         // Pre-computed constants
         private static readonly double SQRT_2PI = Math.Sqrt(2 * Math.PI);
@@ -18,6 +18,8 @@ namespace BaselineMode.WPF.Services
         // SAFE: Reusable ArrayPool
         private static readonly ArrayPool<double> _doublePool = ArrayPool<double>.Shared;
         private static readonly ArrayPool<double[]> _jaggedPool = ArrayPool<double[]>.Shared;
+
+        private bool _disposed = false;
 
         public class KalmanFilter
         {
@@ -68,6 +70,18 @@ namespace BaselineMode.WPF.Services
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public (double mean, double sigma, double peak) CalculateMoments(double[] xData, double[] yData)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MathService));
+            
+            if (xData == null)
+                throw new ArgumentNullException(nameof(xData));
+            
+            if (yData == null)
+                throw new ArgumentNullException(nameof(yData));
+            
+            if (xData.Length != yData.Length)
+                throw new ArgumentException("xData and yData must have the same length");
+            
             int length = xData.Length;
             if (length == 0) return (0, 0, 0);
 
@@ -107,6 +121,15 @@ namespace BaselineMode.WPF.Services
         [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
         public double CalculateRMS(double[] xData, double[] yData, double mean)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MathService));
+            
+            if (xData == null || yData == null)
+                throw new ArgumentNullException(xData == null ? nameof(xData) : nameof(yData));
+            
+            if (xData.Length != yData.Length)
+                throw new ArgumentException("xData and yData must have the same length");
+            
             double sumSquaredDifferences = 0;
             double totalWeight = 0;
             int length = xData.Length;
@@ -129,6 +152,15 @@ namespace BaselineMode.WPF.Services
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public FittingResult GaussianFit(double[] xData, double[] yData)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MathService));
+            
+            if (xData == null || yData == null)
+                throw new ArgumentNullException(xData == null ? nameof(xData) : nameof(yData));
+            
+            if (xData.Length != yData.Length)
+                throw new ArgumentException("xData and yData must have the same length");
+            
             var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
 
             // Validate initial parameters
@@ -358,6 +390,25 @@ namespace BaselineMode.WPF.Services
                 }
                 _jaggedPool.Return(M);
             }
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // ArrayPools are static shared resources, no need to dispose
+                    // Just mark as disposed to prevent further usage
+                }
+                _disposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }
