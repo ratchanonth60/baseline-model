@@ -1,0 +1,103 @@
+<Window x:Class="BaselineMode.WPF.Views.ModernMessageBox"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Notification" 
+        Height="250" Width="450"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True">
+    
+    <Border Background="White"
+            CornerRadius="16"
+            BorderBrush="{StaticResource BorderBrush}"
+            BorderThickness="1"
+            Margin="20">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.2" Direction="270"/>
+        </Border.Effect>
+
+        <Grid Margin="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header / Title -->
+            <Grid Grid.Row="0" Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Icon Placeholder -->
+                <Path x:Name="IconPath"
+                      Grid.Column="0"
+                      Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+                      Fill="{StaticResource PrimaryColor}"
+                      Width="24" Height="24"
+                      Stretch="Uniform"
+                      Margin="0,0,12,0"
+                      VerticalAlignment="Center"/>
+
+                <TextBlock x:Name="TxtTitle"
+                           Grid.Column="1"
+                           Text="Notification"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
+            </Grid>
+
+            <!-- Message Body -->
+            <TextBlock x:Name="TxtMessage"
+                       Grid.Row="1"
+                       Text="This is a sample message to show how the message box looks."
+                       TextWrapping="Wrap"
+                       FontSize="15"
+                       Foreground="{StaticResource SecondaryColor}"
+                       VerticalAlignment="Top"
+                       Margin="36,0,0,24"/>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="2" 
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Right"
+                        Margin="0,10,0,0">
+                
+                <Button x:Name="BtnCancel"
+                        Style="{StaticResource SecondaryBtn}"
+                        Content="Cancel"
+                        Margin="0,0,12,0"
+                        Click="BtnCancel_Click"
+                        Visibility="Collapsed"/>
+                
+                <Button x:Name="BtnNo"
+                        Style="{StaticResource SecondaryBtn}"
+                        Content="No"
+                        Margin="0,0,12,0"
+                        Click="BtnNo_Click"
+                        Visibility="Collapsed"/>
+
+                <Button x:Name="BtnYes"
+                        Style="{StaticResource PrimaryBtn}"
+                        Content="Yes"
+                        Click="BtnYes_Click"
+                        Visibility="Collapsed"/>
+                
+                <Button x:Name="BtnOk"
+                        Style="{StaticResource PrimaryBtn}"
+                        Content="OK"
+                        Click="BtnOk_Click"
+                        Visibility="Visible"/>
+                
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

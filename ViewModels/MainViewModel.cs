@@ -97,7 +97,17 @@ namespace BaselineMode.WPF.ViewModels
             _mathService = new MathService();
             // Initialize 16 channels
             InitializeChannels();
+
+            // Initialize Timer for Clock
+            _currentDateTime = DateTime.Now;
+            var timer = new System.Windows.Threading.DispatcherTimer();
+            timer.Interval = TimeSpan.FromSeconds(1);
+            timer.Tick += (s, e) => CurrentDateTime = DateTime.Now;
+            timer.Start();
         }
+
+        [ObservableProperty]
+        private DateTime _currentDateTime;
 
         [ObservableProperty]
         private double _thresholdValue = 0;

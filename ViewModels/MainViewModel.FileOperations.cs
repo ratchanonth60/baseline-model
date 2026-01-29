@@ -76,33 +76,25 @@ namespace BaselineMode.WPF.ViewModels
                                 ProgressValue = percent;
                             });
 
-                            // Use Streams to avoid loading everything into memory
-                            using (var outputStream = new FileStream(combinedFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-                            using (var writer = new StreamWriter(outputStream))
+                            // Combine files exactly like the original Form1.cs method
+                            var allContents = new List<string>();
+                            int totalFiles = files.Count;
+                            int processed = 0;
+
+                            foreach (var file in files)
                             {
-                                int totalFiles = files.Count;
-                                int processed = 0;
-
-                                foreach (var file in files)
+                                try
                                 {
-                                    try
-                                    {
-                                        using (var inputStream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read))
-                                        using (var reader = new StreamReader(inputStream))
-                                        {
-                                            string line;
-                                            while ((line = reader.ReadLine()) != null)
-                                            {
-                                                writer.WriteLine(line);
-                                            }
-                                        }
-                                    }
-                                    catch { /* Skip unreadable files */ }
-
-                                    processed++;
-                                    ((IProgress<double>)progress).Report((double)processed / totalFiles * 100);
+                                    allContents.Add(File.ReadAllText(file));
                                 }
+                                catch { /* Skip unreadable files */ }
+
+                                processed++;
+                                ((IProgress<double>)progress).Report((double)processed / totalFiles * 100);
                             }
+
+                            // Join with single \n like original code
+                            File.WriteAllText(combinedFilePath, string.Concat(allContents));
 
                             System.Windows.Application.Current.Dispatcher.Invoke(() =>
                             {
@@ -110,7 +102,7 @@ namespace BaselineMode.WPF.ViewModels
                                 InputFilesInfo = $"{files.Count} files combined.";
                                 OutputFileName = "multiple_file_output.xlsx";
                                 StatusMessage = "Files combined. Ready to process.";
-                                System.Windows.MessageBox.Show(
+                                MessageBoxService.Show(
                                     $"Files combined into:\n{combinedFilePath}",
                                     "Success",
                                     System.Windows.MessageBoxButton.OK,
@@ -122,7 +114,7 @@ namespace BaselineMode.WPF.ViewModels
                             System.Windows.Application.Current.Dispatcher.Invoke(() =>
                             {
                                 StatusMessage = $"Error: {ex.Message}";
-                                System.Windows.MessageBox.Show(
+                                MessageBoxService.Show(
                                     $"Error combining files: {ex.Message}",
                                     "Error",
                                     System.Windows.MessageBoxButton.OK,
@@ -152,53 +144,42 @@ namespace BaselineMode.WPF.ViewModels
             {
                 try
                 {
+                    // Reverting to Legacy Flow: Check the combined file (or single selected file)
+                    // This treats the entire selection as one "block" of data.
                     var fileToCheck = _selectedFiles.First();
 
-                    // 1. Data Integrity Check (E225)
-                    // Use FileStream with FileShare.Read to match legacy accessibility
-                    using (var stream = new FileStream(fileToCheck, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    using (var reader = new StreamReader(stream))
+                    // 1. Data Integrity Check (Shared Logic via HeaderValidator)
+                    var result = HeaderValidator.ValidateFile(fileToCheck);
+
+                    if (!result.IsValid)
                     {
-                        bool invalidFound = false;
-                        int lineNumber = 0;
-                        string firstLineContent = null;
-                        string? line;
-
-                        while ((line = reader.ReadLine()) != null)
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            lineNumber++;
-                            if (string.IsNullOrWhiteSpace(line)) continue;
+                            StatusMessage = result.ErrorMessage;
+                            MessageBoxService.Show(
+                                $"{result.ErrorMessage}\nContent: '{result.ErrorContent}' \nFile: {result.FilteredFilePath}",
+                                "Check Error",
+                                System.Windows.MessageBoxButton.OK,
+                                System.Windows.MessageBoxImage.Error);
 
-                            var content = line.Trim();
-                            // Robust Parsing: Remove quotes (CSV parity) and spaces
-                            var cleanContent = content.Trim('"').Replace(" ", "").Replace("\t", "");
-
-                            if (firstLineContent == null) firstLineContent = content; // Keep original for detailed parse
-
-                            if (!cleanContent.StartsWith("E225"))
-                            {
-                                invalidFound = true;
-                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    StatusMessage = $"Header INCORRECT at line {lineNumber}.";
-                                    System.Windows.MessageBox.Show($"Header is INCORRECT! at data row no. {lineNumber}\nContent: '{content}'", "Check Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-                                    HeaderInfoText = $"Header INCORRECT at line {lineNumber}.\nFound: {content.Substring(0, Math.Min(20, content.Length))}...";
-                                });
-                                break;
-                            }
-                        }
-
-                        if (!invalidFound)
+                            // Safe null check for substring
+                            string errContent = result.ErrorContent ?? "null";
+                            HeaderInfoText = $"{result.ErrorMessage}\nFound: {errContent.Substring(0, Math.Min(20, errContent.Length))}...";
+                        });
+                    }
+                    else
+                    {
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                StatusMessage = "Header is correct!";
-                                System.Windows.MessageBox.Show("Header is correct!", "Check", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                            });
+                            StatusMessage = "Header is correct!";
+                            MessageBoxService.Show("Header is correct!", "Check", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                        });
 
-                            // 2. Parse Header Info from first valid line
-                            // Ensure clean content for splitting
-                            var cleanHex = firstLineContent.Replace(" ", "").Trim();
+                        // 2. Parse Header Info
+                        // Ensure clean content for splitting
+                        if (!string.IsNullOrEmpty(result.FirstHeaderContent))
+                        {
+                            var cleanHex = result.FirstHeaderContent.Replace(" ", "").Trim();
                             var hexData = SplitHexData(cleanHex);
 
                             System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -332,7 +313,7 @@ namespace BaselineMode.WPF.ViewModels
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         StatusMessage = $"Error saving means: {ex.Message}";
-                        System.Windows.MessageBox.Show($"Error saving means: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                        MessageBoxService.Show($"Error saving means: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
                     });
                 }
             });
