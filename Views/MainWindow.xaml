@@ -50,7 +50,7 @@
                              FontSize="32"
                              FontWeight="Bold"
                              Foreground="White"/>
-                    <TextBlock Text="Version 2025.05.17"
+                    <TextBlock Text="Version 1.2.0"
                              FontSize="14"
                              Foreground="White"
                              Opacity="0.9"
