@@ -35,7 +35,48 @@
                 "--project",
                 "${workspaceFolder}/BaselineMode.WPF.csproj"
             ],
+        },
+        {
+            "label": "Run Application",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "run",
+                "--project",
+                "${workspaceFolder}/BaselineMode.WPF.csproj",
+                "-c",
+                "Debug"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "build-tests",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "build",
+                "${workspaceFolder}/Tests/Tests.csproj",
+                "/property:GenerateFullPaths=true",
+                "/consoleloggerparameters:NoSummary"
+            ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "test",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "test",
+                "${workspaceFolder}/Tests/Tests.csproj",
+                "--logger",
+                "console;verbosity=detailed"
+            ],
+            "problemMatcher": "$msCompile",
+            "group": "test"
         }
     ]
 }

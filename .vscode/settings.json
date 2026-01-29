@@ -1,0 +1,5 @@
+{
+    "dotnet.test.defaultRunSettings": null,
+    "dotnet-test-explorer.testProjectPath": "Tests/Tests.csproj",
+    "dotnet-test-explorer.autoWatch": true
+}
