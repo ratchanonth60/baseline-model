@@ -156,10 +156,5 @@ namespace BaselineMode.WPF.ViewModels
 
     }
 
-    public class PlotUpdateEventArgs : EventArgs
-    {
-        public List<BaselineData> Data { get; }
-        public PlotUpdateEventArgs(List<BaselineData> data) { Data = data; }
-
-    }
+    // PlotUpdateEventArgs moved to Models namespace
 }

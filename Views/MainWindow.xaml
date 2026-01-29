@@ -286,6 +286,12 @@
                                     Command="{Binding ShowHeatmapCommand}" 
                                     Style="{StaticResource SecondaryBtn}"
                                     Margin="0,8,0,0"/>
+
+                            <Button Content="💾 Save Mean Values" 
+                                    Command="{Binding SaveMeanCommand}" 
+                                    IsEnabled="{Binding CanSaveMean}"
+                                    Style="{StaticResource SecondaryBtn}"
+                                    Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

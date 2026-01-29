@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using BaselineMode.WPF.Models;
 
 namespace BaselineMode.WPF.Services
 {
@@ -69,7 +70,7 @@ namespace BaselineMode.WPF.Services
         {
             int length = xData.Length;
             if (length == 0) return (0, 0, 0);
-            
+
             double peak = double.MinValue;
             double totalWeight = 0;
             double sumWeightedX = 0;
@@ -126,15 +127,14 @@ namespace BaselineMode.WPF.Services
         /// Uses pre-computed constants and vectorized operations.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        public (double[] fitCurve, double mu, double sigma, double peak, double rms) GaussianFit(
-            double[] xData, double[] yData)
+        public FittingResult GaussianFit(double[] xData, double[] yData)
         {
             var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
 
             // Validate initial parameters
             if (peak_guess <= 0 || sigma_guess <= MIN_VALUE || double.IsNaN(mu_guess) || double.IsInfinity(sigma_guess))
             {
-                return (new double[xData.Length], 0, 0, 0, 0);
+                return FittingResult.Empty(xData.Length);
             }
 
             // Pre-compute constants for Gaussian
@@ -160,11 +160,11 @@ namespace BaselineMode.WPF.Services
 
             if (maxFit < MIN_VALUE || double.IsNaN(maxFit))
             {
-                return (new double[length], 0, 0, 0, 0);
+                return FittingResult.Empty(xData.Length);
             }
 
             double finalRMS = CalculateRMS(xData, fitCurve, mu_guess);
-            return (fitCurve, mu_guess, sigma_guess, peak_guess, finalRMS);
+            return new FittingResult(fitCurve, mu_guess, sigma_guess, peak_guess, finalRMS);
         }
 
         /// <summary>
@@ -202,27 +202,27 @@ namespace BaselineMode.WPF.Services
         /// Performs Hyper-EMG curve fitting with optimized calculations.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        public (double[] fitCurve, double mu, double sigma, double peak, double rms) HyperEMGFit(
+        public FittingResult HyperEMGFit(
             double[] xData, double[] yData)
         {
             var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
 
             if (peak_guess <= 0 || sigma_guess <= MIN_VALUE)
             {
-                return (new double[xData.Length], mu_guess, sigma_guess, peak_guess, 0);
+                return FittingResult.Empty(xData.Length);
             }
 
             // Pre-compute EMG parameters
             double A = peak_guess * sigma_guess * SQRT_2PI;
             double tau = sigma_guess * 0.5;
-            
+
             if (tau < MIN_VALUE) tau = MIN_VALUE;
 
             // Pre-compute constants for EMG calculation
             int length = xData.Length;
             double[] fitCurve = new double[length];
             double maxVal = 0;
-            
+
             double invTau = 1.0 / tau;
             double sigma2 = sigma_guess * sigma_guess;
             double halfInvTau2 = 0.5 * invTau * invTau;
@@ -234,17 +234,17 @@ namespace BaselineMode.WPF.Services
             {
                 double xDiff = xData[i] - mu_guess;
                 double expArg = (sigma2 * halfInvTau2) - (xDiff * invTau);
-                
+
                 // Clamp to prevent overflow
                 expArg = Math.Clamp(expArg, -MAX_EXP_ARG, MAX_EXP_ARG);
-                
+
                 double erfcArg = (sigma2 - (tau * xDiff)) * invSqrt2Sigma / tau;
                 double emgVal = coeff * Math.Exp(expArg) * Erfc(erfcArg);
-                
+
                 // Check for invalid values
                 if (double.IsNaN(emgVal) || double.IsInfinity(emgVal))
                     emgVal = 0;
-                    
+
                 fitCurve[i] = emgVal;
                 if (emgVal > maxVal) maxVal = emgVal;
             }
@@ -261,7 +261,7 @@ namespace BaselineMode.WPF.Services
             }
 
             double finalRMS = CalculateRMS(xData, fitCurve, mu_guess);
-            return (fitCurve, mu_guess, sigma_guess, maxVal, finalRMS);
+            return new FittingResult(fitCurve, mu_guess, sigma_guess, maxVal, finalRMS);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
@@ -279,7 +279,7 @@ namespace BaselineMode.WPF.Services
             double absX = isNegative ? -x : x;
 
             double t = 1.0 / (1.0 + p * absX);
-            
+
             // Horner's method for polynomial evaluation (more efficient)
             double poly = t * (a1 + t * (a2 + t * (a3 + t * (a4 + t * a5))));
             double val = poly * Math.Exp(-absX * absX);

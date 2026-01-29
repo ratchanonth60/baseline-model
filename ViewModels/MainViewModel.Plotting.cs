@@ -79,24 +79,11 @@ namespace BaselineMode.WPF.ViewModels
                 _ => (d) => d.L1
             };
 
-            // Determine channel range based on direction
-            // 0 = X Strip (channels 0-7), 1 = Z Strip (channels 8-15)
-            int startChannel = SelectedDirectionIndex == 0 ? 0 : 8;
-            int endChannel = SelectedDirectionIndex == 0 ? 8 : 16;
-
+            // Process all channels (X and Z) simultaneously regardless of selection
             for (int i = 0; i < 16; i++)
             {
                 int chIndex = i;
-                
-                // Skip channels not in selected direction
-                if (chIndex < startChannel || chIndex >= endChannel)
-                {
-                    Channels[chIndex].StatsText = "Not Selected";
-                    Channels[chIndex].Counts = new double[0];
-                    Channels[chIndex].RawCounts = new double[0];
-                    continue;
-                }
-                
+
                 var rawData = ProcessedData.Select(d => layerSelector(d)[chIndex]).ToArray();
 
                 if (rawData.Length > 0)
@@ -152,11 +139,11 @@ namespace BaselineMode.WPF.ViewModels
                 if (HasSufficientData(filteredData, counts))
                 {
                     var result = PerformFit(binCenters, counts);
-                    fitCurveLinear = result.fitCurve;
-                    mu = result.mu;
-                    sigma = result.sigma;
-                    peak = result.peak;
-                    
+                    fitCurveLinear = result.FitCurve;
+                    mu = result.Mu;
+                    sigma = result.Sigma;
+                    peak = result.Peak;
+
                     // คำนวณ FWHM และ Resolution
                     fwhm = 2.355 * sigma; // FWHM = 2.355 * σ สำหรับ Gaussian
                     resolution = mu != 0 ? (fwhm / mu) * 100 : 0; // Resolution as percentage
@@ -182,18 +169,18 @@ namespace BaselineMode.WPF.ViewModels
             var chVM = Channels[chIndex];
             chVM.BinCenters = binCenters;
             chVM.RawCounts = counts;
-            
+
             // ใช้ linear scale (ไม่แปลงเป็น log)
             chVM.Counts = counts;
             chVM.FitCurve = fitCurveLinear; // ใช้ linear fit curve
-            
+
             // เก็บ statistics
             chVM.Mu = mu;
             chVM.Sigma = sigma;
             chVM.Peak = peak;
             chVM.FWHM = fwhm;
             chVM.Resolution = resolution;
-            
+
             chVM.StatsText = $"μ={mu:F2}, σ={sigma:F2}, FWHM={fwhm:F2}, Res={resolution:F2}%";
         }
 

@@ -340,14 +340,14 @@ namespace BaselineMode.WPF.ViewModels
             }
             double sigma = Math.Sqrt(sumSquares / length);
             double threshold = KFactor * sigma;
-            
+
             // Optimized: First count, then allocate exact size
             int count = 0;
             for (int i = 0; i < length; i++)
             {
                 if (centeredData[i] > threshold) count++;
             }
-            
+
             double[] result = new double[count];
             int index = 0;
             for (int i = 0; i < length; i++)
@@ -365,17 +365,15 @@ namespace BaselineMode.WPF.ViewModels
             return filteredData.Length > 5 && counts.Max() > 0;
         }
 
-        private (double[] fitCurve, double mu, double sigma, double peak) PerformFit(double[] binCenters, double[] counts)
+        private FittingResult PerformFit(double[] binCenters, double[] counts)
         {
             if (SelectedFitMethod == 1) // Hyper-EMG
             {
-                var result = _mathService.HyperEMGFit(binCenters, counts);
-                return (result.fitCurve, result.mu, result.sigma, result.peak);
+                return _mathService.HyperEMGFit(binCenters, counts);
             }
             else // Gaussian
             {
-                var result = _mathService.GaussianFit(binCenters, counts);
-                return (result.fitCurve, result.mu, result.sigma, result.peak);
+                return _mathService.GaussianFit(binCenters, counts);
             }
         }
 
