@@ -35,12 +35,12 @@ namespace BaselineMode.WPF.ViewModels
                 var bar = targetPlot.Plot.AddBar(Counts, BinCenters);
                 bar.FillColor = System.Drawing.Color.Black;
 
-                // ✅ ตรวจสอบ FitCurve:
+                //  ตรวจสอบ FitCurve:
                 if (FitCurve != null && FitCurve.Length > 0 && BinCenters != null && BinCenters.Length == FitCurve.Length)
                 {
                     double maxFit = FitCurve.Max();
 
-                    if (maxFit > 0) // ✅ เช็คว่ามีค่ามากกว่า 0
+                    if (maxFit > 0) //  เช็คว่ามีค่ามากกว่า 0
                     {
                         System.Diagnostics.Debug.WriteLine($"Plotting fit for {Title}: max={maxFit:F1}");
 

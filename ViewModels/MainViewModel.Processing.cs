@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using BaselineMode.WPF.Models;
+using BaselineMode.WPF.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -60,30 +61,34 @@ namespace BaselineMode.WPF.ViewModels
 
                 try
                 {
-                    var allSegments = new List<string>();
+                    var allData = new List<BaselineData>();
 
                     int fileCount = _selectedFiles.Count;
                     int currentFile = 0;
 
                     foreach (var file in _selectedFiles)
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = $"Parsing file {currentFile + 1}/{fileCount}...");
-                        var segments = _fileService.ParseRawTextFile(file);
-                        allSegments.AddRange(segments);
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = $"Processing file {currentFile + 1}/{fileCount}...");
+
+                        // Create a progress reporter for the current file processing
+                        var fileProgress = new Progress<double>(p =>
+                        {
+                            // Calculate global progress: 
+                            // Base progress for completed files + fraction of current file
+                            // Processing takes up 70% of total progress
+                            double baseProgress = (double)currentFile / fileCount * 70;
+                            double currentFileContribution = (p / 100.0) * (1.0 / fileCount) * 70;
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = baseProgress + currentFileContribution);
+                        });
+
+                        var fileData = _fileService.ProcessFileStream(file, fileProgress);
+                        allData.AddRange(fileData);
 
                         currentFile++;
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = (double)currentFile / fileCount * 30); // 0-30%
                     }
 
-                    if (allSegments.Any())
+                    if (allData.Any())
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Converting hex data...");
-                        // Scale this part 30-70%
-                        var processProgress = new Progress<double>(p =>
-                            System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 30 + (p * 0.4)));
-
-                        var processed = _fileService.ProcessHexSegments(allSegments, processProgress);
-
                         // Ensure .xlsx extension
                         string fileName = OutputFileName;
                         if (!fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
@@ -94,21 +99,26 @@ namespace BaselineMode.WPF.ViewModels
                         string fullPath = Path.Combine(outputDir, fileName);
 
                         System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Saving to Excel...");
+
                         // Scale saving 70-100%
                         var saveProgress = new Progress<double>(p =>
                              System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 70 + (p * 0.3)));
 
-                        _fileService.SaveToExcel(processed, fullPath, saveProgress);
+                        _fileService.SaveToExcel(allData, fullPath, saveProgress);
 
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            StatusMessage = $"Saved {processed.Count} events to {fileName}";
-                            System.Windows.MessageBox.Show($"Successfully processed {processed.Count} events to Source folder.", "Process Data", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                            StatusMessage = $"Saved {allData.Count} events to {fileName}";
+                            MessageBoxService.Show($"Successfully processed {allData.Count} events to Source folder.", "Process Data", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                         });
                     }
                     else
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "No valid segments found.");
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            StatusMessage = "No valid data found in selected files.";
+                            MessageBoxService.Show("No valid data found in selected files. Please check the input file layout.", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                        });
                     }
                 }
                 catch (Exception ex)
@@ -141,7 +151,7 @@ namespace BaselineMode.WPF.ViewModels
 
             try
             {
-                await Task.Run(async () =>
+                await Task.Run(() =>
                 {
                     // 1. Construct Path to Source File
                     string fileName = OutputFileName;
@@ -153,94 +163,125 @@ namespace BaselineMode.WPF.ViewModels
 
                     if (!File.Exists(fullPath))
                     {
-                        StatusMessage = "Processed file not found. Please click 'Process Data' first.";
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            StatusMessage = $"File not found: {fullPath}";
+                            MessageBoxService.Show($"Expected input file not found:\n{fullPath}\n\nPlease ensure you have run 'Process Data' first.", "File Not Found", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                        });
                         return;
                     }
 
-                    if (!_cts.Token.IsCancellationRequested)
+                    // Debugging Hint: Show where we are reading from
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
-                        // 2. Read from Excel
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Reading Excel...");
-                        var readProgress = new Progress<double>(p =>
-                            System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = p * 0.5)); // 0-50%
+                        MessageBoxService.Show($"Reading from:\n{fullPath}", "Confirm Input File", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    });
 
-                        ProcessedData = _fileService.ReadExcelFile(fullPath, readProgress);
+                    if (_cts.Token.IsCancellationRequested) return;
+
+
+                    // 2. Read from Excel
+                    System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Reading Excel...");
+                    var readProgress = new Progress<double>(p =>
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = p * 0.5)); // 0-50%
+
+                    // Restore missing call!
+                    ProcessedData = _fileService.ReadExcelFile(fullPath, readProgress);
+
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
                         DataCountsStr = ProcessedData.Count.ToString();
-
                         UpdateDisplayTable();
+                    });
+                    if (!ProcessedData.Any()) return;
+                    // OPTIMIZE: Parallelize processing
+                    Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
+                    {
+                        1 => (d) => d.L2,
+                        2 => (d) => d.L6,
+                        3 => (d) => d.L7,
+                        _ => (d) => d.L1
+                    };
 
-                        // 3. Analyze Data - loop for all 16 channels
-                        if (ProcessedData.Any())
+                    int processedCount = 0;
+                    object processedLock = new object();
+                    Parallel.For(0, 16, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = _cts.Token }, i =>
+                    {
+                        int chIndex = i;
+                        // Optimization: ดึงข้อมูลออกมาเป็น Array เดียวเพื่อลดการเข้าถึง Property ซ้ำๆ
+                        // การใช้ Loop ธรรมดาเร็วกว่า LINQ .Select().ToArray() ในกรณี Performance Critical
+                        int dataCount = ProcessedData.Count;
+                        double[] rawData = new double[dataCount];
+                        for (int j = 0; j < dataCount; j++)
                         {
-                            Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
+                            rawData[j] = layerSelector(ProcessedData[j])[chIndex];
+                        }
+                        if (rawData.Length > 0)
+                        {
+                            // Calculate Mean
+                            double meanToSubtract = 0;
+                            if (SelectedBaselineMode == 0) // Auto Mean
                             {
-                                1 => (d) => d.L2,
-                                2 => (d) => d.L6,
-                                3 => (d) => d.L7,
-                                _ => (d) => d.L1
-                            };
-
-                            for (int i = 0; i < 16; i++)
+                                double sum = 0;
+                                for (int k = 0; k < rawData.Length; k++) sum += rawData[k];
+                                meanToSubtract = sum / rawData.Length;
+                            }
+                            // Apply Mean Subtraction (In-Place เพื้่อประหยัด ram)
+                            // เราแก้ค่าใน rawData เลย ไม่ต้องสร้าง centeredData ใหม่
+                            if (meanToSubtract != 0)
                             {
-                                if (_cts.Token.IsCancellationRequested) break;
-
-                                if (DelayTimeMs > 0) await Task.Delay(DelayTimeMs);
-
-                                int chIndex = i;
-                                var rawData = ProcessedData.Select(d => layerSelector(d)[chIndex]).ToArray();
-
-                                if (rawData.Length > 0)
+                                for (int k = 0; k < rawData.Length; k++)
                                 {
-                                    double meanToSubtract = 0;
-                                    if (SelectedBaselineMode == 0) // Auto Mean
-                                    {
-                                        meanToSubtract = rawData.Average();
-                                    }
-                                    else // Load File (Legacy parity default file usage)
-                                    {
-                                        meanToSubtract = 0;
-                                    }
+                                    rawData[k] -= meanToSubtract;
+                                }
+                            }
 
-                                    var centeredData = rawData.Select(x => x - meanToSubtract).ToArray();
+                            // Filter / Thresholding
+                            var filteredData = ApplyThresholding(rawData); // ตรวจสอบว่าฟังก์ชันนี้สร้าง Array ใหม่หรือไม่ ถ้าแก้ให้รับ Span หรือ Array ได้จะดีมาก
 
-                                    // 2. Filter / Thresholding
-                                    var filteredData = ApplyThresholding(centeredData);
+                            if (filteredData.Length > 0)
+                            {
+                                double hMin = 0;
+                                double hMax = 16383;
 
-                                    if (filteredData.Length > 0)
-                                    {
-                                        double hMin = 0;
-                                        double hMax = 16383;
+                                // ScottPlot Histogram
+                                var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: hMin, max: hMax, binCount: 16383);
 
-                                        var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: hMin, max: hMax, binCount: 16383);
-
-                                        double[] binCenters = binEdges.Take(binEdges.Length - 1).Select(b => b + 0.5).ToArray();
-
-                                        // X-Axis Conversion
-                                        if (SelectedXAxisIndex == 1) // Voltage
-                                            binCenters = binCenters.Select(v => ((v / 16383.0) * 5) * 1000).ToArray();
-                                        else if (SelectedXAxisIndex == 2) // Energy
-                                            binCenters = binCenters.Select(v => v * 1.0).ToArray(); // Placeholder conversion
-
-                                        ProcessChannelData(chIndex, filteredData, counts, binCenters);
-                                    }
+                                // สร้าง BinCenters
+                                double[] binCenters = new double[binEdges.Length - 1];
+                                for (int k = 0; k < binCenters.Length; k++)
+                                {
+                                    double center = binEdges[k] + 0.5;
+                                    // Apply X-Axis Conversion ใน Loop เดียว
+                                    if (SelectedXAxisIndex == 1) // Voltage
+                                        binCenters[k] = ((center / 16383.0) * 5) * 1000;
                                     else
-                                    {
-                                        Channels[chIndex].StatsText = "No Signal";
-                                        Channels[chIndex].Counts = new double[0];
-                                    }
-                                }
-                                else
-                                {
-                                    Channels[chIndex].StatsText = "No Data";
+                                        binCenters[k] = center;
                                 }
 
-                                int currentCh = i + 1;
-                                System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 50 + ((double)currentCh / 16 * 50)); // 50-100%
+                                // UI Update (ต้องระวัง Thread Safety)
+                                ProcessChannelData(chIndex, filteredData, counts, binCenters);
+                            }
+                            else
+                            {
+                                UpdateChannelStatsSafe(chIndex, "No Signal", new double[0]);
                             }
                         }
-                    }
-                }, _cts.Token);
+                        else
+                        {
+                            UpdateChannelStatsSafe(chIndex, "No Data", null);
+                        }
 
+                        // Update Progress (Thread Safe)
+                        lock (processedLock)
+                        {
+                            processedCount++;
+                            double progress = 50 + ((double)processedCount / 16 * 50);
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = progress);
+                        }
+
+                    });
+                }, _cts.Token);
                 stopWatch.Stop();
                 StopTimeStr = DateTime.Now.ToString("HH:mm:ss");
                 DurationStr = $"{stopWatch.ElapsedMilliseconds} ms";
@@ -253,8 +294,7 @@ namespace BaselineMode.WPF.ViewModels
                 {
                     // Notify View
                     RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
-                    StatusMessage = $"Processed {ProcessedData.Count} events.";
-                    CanSaveMean = true;
+                    StatusMessage = $"Processed {ProcessedData.Count} events. Time: {DurationStr}"; CanSaveMean = true;
                 }
             }
             catch (Exception ex)
@@ -267,7 +307,20 @@ namespace BaselineMode.WPF.ViewModels
                 _cts = null;
             }
         }
+        // Helper เพื่อป้องกัน Cross-thread exception เวลา update UI object จาก Parallel Loop
+        private void UpdateChannelStatsSafe(int chIndex, string msg, double[] counts)
+        {
+            // สมมติว่า Channels เป็น ObservableCollection หรือ List ที่ผูกกับ UI
+            // การแก้ไขค่าข้างในอาจต้องทำบน UI Thread หรือใช้ lock ถ้า object นั้นไม่ได้ thread-safe
+            // แต่ถ้า Channels[i] แยกกันอิสระ มักจะแก้ property พื้นฐานได้ (แต่ระวัง ObservableCollection จะเด้ง event)
 
+            // ทางที่ดีที่สุด:
+            lock (Channels)
+            {
+                Channels[chIndex].StatsText = msg;
+                if (counts != null) Channels[chIndex].Counts = counts;
+            }
+        }
         private double[] ApplyThresholding(double[] centeredData)
         {
             if (!UseThresholding) return centeredData;

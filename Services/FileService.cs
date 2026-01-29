@@ -28,109 +28,166 @@ namespace BaselineMode.WPF.Services
         }
 
         // ---------------------------------------------------------
-        // 1. Parsing แบบ Zero-Allocation (สไตล์ Rust)
+        // 1. Parsing + Processing แบบ Streaming (True Zero-Allocation Logic)
         // ---------------------------------------------------------
 
-        // เปลี่ยน Return Type เป็น List<string> เหมือนเดิมเพื่อให้เข้ากับโค้ดส่วนอื่น 
-        // แต่ภายในเราจะลด allocation ให้น้อยที่สุด
-        public List<string> ParseRawTextFile(string filePath)
+        // รวม Parse และ Process ไว้ด้วยกัน หรือรับเป็น IEnumerable เพื่อไม่ต้องรอโหลดเสร็จทั้งไฟล์
+        public List<BaselineData> ProcessFileStream(string filePath, IProgress<double> progress = null)
         {
-            // Read file with optimized buffer size
-            // Note: For extremely large files, FileStream with buffer is better, but ReadAllText is simplified here.
-            string content = File.ReadAllText(filePath, Encoding.ASCII);
+            var results = new List<BaselineData>(); // หรือจะ estimate capacity ถ้ารู้ขนาดไฟล์
 
-            // Manual whitespace cleaning logic could be here for zero-allocation,
-            // but keeping Regex + Substring for now as it's not the crash cause.
-            // The user focused on ProcessHexSegments optimization.
-            var cleanedData = WhitespaceRegex.Replace(content, string.Empty);
-            var matches = Regex.Matches(cleanedData, @"E225[0-9A-F]+");
-
-            var segments = new List<string>(matches.Count * 2);
-
-            foreach (Match match in matches)
+            // ใช้ StreamReader เพื่ออ่านทีละส่วน ไม่โหลดทั้งไฟล์
+            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 65536))
+            using (var sr = new StreamReader(fs, Encoding.ASCII))
             {
-                var segment = match.Value;
-                int segmentLength = segment.Length;
+                // Buffer สำหรับเก็บข้อมูลที่อ่านมา (ให้ใหญ่พอสมควร)
+                char[] fileBuffer = new char[65536];
 
-                for (int i = 0; i < segmentLength; i += CHUNK_SIZE)
+                // Buffer สำหรับสะสม string hex ที่ clean แล้ว (ต้องใหญ่กว่า CHUNK_SIZE)
+                // เราจะใช้ StringBuilder หรือ char array มาต่อกันก็ได้ แต่เพื่อความง่ายใช้ StringBuilder
+                // *Optimization: จริงๆ ถ้าไฟล์ format เป๊ะๆ อ่านข้าม whitespace ได้เลยไม่ต้อง copy*
+                StringBuilder hexAccumulator = new StringBuilder(CHUNK_SIZE * 2);
+
+                int charsRead;
+                long totalBytes = fs.Length;
+                long processedBytes = 0;
+
+                // Pool สำหรับ ProcessHex (Reused)
+                var arrayPool = System.Buffers.ArrayPool<int>.Shared;
+                int[] l1l2Dec = arrayPool.Rent(BUFFER_SIZE);
+                int[] l6l7Dec = arrayPool.Rent(BUFFER_SIZE);
+
+                try
                 {
-                    int remainingLength = segmentLength - i;
-                    if (remainingLength >= CHUNK_SIZE)
+                    while ((charsRead = sr.Read(fileBuffer, 0, fileBuffer.Length)) > 0)
                     {
-                        segments.Add(segment.Substring(i, CHUNK_SIZE));
-                    }
-                }
-            }
+                        processedBytes += charsRead;
 
-            return segments;
-        }
-
-        public List<BaselineData> ProcessHexSegments(List<string> segments, IProgress<double> progress = null)
-        {
-            // Pre-allocate with exact capacity
-            var results = new List<BaselineData>(segments.Count * SAMPLES_PER_SEGMENT);
-
-            // ✅ Zero-Allocation Optimization: Allocate ONCE on stack, reuse for all iterations.
-            // This prevents Stack Overflow while maintaining high performance.
-            // SAFE: Rent from ArrayPool<int> is thread-safe and re-entrant.
-            var arrayPool = System.Buffers.ArrayPool<int>.Shared;
-            int[] l1l2Dec = arrayPool.Rent(BUFFER_SIZE);
-            int[] l6l7Dec = arrayPool.Rent(BUFFER_SIZE);
-            try
-            {
-                int segmentIndex = 0;
-                foreach (var segmentStr in segments)
-                {
-                    // Zero-copy span from string
-                    ReadOnlySpan<char> segmentSpan = segmentStr.AsSpan();
-                    // Extract Packet No
-                    int samplingPacket = ExtractSamplingPacket(segmentSpan);
-
-                    for (int i = 0; i < SAMPLES_PER_SEGMENT; i++)
-                    {
-                        var data = new BaselineData
+                        // ลูปกรอง Whitespace และสะสมตัวอักษร
+                        for (int i = 0; i < charsRead; i++)
                         {
-                            SamplingPacketNo = samplingPacket,
-                            SamplingNo = i + 1,
-                        };
-
-                        int l1l2Offset = 18 + 64 * i * 2;
-                        int l6l7Offset = 978 + 64 * i * 2;
-
-                        // Create spans for rented buffers
-                        Span<int> l1l2Span = new Span<int>(l1l2Dec, 0, BUFFER_SIZE);
-                        Span<int> l6l7Span = new Span<int>(l6l7Dec, 0, BUFFER_SIZE);
-
-                        // Pass the reusable stack buffers to be filled
-                        if (!ParseHexToSpan(segmentSpan, l1l2Offset, BUFFER_SIZE, l1l2Dec) ||
-                            !ParseHexToSpan(segmentSpan, l6l7Offset, BUFFER_SIZE, l6l7Dec))
-                        {
-                            continue;
+                            char c = fileBuffer[i];
+                            // กรองเอาเฉพาะ 0-9, A-F, a-f
+                            if (IsHexChar(c))
+                            {
+                                hexAccumulator.Append(c);
+                            }
                         }
 
-                        ProcessChannels(data, l1l2Dec, l6l7Dec);
-                        results.Add(data);
+                        // ถ้าสะสมครบ หรือ เกิน CHUNK_SIZE แล้ว ให้ตัดมา Process
+                        ProcessAccumulatedHex(hexAccumulator, results, l1l2Dec, l6l7Dec);
+
+                        // Report Progress
+                        if (progress != null && results.Count % 1000 == 0)
+                        {
+                            progress.Report((double)processedBytes / totalBytes * 100);
+                        }
                     }
 
-                    if (progress != null && (++segmentIndex % 10 == 0))
-                    {
-                        double currentProgress = (double)segmentIndex / segments.Count * 100;
-                        progress.Report(currentProgress);
-                    }
+                    // Process ส่วนที่เหลือ (ถ้ามี)
+                    ProcessAccumulatedHex(hexAccumulator, results, l1l2Dec, l6l7Dec, force: true);
+                }
+                finally
+                {
+                    arrayPool.Return(l1l2Dec);
+                    arrayPool.Return(l6l7Dec);
                 }
             }
-            finally
-            {
-                arrayPool.Return(l1l2Dec);
-                arrayPool.Return(l6l7Dec);
-            }
+
             return results;
+        }
+
+        private void ProcessAccumulatedHex(StringBuilder sb, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec, bool force = false)
+        {
+            // Pattern: E225... (Length = CHUNK_SIZE)
+            // เราจะวนลูปหา E225 แล้วตัดออกมา Process
+
+            string bufferStr = sb.ToString();
+            int searchIndex = 0;
+
+            while (searchIndex < bufferStr.Length)
+            {
+                // หา header "E225"
+                int headerIndex = bufferStr.IndexOf("E225", searchIndex, StringComparison.OrdinalIgnoreCase);
+
+                if (headerIndex == -1)
+                {
+                    // ไม่เจอ Header เลย
+                    // ถ้า force (จบไฟล์) ก็เคลียร์ทิ้ง ถ้ายังไม่จบ เก็บเศษไว้รอรอบหน้า
+                    if (force) sb.Clear();
+                    else
+                    {
+                        // เก็บส่วนท้ายที่อาจจะเป็น Header ไม่ครบไว้ (เช่นเจอ E2..)
+                        // เพื่อความง่าย ตัดทิ้งเหลือ 0 หรือเก็บ 3 ตัวท้าย (กรณี E, 2, 2 อยู่ท้าย)
+                        // แต่ Logic นี้ซับซ้อน เอาแบบง่ายคือ remove ส่วนที่ process แล้วออก
+                        sb.Remove(0, searchIndex);
+                    }
+                    return;
+                }
+
+                // เจอ Header เช็คว่ามีข้อมูลพอไหม
+                if (headerIndex + CHUNK_SIZE <= bufferStr.Length)
+                {
+                    // **Process ตรงนี้เลย ไม่ต้องสร้าง List<string>**
+                    // ใช้ AsSpan เพื่อลด allocation ตอน substring
+                    ReadOnlySpan<char> segmentSpan = bufferStr.AsSpan(headerIndex, CHUNK_SIZE);
+
+                    ProcessSingleSegment(segmentSpan, results, l1l2Dec, l6l7Dec);
+
+                    // ขยับ index ไปหาตัวถัดไป
+                    searchIndex = headerIndex + CHUNK_SIZE;
+                }
+                else
+                {
+                    // เจอ Header แต่ข้อมูลยังไม่ครบ CHUNK_SIZE (รอรอบหน้า)
+                    // ลบส่วนที่ process ไปแล้วออก
+                    sb.Remove(0, searchIndex);
+                    return;
+                }
+            }
+
+            // ลบทั้งหมดถ้า process จบพอดี
+            sb.Remove(0, searchIndex);
+        }
+
+        // แยก Logic ออกมาทำทีละ Segment
+        private void ProcessSingleSegment(ReadOnlySpan<char> segmentSpan, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec)
+        {
+            int samplingPacket = ExtractSamplingPacket(segmentSpan);
+
+            for (int i = 0; i < SAMPLES_PER_SEGMENT; i++)
+            {
+                var data = new BaselineData
+                {
+                    SamplingPacketNo = samplingPacket,
+                    SamplingNo = i + 1,
+                };
+
+                int l1l2Offset = 18 + 64 * i * 2;
+                int l6l7Offset = 978 + 64 * i * 2;
+
+                if (!ParseHexToSpan(segmentSpan, l1l2Offset, BUFFER_SIZE, l1l2Dec) ||
+                    !ParseHexToSpan(segmentSpan, l6l7Offset, BUFFER_SIZE, l6l7Dec))
+                {
+                    continue;
+                }
+
+                ProcessChannels(data, l1l2Dec, l6l7Dec);
+                results.Add(data);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IsHexChar(char c)
+        {
+            return (c >= '0' && c <= '9') ||
+                   (c >= 'A' && c <= 'F') ||
+                   (c >= 'a' && c <= 'f');
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int ExtractSamplingPacket(ReadOnlySpan<char> hexDataSpan)
         {
-            // Position 16*2 = 32, take 2 bytes (4 chars)
             int byte1 = HexCharToInt(hexDataSpan[32]) * 16 + HexCharToInt(hexDataSpan[33]);
             int byte2 = HexCharToInt(hexDataSpan[34]) * 16 + HexCharToInt(hexDataSpan[35]);
             return (byte1 << 8) | byte2;
@@ -139,9 +196,7 @@ namespace BaselineMode.WPF.Services
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool ParseHexToSpan(ReadOnlySpan<char> hexDataSpan, int startOffset, int byteCount, Span<int> output)
         {
-            if (startOffset + byteCount * 2 > hexDataSpan.Length)
-                return false;
-
+            if (startOffset + byteCount * 2 > hexDataSpan.Length) return false;
             for (int i = 0; i < byteCount; i++)
             {
                 int pos = startOffset + i * 2;
@@ -296,6 +351,15 @@ namespace BaselineMode.WPF.Services
                 int rowCount = ws.Dimension.Rows;
                 int colCount = ws.Dimension.Columns;
                 int dataRows = rowCount - 1;
+
+                if (dataRows <= 0)
+                {
+                    MessageBoxService.Show($"Excel file found but appears empty (Rows: {rowCount}).", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    return new List<BaselineData>();
+                }
+
+                // Debug Message
+                // MessageBoxService.Show($"Found {dataRows} data rows in Excel.", "Debug", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
 
                 // Load all data into memory at once
                 var rawValues = ws.Cells[2, 1, rowCount, colCount].Value as object[,];

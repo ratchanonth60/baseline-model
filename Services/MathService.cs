@@ -14,7 +14,7 @@ namespace BaselineMode.WPF.Services
         private const double MIN_VALUE = 1e-9;
         private const double MAX_EXP_ARG = 100;
 
-        // ✅ SAFE: Reusable ArrayPool
+        // SAFE: Reusable ArrayPool
         private static readonly ArrayPool<double> _doublePool = ArrayPool<double>.Shared;
         private static readonly ArrayPool<double[]> _jaggedPool = ArrayPool<double[]>.Shared;
 
@@ -95,7 +95,7 @@ namespace BaselineMode.WPF.Services
             double variance = sumWeightedSqDiff / totalWeight;
             double sigma = Math.Sqrt(variance);
 
-            // ✅ Debug:
+            //  Debug:
             Console.WriteLine($"CalculateMoments: peak={peak:F1}, mean={mean:F1}, sigma={sigma:F1}, totalWeight={totalWeight:F1}");
 
             return (mean, sigma, peak);
@@ -121,7 +121,7 @@ namespace BaselineMode.WPF.Services
 
         /// <summary>
         /// Performs Levenberg-Marquardt optimization to fit a Gaussian curve.
-        /// ✅ SAFE MEMORY: Uses ArrayPool for all temporary allocations
+        ///  SAFE MEMORY: Uses ArrayPool for all temporary allocations
         /// </summary>
         public (double[] fitCurve, double mu, double sigma, double peak, double rms) GaussianFit(
             double[] xData, double[] yData)
@@ -130,10 +130,10 @@ namespace BaselineMode.WPF.Services
 
             Console.WriteLine($"GaussianFit Ch: peak={peak_guess:F1}, mu={mu_guess:F1}, sigma={sigma_guess:F1}");
 
-            // ✅ Validate initial parameters
+            //  Validate initial parameters
             if (peak_guess <= 0 || sigma_guess <= 0 || double.IsNaN(mu_guess) || double.IsInfinity(sigma_guess))
             {
-                Console.WriteLine($"❌ Invalid parameters, returning empty fit");
+                Console.WriteLine($" Invalid parameters, returning empty fit");
                 return (new double[xData.Length], 0, 0, 0, 0); // Return zeros
             }
 
@@ -146,7 +146,7 @@ namespace BaselineMode.WPF.Services
                 double diff = xData[i] - mu_guess;
                 double exponent = -0.5 * diff * diff / sigma2;
 
-                // ✅ Clamp exponent to prevent underflow
+                //  Clamp exponent to prevent underflow
                 if (exponent < -100) exponent = -100;
 
                 fitCurve[i] = peak_guess * Math.Exp(exponent);
@@ -157,7 +157,7 @@ namespace BaselineMode.WPF.Services
 
             if (maxFit == 0 || double.IsNaN(maxFit))
             {
-                Console.WriteLine($"❌ FitCurve generation failed");
+                Console.WriteLine($" FitCurve generation failed");
                 return (new double[xData.Length], 0, 0, 0, 0);
             }
 
@@ -199,7 +199,7 @@ namespace BaselineMode.WPF.Services
 
         /// <summary>
         /// Performs Levenberg-Marquardt optimization to fit a Hyper-EMG curve.
-        /// ✅ SAFE MEMORY: Uses ArrayPool for all temporary allocations
+        ///  SAFE MEMORY: Uses ArrayPool for all temporary allocations
         /// </summary>
         public (double[] fitCurve, double mu, double sigma, double peak, double rms) HyperEMGFit(
             double[] xData, double[] yData)
@@ -211,11 +211,11 @@ namespace BaselineMode.WPF.Services
 
             if (peak_guess <= 0 || sigma_guess <= 0)
             {
-                Console.WriteLine($"❌ Invalid initial guess for Hyper-EMG");
+                Console.WriteLine($" Invalid initial guess for Hyper-EMG");
                 return (new double[xData.Length], mu_guess, sigma_guess, peak_guess, 0);
             }
 
-            // ✅ ใช้ Simple EMG แทน Full Optimization
+            //  ใช้ Simple EMG แทน Full Optimization
             double A = peak_guess * sigma_guess * SQRT_2PI;
             double tau = sigma_guess * 0.5; // Tail parameter (ลองปรับ 0.3-0.8)
 
@@ -233,7 +233,7 @@ namespace BaselineMode.WPF.Services
 
             Console.WriteLine($"Generated Simple Hyper-EMG fitCurve: max={maxVal:F1}");
 
-            // ✅ Scale to match peak if needed
+            //  Scale to match peak if needed
             if (maxVal > 0 && Math.Abs(maxVal - peak_guess) > peak_guess * 0.3)
             {
                 double scale = peak_guess / maxVal;
@@ -260,7 +260,7 @@ namespace BaselineMode.WPF.Services
             double sigma2 = sigma * sigma;
             double expArg = (sigma2 * 0.5 * invTau * invTau) - ((x - mu) * invTau);
 
-            // ✅ Prevent overflow
+            //  Prevent overflow
             if (expArg > MAX_EXP_ARG) expArg = MAX_EXP_ARG;
             if (expArg < -MAX_EXP_ARG) expArg = -MAX_EXP_ARG;
 
@@ -268,7 +268,7 @@ namespace BaselineMode.WPF.Services
 
             double emgVal = (A * 0.5 * invTau) * Math.Exp(expArg) * Erfc(erfcArg);
 
-            // ✅ Check for NaN/Infinity
+            //  Check for NaN/Infinity
             if (double.IsNaN(emgVal) || double.IsInfinity(emgVal))
                 return 0;
 
@@ -304,7 +304,7 @@ namespace BaselineMode.WPF.Services
 
         /// <summary>
         /// Generic solver for larger systems using Gaussian elimination
-        /// ✅ SAFE MEMORY: Uses ArrayPool for temporary allocations
+        ///  SAFE MEMORY: Uses ArrayPool for temporary allocations
         /// </summary>
         private double[] SolveLinearSystem(double[][] A, double[] b, int n)
         {
@@ -312,7 +312,7 @@ namespace BaselineMode.WPF.Services
             if (n == 3)
                 return SolveLinearSystem3x3(A, b);
 
-            // ✅ SAFE: Rent working matrix from pool
+            //  SAFE: Rent working matrix from pool
             double[][] M = _jaggedPool.Rent(n);
 
             try
@@ -365,7 +365,7 @@ namespace BaselineMode.WPF.Services
             }
             finally
             {
-                // ✅ CRITICAL: Return all rented arrays
+                //  CRITICAL: Return all rented arrays
                 for (int i = 0; i < n; i++)
                 {
                     if (M[i] != null)
