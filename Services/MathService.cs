@@ -72,16 +72,16 @@ namespace BaselineMode.WPF.Services
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(MathService));
-            
+
             if (xData == null)
                 throw new ArgumentNullException(nameof(xData));
-            
+
             if (yData == null)
                 throw new ArgumentNullException(nameof(yData));
-            
+
             if (xData.Length != yData.Length)
                 throw new ArgumentException("xData and yData must have the same length");
-            
+
             int length = xData.Length;
             if (length == 0) return (0, 0, 0);
 
@@ -123,13 +123,13 @@ namespace BaselineMode.WPF.Services
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(MathService));
-            
+
             if (xData == null || yData == null)
                 throw new ArgumentNullException(xData == null ? nameof(xData) : nameof(yData));
-            
+
             if (xData.Length != yData.Length)
                 throw new ArgumentException("xData and yData must have the same length");
-            
+
             double sumSquaredDifferences = 0;
             double totalWeight = 0;
             int length = xData.Length;
@@ -144,6 +144,151 @@ namespace BaselineMode.WPF.Services
 
             return totalWeight < MIN_VALUE ? 0 : Math.Sqrt(sumSquaredDifferences / totalWeight);
         }
+        // Services/MathService.cs
+        private (double mu, double sigma, double peak) OptimizeGaussian(
+            double[] xData, double[] yData, double mu0, double sigma0, double peak0)
+        {
+            // Simple gradient descent optimization
+            double mu = mu0;
+            double sigma = sigma0;
+            double peak = peak0;
+
+            double learningRate = 0.1;
+            int maxIterations = 100;
+            double tolerance = 1e-6;
+
+            for (int iter = 0; iter < maxIterations; iter++)
+            {
+                // Calculate current error
+                double currentError = 0;
+                double mu_gradient = 0;
+                double sigma_gradient = 0;
+                double peak_gradient = 0;
+
+                double invSigma2 = 1.0 / (sigma * sigma);
+                double invSigma3 = invSigma2 / sigma;
+
+                int validPoints = 0;
+                for (int i = 0; i < xData.Length; i++)
+                {
+                    if (yData[i] <= 0) continue; // Skip zero counts
+
+                    double x = xData[i];
+                    double y_observed = yData[i];
+
+                    // Predicted value
+                    double diff = x - mu;
+                    double exponent = -0.5 * diff * diff * invSigma2;
+                    if (exponent < -MAX_EXP_ARG) continue;
+
+                    double y_predicted = peak * Math.Exp(exponent);
+                    double error = y_predicted - y_observed;
+
+                    currentError += error * error;
+
+                    // Gradients
+                    double exp_term = Math.Exp(exponent);
+                    mu_gradient += 2 * error * peak * exp_term * diff * invSigma2;
+                    sigma_gradient += 2 * error * peak * exp_term * diff * diff * invSigma3;
+                    peak_gradient += 2 * error * exp_term;
+
+                    validPoints++;
+                }
+
+                if (validPoints == 0) break;
+
+                // Normalize gradients
+                currentError /= validPoints;
+                mu_gradient /= validPoints;
+                sigma_gradient /= validPoints;
+                peak_gradient /= validPoints;
+
+                // Check convergence
+                if (Math.Abs(mu_gradient) < tolerance &&
+                    Math.Abs(sigma_gradient) < tolerance &&
+                    Math.Abs(peak_gradient) < tolerance)
+                {
+                    break;
+                }
+
+                // Update parameters
+                double step = learningRate / (1 + iter * 0.01); // Adaptive learning rate
+                mu -= step * mu_gradient;
+                sigma -= step * sigma_gradient;
+                peak -= step * peak_gradient;
+
+                // Constraints
+                if (sigma < MIN_VALUE) sigma = MIN_VALUE;
+                if (peak < 0) peak = 0;
+            }
+
+            return (mu, sigma, peak);
+        }
+        public FittingResult GaussianFitWeighted(double[] xData, double[] yData)
+        {
+            // คำนวณ initial guess
+            var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
+
+            if (peak_guess <= 0 || sigma_guess <= MIN_VALUE)
+            {
+                return FittingResult.Empty(xData.Length);
+            }
+
+            // Refine parameters using weighted fit
+            // แทนที่จะ optimize ทั้งหมด เราจะใช้ weighted moments รอบ peak
+
+            // 1. หา peak index
+            int peakIdx = 0;
+            double maxY = yData[0];
+            for (int i = 1; i < yData.Length; i++)
+            {
+                if (yData[i] > maxY)
+                {
+                    maxY = yData[i];
+                    peakIdx = i;
+                }
+            }
+
+            // 2. สร้าง window รอบ peak (±3 sigma)
+            double windowSize = 3 * sigma_guess;
+            double peakX = xData[peakIdx];
+
+            double weightedSum = 0;
+            double weightedSumX = 0;
+            double weightedSumX2 = 0;
+
+            for (int i = 0; i < xData.Length; i++)
+            {
+                if (Math.Abs(xData[i] - peakX) <= windowSize && yData[i] > 0)
+                {
+                    double weight = yData[i];
+                    weightedSum += weight;
+                    weightedSumX += weight * xData[i];
+                    weightedSumX2 += weight * xData[i] * xData[i];
+                }
+            }
+
+            // 3. Recalculate parameters
+            double mu_refined = weightedSumX / weightedSum;
+            double variance = (weightedSumX2 / weightedSum) - (mu_refined * mu_refined);
+            double sigma_refined = Math.Sqrt(Math.Max(variance, MIN_VALUE));
+            double peak_refined = maxY; // Peak height จาก histogram โดยตรง
+
+            // 4. Generate fit curve
+            double[] fitCurve = new double[xData.Length];
+            double invSigma2 = 1.0 / (sigma_refined * sigma_refined);
+
+            for (int i = 0; i < xData.Length; i++)
+            {
+                double diff = xData[i] - mu_refined;
+                double exponent = -0.5 * diff * diff * invSigma2;
+                exponent = Math.Max(exponent, -MAX_EXP_ARG);
+                fitCurve[i] = peak_refined * Math.Exp(exponent);
+            }
+
+            double rms = CalculateRMS(xData, fitCurve, mu_refined);
+            return new FittingResult(fitCurve, mu_refined, sigma_refined, peak_refined, rms);
+        }
 
         /// <summary>
         /// Performs Gaussian curve fitting with optimized calculations.
@@ -152,53 +297,69 @@ namespace BaselineMode.WPF.Services
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public FittingResult GaussianFit(double[] xData, double[] yData)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(MathService));
-            
-            if (xData == null || yData == null)
-                throw new ArgumentNullException(xData == null ? nameof(xData) : nameof(yData));
-            
-            if (xData.Length != yData.Length)
-                throw new ArgumentException("xData and yData must have the same length");
-            
-            var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
-
-            // Validate initial parameters
-            if (peak_guess <= 0 || sigma_guess <= MIN_VALUE || double.IsNaN(mu_guess) || double.IsInfinity(sigma_guess))
+            // Step 1: Find peak
+            int peakIdx = 0;
+            double maxCount = yData[0];
+            for (int i = 1; i < yData.Length; i++)
             {
-                return FittingResult.Empty(xData.Length);
+                if (yData[i] > maxCount)
+                {
+                    maxCount = yData[i];
+                    peakIdx = i;
+                }
             }
 
-            // Pre-compute constants for Gaussian
-            int length = xData.Length;
-            double[] fitCurve = new double[length];
-            double invSigma2 = 1.0 / (sigma_guess * sigma_guess);
-            double negHalfInvSigma2 = -0.5 * invSigma2;
-            double maxFit = 0;
+            if (maxCount <= 0)
+                return FittingResult.Empty(xData.Length);
 
-            // Vectorized Gaussian generation
-            for (int i = 0; i < length; i++)
+            double peakPosition = xData[peakIdx];
+
+            // Step 2: Calculate weighted mean and sigma around peak
+            double totalWeight = 0;
+            double weightedSumX = 0;
+            double weightedSumX2 = 0;
+
+            // Use data within ±50% of peak height
+            double threshold = maxCount * 0.1; // 10% threshold
+
+            for (int i = 0; i < yData.Length; i++)
             {
-                double diff = xData[i] - mu_guess;
-                double exponent = negHalfInvSigma2 * diff * diff;
+                if (yData[i] >= threshold)
+                {
+                    double weight = yData[i];
+                    totalWeight += weight;
+                    weightedSumX += weight * xData[i];
+                    weightedSumX2 += weight * xData[i] * xData[i];
+                }
+            }
 
-                // Clamp to prevent underflow
+            if (totalWeight <= 0)
+                return FittingResult.Empty(xData.Length);
+
+            // Calculate parameters
+            double mu = weightedSumX / totalWeight;
+            double variance = (weightedSumX2 / totalWeight) - (mu * mu);
+            double sigma = Math.Sqrt(Math.Max(variance, MIN_VALUE));
+
+            // Step 3: Generate Gaussian fit
+            double[] fitCurve = new double[xData.Length];
+            double coeff = 1.0 / (sigma * SQRT_2PI);
+            double invSigma2 = 1.0 / (sigma * sigma);
+
+            for (int i = 0; i < xData.Length; i++)
+            {
+                double diff = xData[i] - mu;
+                double exponent = -0.5 * diff * diff * invSigma2;
                 exponent = Math.Max(exponent, -MAX_EXP_ARG);
+                double gaussianValue = coeff * Math.Exp(exponent);
 
-                double value = peak_guess * Math.Exp(exponent);
-                fitCurve[i] = value;
-                if (value > maxFit) maxFit = value;
+                // Scale to match peak height
+                fitCurve[i] = gaussianValue * (maxCount / (coeff * Math.Exp(0)));
             }
 
-            if (maxFit < MIN_VALUE || double.IsNaN(maxFit))
-            {
-                return FittingResult.Empty(xData.Length);
-            }
-
-            double finalRMS = CalculateRMS(xData, fitCurve, mu_guess);
-            return new FittingResult(fitCurve, mu_guess, sigma_guess, peak_guess, finalRMS);
+            double rms = CalculateRMS(xData, fitCurve, mu);
+            return new FittingResult(fitCurve, mu, sigma, maxCount, rms);
         }
-
         /// <summary>
         /// Optimized 3x3 linear system solver using Cramer's rule
         /// </summary>

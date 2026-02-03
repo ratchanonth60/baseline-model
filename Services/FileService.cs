@@ -38,13 +38,13 @@ namespace BaselineMode.WPF.Services
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(FileService));
-            
+
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentNullException(nameof(filePath));
-            
+
             if (!File.Exists(filePath))
                 throw new FileNotFoundException("File not found", filePath);
-            
+
             // Estimate initial capacity to reduce List resizing
             long fileSize = new FileInfo(filePath).Length;
             int estimatedCapacity = (int)Math.Min(fileSize / (CHUNK_SIZE * 2), 100000);
@@ -105,10 +105,10 @@ namespace BaselineMode.WPF.Services
                     Array.Clear(l1l2Dec, 0, l1l2Dec.Length);
                     Array.Clear(l6l7Dec, 0, l6l7Dec.Length);
                     Array.Clear(fileBuffer, 0, fileBuffer.Length);
-                    
+
                     arrayPool.Return(l1l2Dec);
                     arrayPool.Return(l6l7Dec);
-                    
+
                     // Clear string builder
                     hexAccumulator.Clear();
                 }
@@ -183,8 +183,8 @@ namespace BaselineMode.WPF.Services
                     SamplingNo = i + 1,
                 };
 
-                int l1l2Offset = 18 + 64 * i * 2;
-                int l6l7Offset = 978 + 64 * i * 2;
+                int l1l2Offset = 36 + 64 * i * 2;
+                int l6l7Offset = 1956 + 64 * i * 2;
 
                 if (!ParseHexToSpan(segmentSpan, l1l2Offset, BUFFER_SIZE, l1l2Dec) ||
                     !ParseHexToSpan(segmentSpan, l6l7Offset, BUFFER_SIZE, l6l7Dec))
@@ -268,13 +268,13 @@ namespace BaselineMode.WPF.Services
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(FileService));
-            
+
             if (dataList == null)
                 throw new ArgumentNullException(nameof(dataList));
-            
+
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentNullException(nameof(filePath));
-            
+
             // Ensure directory exists
             var dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
@@ -285,12 +285,12 @@ namespace BaselineMode.WPF.Services
             // Delete if exists to overwrite
             if (File.Exists(filePath))
             {
-                try 
-                { 
-                    File.Delete(filePath); 
+                try
+                {
+                    File.Delete(filePath);
                 }
-                catch 
-                { 
+                catch
+                {
                     // File might be locked, EPPlus will handle
                 }
             }
@@ -383,13 +383,13 @@ namespace BaselineMode.WPF.Services
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(FileService));
-            
+
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentNullException(nameof(filePath));
-            
+
             if (!File.Exists(filePath))
                 throw new FileNotFoundException("Excel file not found", filePath);
-            
+
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             {
                 var ws = package.Workbook.Worksheets[0];
@@ -410,7 +410,7 @@ namespace BaselineMode.WPF.Services
 
                 // Load all data into memory at once
                 var rawValues = ws.Cells[2, 1, rowCount, colCount].Value as object[,];
-                
+
                 if (rawValues == null)
                 {
                     MessageBoxService.Show("Unable to read Excel data.", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
@@ -419,7 +419,7 @@ namespace BaselineMode.WPF.Services
 
                 // Pre-allocate with exact capacity
                 var results = new List<BaselineData>(dataRows);
-                
+
                 for (int r = 0; r < dataRows; r++)
                 {
                     var data = new BaselineData();
@@ -485,6 +485,8 @@ namespace BaselineMode.WPF.Services
                 {
                     // Managed resources cleanup (if any)
                     // Currently no managed resources to dispose
+                    ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
                 }
                 _disposed = true;
             }

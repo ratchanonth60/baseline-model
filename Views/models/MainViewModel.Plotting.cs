@@ -79,34 +79,89 @@ namespace BaselineMode.WPF.Views.models
                 _ => (d) => d.L1
             };
 
-            // Process all channels (X and Z) simultaneously regardless of selection
             for (int i = 0; i < 16; i++)
             {
                 int chIndex = i;
-
                 var rawData = ProcessedData.Select(d => layerSelector(d)[chIndex]).ToArray();
 
                 if (rawData.Length > 0)
                 {
-                    // Determine if baseline subtraction is needed (modes 1 and 3)
-                    bool applyBaselineSubtraction = (SelectedBaselineMode == 1 || SelectedBaselineMode == 3);
-                    double meanToSubtract = applyBaselineSubtraction ? rawData.Average() : 0;
-                    var centeredData = rawData.Select(x => x - meanToSubtract).ToArray();
+                    double[] processedData;
+                    double meanToSubtract = 0;
 
-                    var filteredData = ApplyThresholding(centeredData);
+                    // ตรวจสอบว่าต้องลบ baseline หรือไม่
+                    bool shouldSubtract = (SelectedBaselineMode == 1 || SelectedBaselineMode == 3);
 
-                    if (filteredData.Length > 0)
+                    if (shouldSubtract)
                     {
-                        var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: 0, max: 16383, binCount: 16383);
-                        double[] binCenters = binEdges.Take(binEdges.Length - 1).Select(b => b + 0.5).ToArray();
+                        // คำนวณ mean
+                        double currentMean = rawData.Average();
 
-                        if (SelectedXAxisIndex == 1)
-                            binCenters = binCenters.Select(v => ((v / 16383.0) * 5) * 1000).ToArray();
-
-                        // Apply log scale if modes 2 or 3 (log scale modes)
-                        if (SelectedBaselineMode == 2 || SelectedBaselineMode == 3)
+                        if (SelectedMode == 0)
                         {
-                            counts = counts.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
+                            // Load mean from file
+                            meanToSubtract = LoadMeanFromFile(chIndex);
+                            if (meanToSubtract == 0)
+                                meanToSubtract = currentMean;
+                        }
+                        else
+                        {
+                            meanToSubtract = currentMean;
+                        }
+
+                        processedData = rawData.Select(x => x - meanToSubtract).ToArray();
+                    }
+                    else
+                    {
+                        // ไม่ลบ baseline - ใช้ข้อมูลดิบ
+                        processedData = rawData.ToArray();
+                    }
+
+                    // Apply thresholding
+                    var filteredData = ApplyThresholding(processedData);
+
+                    if (filteredData.Length > 5)
+                    {
+                        // *** FIX: คำนวณ histogram range ให้ถูกต้อง ***
+                        double minVal, maxVal;
+
+                        if (shouldSubtract)
+                        {
+                            // หลังลบ baseline อาจมีค่าติดลบ - ใช้ค่าจริง
+                            minVal = filteredData.Min();
+                            maxVal = filteredData.Max();
+
+                            // ขยาย range เล็กน้อย
+                            double range = maxVal - minVal;
+                            minVal -= range * 0.05;
+                            maxVal += range * 0.05;
+                        }
+                        else
+                        {
+                            // ก่อนลบ baseline - ใช้ ADC range ปกติ
+                            minVal = 0;
+                            maxVal = 16383;
+                        }
+
+                        // สร้าง histogram
+                        var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
+                            filteredData,
+                            min: minVal,
+                            max: maxVal,
+                            binCount: 16384);
+
+                        // คำนวณ bin centers แบบเดียวกับ WinForms
+                        double[] binCenters = new double[binEdges.Length - 1];
+                        for (int k = 0; k < binCenters.Length; k++)
+                        {
+                            binCenters[k] = (binEdges[k] + binEdges[k + 1]) / 2.0;
+                        }
+
+                        // Voltage conversion (ถ้าเลือก)
+                        if (SelectedXAxisIndex == 1 && !shouldSubtract)
+                        {
+                            // แปลงเป็น Voltage เฉพาะตอนไม่ลบ baseline
+                            binCenters = binCenters.Select(v => ((v / 16383.0) * 5) * 1000).ToArray();
                         }
 
                         ProcessChannelData(chIndex, filteredData, counts, binCenters);
@@ -115,13 +170,7 @@ namespace BaselineMode.WPF.Views.models
                     {
                         Channels[chIndex].StatsText = "No Signal";
                         Channels[chIndex].Counts = new double[0];
-                        Channels[chIndex].RawCounts = new double[0];
                     }
-                }
-                else
-                {
-                    Channels[chIndex].StatsText = "No Data";
-                    Channels[chIndex].RawCounts = new double[0];
                 }
             }
 
@@ -134,30 +183,42 @@ namespace BaselineMode.WPF.Views.models
             double mu = 0, sigma = 0, peak = 0;
             double fwhm = 0, resolution = 0;
 
-            if (UseGaussianFit)
+            if (UseGaussianFit && HasSufficientData(filteredData, counts))
             {
-                if (HasSufficientData(filteredData, counts))
+                try
                 {
-                    var result = PerformFit(binCenters, counts);
-                    fitCurveLinear = result.FitCurve;
-                    mu = result.Mu;
-                    sigma = result.Sigma;
-                    peak = result.Peak;
+                    FittingResult result;
 
-                    // คำนวณ FWHM และ Resolution
-                    fwhm = 2.355 * sigma; // FWHM = 2.355 * σ สำหรับ Gaussian
-                    resolution = mu != 0 ? (fwhm / mu) * 100 : 0; // Resolution as percentage
+                    if (SelectedFitMethod == 1)
+                    {
+                        // Hyper-EMG
+                        result = _mathService.HyperEMGFit(binCenters, counts);
+                    }
+                    else
+                    {
+                        // Gaussian - ใช้ weighted method ใหม่
+                        result = _mathService.GaussianFit(binCenters, counts);
+                    }
+
+                    if (result.FitCurve != null && result.FitCurve.Length > 0)
+                    {
+                        fitCurveLinear = result.FitCurve;
+                        mu = result.Mu;
+                        sigma = result.Sigma;
+                        peak = result.Peak;
+
+                        // คำนวณ FWHM จาก fit curve
+                        (fwhm, resolution) = CalculateFWHM(binCenters, fitCurveLinear, mu);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Channels[chIndex].StatsText = "No Signal";
-                    Channels[chIndex].FitCurve = null;
-                    Channels[chIndex].RawCounts = new double[0];
-                    return;
+                    System.Diagnostics.Debug.WriteLine($"Fitting error Ch{chIndex}: {ex.Message}");
                 }
             }
             else
             {
+                // No fitting - use moments
                 var moments = _mathService.CalculateMoments(binCenters, counts);
                 mu = moments.mean;
                 sigma = moments.sigma;
@@ -166,24 +227,104 @@ namespace BaselineMode.WPF.Views.models
                 resolution = mu != 0 ? (fwhm / mu) * 100 : 0;
             }
 
+            // Set channel data
             var chVM = Channels[chIndex];
             chVM.BinCenters = binCenters;
             chVM.RawCounts = counts;
 
-            // ใช้ linear scale (ไม่แปลงเป็น log)
-            chVM.Counts = counts;
-            chVM.FitCurve = fitCurveLinear; // ใช้ linear fit curve
+            bool isLogScale = (SelectedBaselineMode == 2 || SelectedBaselineMode == 3);
+            chVM.IsLogScale = isLogScale;
 
-            // เก็บ statistics
+            if (isLogScale)
+            {
+                chVM.Counts = counts.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
+                if (fitCurveLinear != null)
+                    chVM.FitCurve = fitCurveLinear.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
+            }
+            else
+            {
+                chVM.Counts = counts;
+                chVM.FitCurve = fitCurveLinear;
+            }
+
             chVM.Mu = mu;
             chVM.Sigma = sigma;
             chVM.Peak = peak;
             chVM.FWHM = fwhm;
             chVM.Resolution = resolution;
-
             chVM.StatsText = $"μ={mu:F2}, σ={sigma:F2}, FWHM={fwhm:F2}, Res={resolution:F2}%";
         }
 
+        private (double fwhm, double resolution) CalculateFWHM(double[] binCenters, double[] fitCurve, double mu)
+        {
+            if (fitCurve.Length == 0) return (0, 0);
+
+            int peakIdx = Array.IndexOf(fitCurve, fitCurve.Max());
+            double peakHeight = fitCurve[peakIdx];
+            double halfMax = peakHeight / 2.0;
+
+            int leftIdx = -1;
+            for (int i = peakIdx; i >= 0; i--)
+            {
+                if (fitCurve[i] <= halfMax)
+                {
+                    leftIdx = i;
+                    break;
+                }
+            }
+
+            int rightIdx = -1;
+            for (int i = peakIdx; i < fitCurve.Length; i++)
+            {
+                if (fitCurve[i] <= halfMax)
+                {
+                    rightIdx = i;
+                    break;
+                }
+            }
+
+            if (leftIdx >= 0 && rightIdx >= 0 && leftIdx < rightIdx)
+            {
+                double fwhm = binCenters[rightIdx] - binCenters[leftIdx];
+                double resolution = mu != 0 ? (fwhm / mu) * 100 : 0;
+                return (fwhm, resolution);
+            }
+
+            return (0, 0);
+        }
+
+
+        // Helper function - Interpolate fit curve to match bin centers
+        private double[] InterpolateFitCurve(double[] fitBins, double[] fitCurve, double[] targetBins)
+        {
+            if (fitBins.Length != fitCurve.Length || fitBins.Length == 0)
+                return fitCurve;
+
+            double[] result = new double[targetBins.Length];
+
+            for (int i = 0; i < targetBins.Length; i++)
+            {
+                double target = targetBins[i];
+
+                // Find nearest fit bin
+                int nearestIdx = 0;
+                double minDist = Math.Abs(fitBins[0] - target);
+
+                for (int j = 1; j < fitBins.Length; j++)
+                {
+                    double dist = Math.Abs(fitBins[j] - target);
+                    if (dist < minDist)
+                    {
+                        minDist = dist;
+                        nearestIdx = j;
+                    }
+                }
+
+                result[i] = fitCurve[nearestIdx];
+            }
+
+            return result;
+        }
         [RelayCommand]
         private void NextPage()
         {

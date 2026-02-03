@@ -16,7 +16,8 @@ namespace BaselineMode.WPF.Views.models
         public double[]? Counts { get; set; } // Log scale counts for display
         public double[]? RawCounts { get; set; } // Linear scale counts (original)
         public double[]? FitCurve { get; set; }
-
+        [ObservableProperty]
+        private bool _isLogScale = false;
         // Statistics
         public double Mu { get; set; }
         public double Sigma { get; set; }
@@ -40,22 +41,41 @@ namespace BaselineMode.WPF.Views.models
 
             if (Counts != null && Counts.Length > 0 && BinCenters != null)
             {
-                // Plot histogram as scatter with markers (ให้เหมือนรูป)
-                var histScatter = targetPlot.Plot.AddScatter(BinCenters, Counts);
-                histScatter.LineWidth = 1;
-                histScatter.Color = System.Drawing.Color.Black;
-                histScatter.MarkerSize = 0;
-                histScatter.LineStyle = ScottPlot.LineStyle.Solid;
+                // ตรวจสอบว่าเป็น Log Scale หรือไม่
+                bool isLogScale = IsLogScale; // ต้องเพิ่ม property นี้
 
-                // Plot Fit Curve
-                if (FitCurve != null && FitCurve.Length > 0 && BinCenters.Length == FitCurve.Length)
+                if (isLogScale)
+
+                {
+                    // Log Scale - ใช้ Scatter Plot เหมือน WinForms
+                    var scatter = targetPlot.Plot.AddScatter(BinCenters, Counts);
+                    scatter.LineWidth = 2;
+                    scatter.Color = System.Drawing.Color.Black;
+                    scatter.MarkerSize = 5;
+                    scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
+                    scatter.MarkerLineWidth = 0;
+                    scatter.MarkerColor = System.Drawing.Color.DarkRed;
+
+                    // ตั้งค่า Y-axis format
+                    targetPlot.Plot.YAxis.TickLabelFormat(value => $"10^{value:F0}");
+                    targetPlot.Plot.SetAxisLimitsY(0.1, double.NaN);
+                }
+                else
+                {
+                    // Linear Scale - ใช้ Bar Chart เหมือน WinForms
+                    var bar = targetPlot.Plot.AddBar(values: Counts, positions: BinCenters);
+                    bar.FillColor = System.Drawing.Color.Black;
+                    bar.BorderLineWidth = 0;
+
+                    targetPlot.Plot.SetAxisLimitsY(0, double.NaN);
+                }
+
+                // Plot Fit Curve (ถ้ามี)
+                if (FitCurve != null && FitCurve.Length > 0)
                 {
                     double maxFit = FitCurve.Max();
-
                     if (maxFit > 0)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Plotting fit for {Title}: max={maxFit:F1}");
-
                         var fitScatter = targetPlot.Plot.AddScatter(BinCenters, FitCurve);
                         fitScatter.LineWidth = 2;
                         fitScatter.Color = System.Drawing.Color.Red;
@@ -64,8 +84,8 @@ namespace BaselineMode.WPF.Views.models
                     }
                 }
 
-                // Add statistics text annotation
-                if (Mu > 0)
+                // Statistics Annotation
+                if (Mu > 0 && !isLogScale) // แสดงแค่ linear scale
                 {
                     string statsLabel = $"μ = {Mu:F2}\nσ = {Sigma:F2}\nFWHM = {FWHM:F2}\nRes = {Resolution:F2}%";
                     var annotation = targetPlot.Plot.AddText(statsLabel, 0.02, 0.98);
@@ -77,11 +97,7 @@ namespace BaselineMode.WPF.Views.models
                 }
 
                 targetPlot.Plot.XLabel("ADC Channel (0-16384)");
-                targetPlot.Plot.YLabel("Count (#)");
-
-                // Set axis limits to avoid log(0) issues
-                targetPlot.Plot.SetAxisLimitsY(0.1, double.NaN);
-
+                targetPlot.Plot.YLabel(isLogScale ? "log scale Count (#)" : "Count (#)");
                 targetPlot.Plot.AxisAuto();
             }
 
