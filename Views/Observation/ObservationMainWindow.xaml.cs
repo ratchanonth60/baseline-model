@@ -1,0 +1,703 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
+using ExcelDataReader;
+using MathNet.Numerics.Statistics;
+using Microsoft.Win32;
+using BaselineMode.WPF.Services.Observation;
+using BaselineMode.WPF.ViewModels.Observation;
+using BaselineMode.WPF.Models.Observation;
+using ScottPlot;
+
+namespace BaselineMode.WPF.Views.Observation
+{
+    public partial class ObservationMainWindow : Window
+    {
+        #region Fields
+
+        private readonly ObservationMainViewModel _viewModel;
+        private readonly ObservationExcelHelper _excelHelper = new ObservationExcelHelper();
+        private readonly DispatcherTimer _timer;
+        private string _lastSavedFilePath;
+        private int _totalSteps;
+        private int _data = 1;
+        private bool _stopFlag;
+        private const string FORMAT_DATE = "yyyy-MMM-dd HH:mm:ss.fff";
+        private const string NA = "N/A";
+
+        #endregion
+
+        #region Constructor
+
+        public ObservationMainWindow()
+        {
+            InitializeComponent();
+
+            _viewModel = new ObservationMainViewModel();
+            DataContext = _viewModel;
+
+            // Setup timer for datetime display
+            _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _timer.Tick += (s, e) => DateTimeLabel.Text = DateTime.Now.ToString(FORMAT_DATE);
+            _timer.Start();
+
+            // Initialize plot styles
+            InitializePlotStyles();
+        }
+
+        #endregion
+
+        #region Plot Initialization
+
+        private void InitializePlotStyles()
+        {
+            // Configure all plots with dark theme
+            var allPlots = GetAllPlots();
+            foreach (var plot in allPlots)
+            {
+                plot.Plot.Style(ScottPlot.Style.Gray1);
+                plot.Plot.Style(figureBackground: System.Drawing.Color.FromArgb(30, 30, 30));
+                plot.Plot.Style(dataBackground: System.Drawing.Color.FromArgb(40, 40, 40));
+                plot.Refresh();
+            }
+        }
+
+        private WpfPlot[] GetAllPlots()
+        {
+            return new[]
+            {
+                PlotDSSDX, PlotDSSDY, PlotBGOHigh, PlotBGOLow,
+                PlotStripX1, PlotStripX2, PlotStripX3, PlotStripX4,
+                PlotStripX5, PlotStripX6, PlotStripX7, PlotStripX8,
+                PlotStripY1, PlotStripY2, PlotStripY3, PlotStripY4,
+                PlotStripY5, PlotStripY6, PlotStripY7, PlotStripY8
+            };
+        }
+
+        #endregion
+
+        #region Data Tab Event Handlers
+
+        private void BtnSelectFiles_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
+                Title = "Select Text Files",
+                Multiselect = true
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _viewModel.LoadFiles(dialog.FileNames);
+                TxtFileStatus.Text = $"{dialog.FileNames.Length} file(s) selected";
+                TxtOutputFileName.Text = _viewModel.OutputFileName;
+                UpdateStatus(_viewModel.StatusMessage);
+            }
+        }
+
+        private void BtnProcessData_Click(object sender, RoutedEventArgs e)
+        {
+            _viewModel.OutputFileName = TxtOutputFileName.Text;
+            if (_viewModel.ProcessDataCommand.CanExecute(null))
+            {
+                _viewModel.ProcessDataCommand.Execute(null);
+                UpdateStatus(_viewModel.StatusMessage);
+            }
+        }
+
+        private void BtnReadData_Click(object sender, RoutedEventArgs e)
+        {
+            string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
+            string fileName = Path.Combine(folderPath, TxtOutputFileName.Text.Trim() + ".xlsx");
+
+            if (!File.Exists(fileName))
+            {
+                MessageBox.Show("The specified file does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            try
+            {
+                using var stream = File.Open(fileName, FileMode.Open, FileAccess.Read);
+                using var reader = ExcelReaderFactory.CreateReader(stream);
+
+                var result = reader.AsDataSet();
+                var rawData = result.Tables[0];
+                _totalSteps = rawData.Rows.Count;
+
+                TxtDataCount.Text = $"{_totalSteps}";
+                TxtParticleCount.Text = $"{_totalSteps * 5}";
+
+                ProgressBar.Maximum = _totalSteps;
+                ProgressBar.Value = 0;
+                _data = 1;
+                _stopFlag = false;
+
+                bool isFirstData = true;
+                string[] hexData = Array.Empty<string>();
+
+                while (_data <= _totalSteps && !_stopFlag)
+                {
+                    string hexString = rawData.Rows[_data - 1][0].ToString();
+                    hexData = _viewModel.DataProcessor.SplitHexData(hexString);
+
+                    ProgressBar.Value = _data;
+                    TxtProgress.Text = $"Processing... {Math.Round((double)_data / _totalSteps * 100)}%";
+
+                    if (isFirstData)
+                    {
+                        TxtStartTime.Text = _viewModel.DataProcessor.GetDateTimeFromHexData(hexData).ToString(FORMAT_DATE);
+                        isFirstData = false;
+                    }
+
+                    _viewModel.DataProcessor.ProcessParticles(hexData);
+                    _data++;
+
+                    // Allow UI updates
+                    Dispatcher.Invoke(DispatcherPriority.Background, new Action(() => { }));
+                }
+
+                if (_totalSteps > 0)
+                {
+                    var lastHexData = _viewModel.DataProcessor.SplitHexData(rawData.Rows[_totalSteps - 1][0].ToString());
+                    TxtStopTime.Text = _viewModel.DataProcessor.GetDateTimeFromHexData(lastHexData).ToString(FORMAT_DATE);
+                }
+
+                TxtProgress.Text = "Process Complete";
+                ProcessHeader(hexData);
+
+                // Refresh all plots
+                RefreshDSSDPlots();
+                RefreshBGOPlots();
+
+                // Save results
+                _lastSavedFilePath = _excelHelper.SaveAllResultsToExcel(TxtOutputFileName.Text, _viewModel.DataProcessor.AllResults);
+                _viewModel.DataProcessor.AllResults.Clear();
+
+                UpdateStatus("Processing complete");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnReset_Click(object sender, RoutedEventArgs e)
+        {
+            _stopFlag = true;
+            _data = 1;
+
+            if (_viewModel.ResetCommand.CanExecute(null))
+                _viewModel.ResetCommand.Execute(null);
+
+            // Reset UI
+            TxtFileStatus.Text = "No files selected";
+            TxtOutputFileName.Text = "";
+            TxtProgress.Text = "Ready";
+            ProgressBar.Value = 0;
+            TxtDataCount.Text = "-";
+            TxtParticleCount.Text = "-";
+            TxtStartTime.Text = "-";
+            TxtStopTime.Text = "-";
+            TxtHeaderData.Text = "";
+            TxtHeaderStatus.Text = "";
+
+            // Clear all plots
+            foreach (var plot in GetAllPlots())
+            {
+                plot.Plot.Clear();
+                plot.Refresh();
+            }
+
+            UpdateStatus("Reset complete");
+        }
+
+        private void BtnHeaderCheck_Click(object sender, RoutedEventArgs e)
+        {
+            string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
+            string fileName = Path.Combine(folderPath, TxtOutputFileName.Text.Trim() + ".xlsx");
+
+            if (!File.Exists(fileName))
+            {
+                MessageBox.Show("File not found!", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                using var stream = File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using var reader = ExcelReaderFactory.CreateReader(stream);
+
+                var result = reader.AsDataSet();
+                var rawData = result.Tables[0];
+                int totalSteps = rawData.Rows.Count;
+                bool headerOk = true;
+
+                for (int i = 1; i <= totalSteps; i++)
+                {
+                    string hexString = rawData.Rows[i - 1][0].ToString();
+                    if (!hexString.StartsWith(ObservationConstants.HeaderStart))
+                    {
+                        TxtHeaderStatus.Text = $"Header is INCORRECT at row {i}";
+                        headerOk = false;
+                        break;
+                    }
+                }
+
+                if (headerOk)
+                    TxtHeaderStatus.Text = "✓ Header is correct!";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnOpenResults_Click(object sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrEmpty(_lastSavedFilePath) && File.Exists(_lastSavedFilePath))
+            {
+                Process.Start(new ProcessStartInfo { FileName = _lastSavedFilePath, UseShellExecute = true });
+            }
+            else
+            {
+                MessageBox.Show("No result file found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ProcessHeader(string[] hexData)
+        {
+            if (hexData == null || hexData.Length < ObservationConstants.PacketLength) return;
+
+            string[] timecodeHex = hexData.Skip(8).Take(6).ToArray();
+            byte[] timecodeDec = timecodeHex.Select(h => Convert.ToByte(h, 16)).ToArray();
+
+            uint seconds_part = BitConverter.ToUInt32(timecodeDec.Take(4).Reverse().ToArray(), 0);
+            ushort milliseconds_part = BitConverter.ToUInt16(timecodeDec.Skip(4).Reverse().ToArray(), 0);
+            DateTime datetime_value = DateTimeOffset.FromUnixTimeSeconds(seconds_part)
+                .AddMilliseconds(milliseconds_part).UtcDateTime;
+
+            int total_sum = hexData.Skip(8).Take(246).Select(h => Convert.ToInt32(h, 16)).Sum();
+            string checksum_hex = (total_sum % 65536).ToString("X4");
+            string CheckSum_fromData = hexData[254] + hexData[255];
+            string checksumStatus = checksum_hex.Equals(CheckSum_fromData, StringComparison.OrdinalIgnoreCase)
+                ? "✓ Checksum matches!" : "✗ Checksum does not match.";
+
+            TxtHeaderData.Text = $"Packet Sync: {hexData[0]} {hexData[1]}\n" +
+                                 $"Package ID: {hexData[2]} {hexData[3]}\n" +
+                                 $"Packet Seq: {hexData[4]} {hexData[5]}\n" +
+                                 $"Data Length: {hexData[6]} {hexData[7]}\n" +
+                                 $"Timestamp: {datetime_value:yyyy-MMM-dd HH:mm:ss.fff}\n" +
+                                 $"Data Type: {hexData[14]} {hexData[15]}\n" +
+                                 $"Checksum: {hexData[254]} {hexData[255]}\n" +
+                                 checksumStatus;
+        }
+
+        #endregion
+
+        #region DSSD Tab Event Handlers
+
+        private void CmbDSSDLayer_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RefreshDSSDPlots();
+        }
+
+        private void TxtDSSDAxisChanged(object sender, TextChangedEventArgs e)
+        {
+            if (!double.TryParse(TxtDSSDXMin?.Text, out double xMin)) xMin = 0;
+            if (!double.TryParse(TxtDSSDXMax?.Text, out double xMax)) xMax = ObservationConstants.ChartXMaxDSSD;
+
+            if (PlotDSSDX != null)
+            {
+                PlotDSSDX.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
+                PlotDSSDX.Refresh();
+            }
+            if (PlotDSSDY != null)
+            {
+                PlotDSSDY.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
+                PlotDSSDY.Refresh();
+            }
+        }
+
+        private void ChkDSSDFit_Changed(object sender, RoutedEventArgs e)
+        {
+            RefreshDSSDPlots();
+        }
+
+        private void RefreshDSSDPlots()
+        {
+            if (_viewModel?.DataProcessor == null) return;
+
+            int layerIndex = CmbDSSDLayer?.SelectedIndex ?? 0;
+            var (xList, yList, xStrips, yStrips) = GetLayerData(layerIndex);
+
+            // Plot main X histogram
+            PlotHistogram(PlotDSSDX, xList?.ToArray(), "Pulse Height (X)",
+                TxtDSSDXPeak, TxtDSSDXCounts, TxtDSSDXMean, TxtDSSDXRMS, TxtDSSDXFWHM, TxtDSSDXRes);
+
+            // Plot main Y histogram  
+            PlotHistogram(PlotDSSDY, yList?.ToArray(), "Pulse Height (Y)",
+                TxtDSSDYPeak, TxtDSSDYCounts, TxtDSSDYMean, TxtDSSDYRMS, TxtDSSDYFWHM, TxtDSSDYRes);
+
+            // Plot strip histograms with stats
+            // X Strips
+            PlotStripHistogram(PlotStripX1, xStrips?[0]?.Select(x => (double)x).ToArray(), "X1",
+                TxtX1Peak, TxtX1Counts, TxtX1Mean, TxtX1RMS, TxtX1FWHM, TxtX1Res);
+            PlotStripHistogram(PlotStripX2, xStrips?[1]?.Select(x => (double)x).ToArray(), "X2",
+                TxtX2Peak, TxtX2Counts, TxtX2Mean, TxtX2RMS, TxtX2FWHM, TxtX2Res);
+            PlotStripHistogram(PlotStripX3, xStrips?[2]?.Select(x => (double)x).ToArray(), "X3",
+                TxtX3Peak, TxtX3Counts, TxtX3Mean, TxtX3RMS, TxtX3FWHM, TxtX3Res);
+            PlotStripHistogram(PlotStripX4, xStrips?[3]?.Select(x => (double)x).ToArray(), "X4",
+                TxtX4Peak, TxtX4Counts, TxtX4Mean, TxtX4RMS, TxtX4FWHM, TxtX4Res);
+            PlotStripHistogram(PlotStripX5, xStrips?[4]?.Select(x => (double)x).ToArray(), "X5",
+                TxtX5Peak, TxtX5Counts, TxtX5Mean, TxtX5RMS, TxtX5FWHM, TxtX5Res);
+            PlotStripHistogram(PlotStripX6, xStrips?[5]?.Select(x => (double)x).ToArray(), "X6",
+                TxtX6Peak, TxtX6Counts, TxtX6Mean, TxtX6RMS, TxtX6FWHM, TxtX6Res);
+            PlotStripHistogram(PlotStripX7, xStrips?[6]?.Select(x => (double)x).ToArray(), "X7",
+                TxtX7Peak, TxtX7Counts, TxtX7Mean, TxtX7RMS, TxtX7FWHM, TxtX7Res);
+            PlotStripHistogram(PlotStripX8, xStrips?[7]?.Select(x => (double)x).ToArray(), "X8",
+                TxtX8Peak, TxtX8Counts, TxtX8Mean, TxtX8RMS, TxtX8FWHM, TxtX8Res);
+
+            // Y Strips
+            PlotStripHistogram(PlotStripY1, yStrips?[0]?.Select(x => (double)x).ToArray(), "Y1",
+                TxtY1Peak, TxtY1Counts, TxtY1Mean, TxtY1RMS, TxtY1FWHM, TxtY1Res);
+            PlotStripHistogram(PlotStripY2, yStrips?[1]?.Select(x => (double)x).ToArray(), "Y2",
+                TxtY2Peak, TxtY2Counts, TxtY2Mean, TxtY2RMS, TxtY2FWHM, TxtY2Res);
+            PlotStripHistogram(PlotStripY3, yStrips?[2]?.Select(x => (double)x).ToArray(), "Y3",
+                TxtY3Peak, TxtY3Counts, TxtY3Mean, TxtY3RMS, TxtY3FWHM, TxtY3Res);
+            PlotStripHistogram(PlotStripY4, yStrips?[3]?.Select(x => (double)x).ToArray(), "Y4",
+                TxtY4Peak, TxtY4Counts, TxtY4Mean, TxtY4RMS, TxtY4FWHM, TxtY4Res);
+            PlotStripHistogram(PlotStripY5, yStrips?[4]?.Select(x => (double)x).ToArray(), "Y5",
+                TxtY5Peak, TxtY5Counts, TxtY5Mean, TxtY5RMS, TxtY5FWHM, TxtY5Res);
+            PlotStripHistogram(PlotStripY6, yStrips?[5]?.Select(x => (double)x).ToArray(), "Y6",
+                TxtY6Peak, TxtY6Counts, TxtY6Mean, TxtY6RMS, TxtY6FWHM, TxtY6Res);
+            PlotStripHistogram(PlotStripY7, yStrips?[6]?.Select(x => (double)x).ToArray(), "Y7",
+                TxtY7Peak, TxtY7Counts, TxtY7Mean, TxtY7RMS, TxtY7FWHM, TxtY7Res);
+            PlotStripHistogram(PlotStripY8, yStrips?[7]?.Select(x => (double)x).ToArray(), "Y8",
+                TxtY8Peak, TxtY8Counts, TxtY8Mean, TxtY8RMS, TxtY8FWHM, TxtY8Res);
+        }
+
+        private (List<double> XList, List<double> YList, List<int>[] XStrips, List<int>[] YStrips) GetLayerData(int layerIndex)
+        {
+            var dp = _viewModel.DataProcessor;
+            DetectorLayer layerKey = layerIndex switch
+            {
+                0 => DetectorLayer.L1,
+                1 => DetectorLayer.L2,
+                2 => DetectorLayer.L6,
+                3 => DetectorLayer.L7,
+                _ => DetectorLayer.L1
+            };
+
+            if (!dp.DSSDData.ContainsKey(layerKey)) return (null, null, null, null);
+
+            var layerData = dp.DSSDData[layerKey];
+
+            // Map Dictionary<int, List<int>> to List<int>[] expected by User's Reverted Loop
+            var stripX = new List<int>[8];
+            var stripY = new List<int>[8];
+            for (int i = 0; i < 8; i++)
+            {
+                stripX[i] = layerData.StripX.ContainsKey(i + 1) ? layerData.StripX[i + 1] : new List<int>();
+                stripY[i] = layerData.StripY.ContainsKey(i + 1) ? layerData.StripY[i + 1] : new List<int>();
+            }
+
+            return (layerData.PulseHeightX, layerData.PulseHeightY, stripX, stripY);
+        }
+
+        #endregion
+
+        #region BGO Tab Event Handlers
+
+        private void CmbBGOLayer_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RefreshBGOPlots();
+        }
+
+        private void TxtBGOAxisChanged(object sender, TextChangedEventArgs e)
+        {
+            if (!double.TryParse(TxtBGOXMin?.Text, out double xMin)) xMin = 0;
+            if (!double.TryParse(TxtBGOXMax?.Text, out double xMax)) xMax = ObservationConstants.ChartXMaxBGO;
+
+            if (PlotBGOHigh != null)
+            {
+                PlotBGOHigh.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
+                PlotBGOHigh.Refresh();
+            }
+            if (PlotBGOLow != null)
+            {
+                PlotBGOLow.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
+                PlotBGOLow.Refresh();
+            }
+        }
+
+        private void ChkBGOFit_Changed(object sender, RoutedEventArgs e)
+        {
+            RefreshBGOPlots();
+        }
+
+        private void CmbBGOFitMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RefreshBGOPlots();
+        }
+
+        private void ChkBGOFilter_Changed(object sender, RoutedEventArgs e)
+        {
+            RefreshBGOPlots();
+        }
+
+        private void ChkBGOFilter_Changed(object sender, TextChangedEventArgs e)
+        {
+            RefreshBGOPlots();
+        }
+
+        private void RefreshBGOPlots()
+        {
+            if (_viewModel?.DataProcessor == null) return;
+            var dp = _viewModel.DataProcessor;
+            int layerIndex = CmbBGOLayer?.SelectedIndex ?? 1;
+
+            // Map UI Index to Enum (0 is Select One -> Default L3)
+            BGOLayer layerKey = layerIndex switch
+            {
+                1 => BGOLayer.L3,
+                2 => BGOLayer.L4,
+                3 => BGOLayer.L5,
+                _ => BGOLayer.L3
+            };
+
+            List<double> highGainList = null;
+            List<double> lowGainList = null;
+
+            if (dp.BGOData.ContainsKey(layerKey))
+            {
+                highGainList = dp.BGOData[layerKey].HighGain;
+                lowGainList = dp.BGOData[layerKey].LowGain;
+            }
+
+            PlotBGOHistogram(PlotBGOHigh, highGainList?.ToArray(), "BGO High Gain",
+                TxtBGOHPeak, TxtBGOHMean, TxtBGOHRMS, TxtBGOHFWHM, TxtBGOHRes);
+
+            PlotBGOHistogram(PlotBGOLow, lowGainList?.ToArray(), "BGO Low Gain",
+                TxtBGOLPeak, TxtBGOLMean, TxtBGOLRMS, TxtBGOLFWHM, TxtBGOLRes);
+        }
+
+        #endregion
+
+        #region Plot Helpers
+
+        private void PlotHistogram(WpfPlot plot, double[] data, string title,
+            TextBlock peakLabel, TextBlock countsLabel, TextBlock meanLabel, TextBlock rmsLabel, TextBlock fwhmLabel, TextBlock resLabel)
+        {
+            if (plot == null) return;
+            plot.Plot.Clear();
+
+            // Reset labels
+            peakLabel.Text = "-";
+            countsLabel.Text = "-";
+            meanLabel.Text = "-";
+            rmsLabel.Text = "-";
+            fwhmLabel.Text = "-";
+            resLabel.Text = "-";
+
+            if (data == null || data.Length == 0 || data.All(v => v == 0))
+            {
+                plot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                plot.Plot.SetAxisLimits(-1, 1, -1, 1);
+                plot.Refresh();
+                return;
+            }
+
+            // Filter and count
+            var filteredData = data.Where(v => v > 0).ToArray();
+            countsLabel.Text = filteredData.Length.ToString("N0");
+
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 4096);
+            double[] binMidpoints = new double[hist.Length];
+            for (int i = 0; i < hist.Length; i++)
+                binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
+
+            var bar = plot.Plot.AddBar(hist, binMidpoints);
+            bar.FillColor = System.Drawing.Color.FromArgb(0, 150, 136); // Teal color to match theme
+
+            // Apply fitting if enabled
+            if (ChkDSSDFit?.IsChecked == true)
+            {
+                var fitResult = _viewModel.FittingService.GaussianFit(binMidpoints, hist);
+                if (fitResult != null)
+                {
+                    plot.Plot.AddScatter(binMidpoints, fitResult.FittedCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2); // #FF5252
+                    plot.Plot.AddPoint(fitResult.Mean, fitResult.Amplitude, color: System.Drawing.Color.Yellow, size: 8);
+
+                    peakLabel.Text = $"{fitResult.Amplitude:F0}";
+                    meanLabel.Text = $"{fitResult.Mean:F2}";
+                    rmsLabel.Text = $"{fitResult.Sigma:F2}";
+                    fwhmLabel.Text = $"{fitResult.FWHM:F2}";
+                    resLabel.Text = $"{fitResult.Resolution:F2}%";
+                }
+            }
+
+            plot.Plot.YAxis.Label("Count");
+            plot.Plot.XAxis.Label(title);
+            plot.Plot.SetAxisLimits(yMin: 0);
+            plot.Refresh();
+        }
+
+        private void PlotStripHistogram(WpfPlot plot, double[] data, string title,
+            TextBlock peakLabel, TextBlock countsLabel, TextBlock meanLabel,
+            TextBlock rmsLabel, TextBlock fwhmLabel, TextBlock resLabel)
+        {
+            if (plot == null) return;
+            plot.Plot.Clear();
+
+            // Reset stats
+            if (peakLabel != null) peakLabel.Text = NA;
+            if (countsLabel != null) countsLabel.Text = NA;
+            if (meanLabel != null) meanLabel.Text = NA;
+            if (rmsLabel != null) rmsLabel.Text = NA;
+            if (fwhmLabel != null) fwhmLabel.Text = NA;
+            if (resLabel != null) resLabel.Text = NA;
+
+            if (data == null || data.Length == 0 || data.All(v => v == 0))
+            {
+                plot.Plot.Title(title);
+                plot.Plot.AddText("No data", 0, 0, size: 10, color: System.Drawing.Color.Gray);
+                plot.Refresh();
+                return;
+            }
+
+            // Filter data
+            double xMin = 0, xMax = 4095;
+            if (double.TryParse(TxtDSSDXMin?.Text, out double min)) xMin = min;
+            if (double.TryParse(TxtDSSDXMax?.Text, out double max)) xMax = max;
+            var filteredData = data.Where(v => v >= xMin && v <= xMax).ToArray();
+
+            if (filteredData.Length == 0)
+            {
+                plot.Plot.Title(title);
+                plot.Plot.AddText("No data in range", 0, 0, size: 10, color: System.Drawing.Color.Gray);
+                plot.Refresh();
+                return;
+            }
+
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 256);
+            double[] binMidpoints = new double[hist.Length];
+            for (int i = 0; i < hist.Length; i++)
+                binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
+
+            var bar = plot.Plot.AddBar(hist, binMidpoints);
+            bar.FillColor = System.Drawing.Color.FromArgb(0, 150, 136); // Teal
+            plot.Plot.Title(title);
+
+            // Update counts
+            if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0");
+
+            // Curve fitting if enabled
+            if (ChkDSSDFit?.IsChecked == true)
+            {
+                try
+                {
+                    var fitResult = _viewModel.FittingService.GaussianFit(binMidpoints, hist);
+                    if (fitResult != null && fitResult.FittedCurve != null)
+                    {
+                        plot.Plot.AddScatter(binMidpoints, fitResult.FittedCurve,
+                            System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2);
+                        plot.Plot.AddPoint(fitResult.Mean, fitResult.Amplitude,
+                            color: System.Drawing.Color.Yellow, size: 6);
+
+                        if (peakLabel != null) peakLabel.Text = $"{fitResult.Amplitude:F0}";
+                        if (meanLabel != null) meanLabel.Text = $"{fitResult.Mean:F2}";
+                        if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
+                        if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
+                        if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
+                    }
+                }
+                catch { /* Fitting failed, keep N/A */ }
+            }
+            else
+            {
+                // Basic stats without fitting
+                if (filteredData.Length > 0)
+                {
+                    double peak = hist.Max();
+                    double mean = filteredData.Average();
+                    double rms = Math.Sqrt(filteredData.Select(x => x * x).Average() - mean * mean);
+
+                    if (peakLabel != null) peakLabel.Text = $"{peak:F0}";
+                    if (meanLabel != null) meanLabel.Text = $"{mean:F2}";
+                    if (rmsLabel != null) rmsLabel.Text = $"{rms:F2}";
+                }
+            }
+
+            plot.Refresh();
+        }
+
+        private void PlotBGOHistogram(WpfPlot plot, double[] data, string title,
+            TextBlock peakLabel, TextBlock meanLabel, TextBlock rmsLabel, TextBlock fwhmLabel, TextBlock resLabel)
+        {
+            if (plot == null) return;
+            plot.Plot.Clear();
+
+            if (data == null || data.Length == 0 || data.All(v => v == 0))
+            {
+                plot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                plot.Plot.SetAxisLimits(-1, 1, -1, 1);
+                plot.Refresh();
+                return;
+            }
+
+            data = data.Where(v => v > 0).ToArray();
+            if (data.Length == 0) return;
+
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(data, binCount: 4096);
+            double[] binMidpoints = new double[hist.Length];
+            for (int i = 0; i < hist.Length; i++)
+                binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
+
+            var bar = plot.Plot.AddBar(hist, binMidpoints);
+            bar.FillColor = System.Drawing.Color.FromArgb(255, 140, 0); // Dark orange
+
+            // Apply fitting if enabled
+            if (ChkBGOFit?.IsChecked == true)
+            {
+                var fitResult = _viewModel.FittingService.GaussianFit(binMidpoints, hist);
+                if (fitResult != null)
+                {
+                    plot.Plot.AddScatter(binMidpoints, fitResult.FittedCurve, System.Drawing.Color.Red, lineWidth: 2);
+                    plot.Plot.AddPoint(fitResult.Mean, fitResult.Amplitude, color: System.Drawing.Color.Yellow, size: 8);
+
+                    peakLabel.Text = $"{fitResult.Amplitude:F2}";
+                    meanLabel.Text = $"{fitResult.Mean:F2}";
+                    rmsLabel.Text = $"{fitResult.Sigma:F2}";
+                    fwhmLabel.Text = $"{fitResult.FWHM:F2}";
+                    resLabel.Text = $"{fitResult.Resolution:F2}%";
+                }
+            }
+
+            plot.Plot.YAxis.Label("Count");
+            plot.Plot.XAxis.Label("ADC Channel");
+            plot.Plot.SetAxisLimits(yMin: 0);
+            plot.Refresh();
+        }
+
+        #endregion
+
+        #region Helpers
+
+        private void UpdateStatus(string message)
+        {
+            TxtStatus.Text = message;
+        }
+
+        #endregion
+    }
+}

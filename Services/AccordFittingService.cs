@@ -1,10 +1,14 @@
 // Services/AccordFittingService.cs
+// Migrated from Accord.NET to use native C# implementation
 using System;
 using System.Linq;
-using Accord.Statistics.Distributions.Univariate;
 
 namespace BaselineMode.WPF.Services
 {
+    /// <summary>
+    /// Fitting service that provides Gaussian fit functionality.
+    /// Originally used Accord.NET, now uses native C# implementation.
+    /// </summary>
     public class AccordFittingService
     {
         public (double[] fitCurve, double mu, double sigma, double peak) GaussianFit(double[] data)
@@ -16,31 +20,41 @@ namespace BaselineMode.WPF.Services
                 double[] binCenters = histogram.binCenters;
                 double[] counts = histogram.counts;
 
-                // Fit using Normal Distribution
-                var normal = NormalDistribution.Estimate(data);
-                double mu = normal.Mean;
-                double sigma = normal.StandardDeviation;
+                // Calculate mean and standard deviation using native C#
+                double mu = data.Average();
+                double sumSquaredDiff = data.Sum(x => Math.Pow(x - mu, 2));
+                double sigma = Math.Sqrt(sumSquaredDiff / (data.Length - 1));
 
                 // Generate fit curve
                 double[] fitCurve = new double[binCenters.Length];
                 double peak = counts.Max();
 
-                // Scale normal distribution to match histogram peak
-                double normalPeak = normal.ProbabilityDensityFunction(mu);
-                double scale = peak / normalPeak;
+                // Calculate normal distribution PDF at mean
+                double normalPeak = GaussianPdf(mu, mu, sigma);
+                double scale = normalPeak > 0 ? peak / normalPeak : 1;
 
                 for (int i = 0; i < binCenters.Length; i++)
                 {
-                    fitCurve[i] = normal.ProbabilityDensityFunction(binCenters[i]) * scale;
+                    fitCurve[i] = GaussianPdf(binCenters[i], mu, sigma) * scale;
                 }
 
                 return (fitCurve, mu, sigma, peak);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Accord Gaussian Fit Error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Gaussian Fit Error: {ex.Message}");
                 return (Array.Empty<double>(), 0, 0, 0);
             }
+        }
+
+        /// <summary>
+        /// Gaussian probability density function
+        /// </summary>
+        private double GaussianPdf(double x, double mu, double sigma)
+        {
+            if (sigma <= 0) return 0;
+            double exponent = -Math.Pow(x - mu, 2) / (2 * sigma * sigma);
+            return (1.0 / (sigma * Math.Sqrt(2 * Math.PI))) * Math.Exp(exponent);
         }
 
         private (double[] binCenters, double[] counts) CreateHistogram(double[] data, int binCount)

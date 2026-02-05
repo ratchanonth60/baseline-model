@@ -1,0 +1,784 @@
+<Window x:Class="BaselineMode.WPF.Views.Observation.ObservationMainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:scottPlot="clr-namespace:ScottPlot;assembly=ScottPlot.WPF"
+        mc:Ignorable="d"
+        Title="Observation Mode 1.0"
+        Height="900" Width="1400"
+        MinHeight="700" MinWidth="1200"
+        WindowStartupLocation="CenterScreen"
+        Style="{StaticResource MaterialDesignWindow}"
+        Background="{DynamicResource MaterialDesign.Brush.Background}">
+
+    <Window.Resources>
+        <Style x:Key="CardStyle" TargetType="materialDesign:Card">
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="8"/>
+            <Setter Property="UniformCornerRadius" Value="8"/>
+        </Style>
+        
+        <Style x:Key="HeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary}"/>
+        </Style>
+        
+        <Style x:Key="StatLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Foreground" Value="#B0BEC5"/>
+            <Setter Property="Margin" Value="8,4,4,4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        
+        <Style x:Key="StatValueStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,4,12,4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header Bar -->
+        <materialDesign:ColorZone Mode="PrimaryDark" Padding="16" Grid.Row="0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                    <materialDesign:PackIcon Kind="Microscope" Width="28" Height="28" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBlock Text="Observation Mode 1.0" FontSize="20" FontWeight="Medium" VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <TextBlock x:Name="DateTimeLabel" Grid.Column="2" 
+                           FontSize="14" VerticalAlignment="Center"
+                           Foreground="{DynamicResource MaterialDesign.Brush.Primary.Light.Foreground}"/>
+            </Grid>
+        </materialDesign:ColorZone>
+
+        <!-- Main Content with Tabs -->
+        <TabControl Grid.Row="1" 
+                    Style="{StaticResource MaterialDesignNavigationRailTabControl}"
+                    materialDesign:NavigationRailAssist.ShowSelectionBackground="True"
+                    TabStripPlacement="Left">
+            
+            <!-- Tab 1: Data Processing -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="FileDocument" Width="24" Height="24" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Data" HorizontalAlignment="Center" FontSize="10" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- File Selection Card -->
+                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="0" Grid.Column="0">
+                            <StackPanel>
+                                <TextBlock Text="📁 File Selection" Style="{StaticResource HeaderTextStyle}"/>
+                                <Button x:Name="BtnSelectFiles" Content="Select Text Files" 
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Click="BtnSelectFiles_Click"
+                                        HorizontalAlignment="Stretch" Margin="0,0,0,12"/>
+                                <TextBlock x:Name="TxtFileStatus" Text="No files selected" 
+                                           TextWrapping="Wrap" Foreground="Gray"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- Output Settings Card -->
+                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="0" Grid.Column="1">
+                            <StackPanel>
+                                <TextBlock Text="💾 Output Settings" Style="{StaticResource HeaderTextStyle}"/>
+                                <TextBox x:Name="TxtOutputFileName" 
+                                         materialDesign:HintAssist.Hint="Output filename (without extension)"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         Margin="0,0,0,8"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- Processing Card -->
+                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="1" Grid.Column="0">
+                            <StackPanel>
+                                <TextBlock Text="⚙️ Processing" Style="{StaticResource HeaderTextStyle}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="BtnProcessData" Content="Process Data" 
+                                            Style="{StaticResource MaterialDesignRaisedButton}"
+                                            Click="BtnProcessData_Click"
+                                            Grid.Column="0" Margin="0,0,4,0"/>
+                                    <Button x:Name="BtnReadData" Content="Read Data"
+                                            Style="{StaticResource MaterialDesignRaisedSecondaryButton}"
+                                            Click="BtnReadData_Click"
+                                            Grid.Column="1" Margin="4,0,4,0"/>
+                                    <Button x:Name="BtnReset" Content="Reset"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Click="BtnReset_Click"
+                                            Grid.Column="2" Margin="4,0,0,0"/>
+                                </Grid>
+                                
+                                <ProgressBar x:Name="ProgressBar" Height="8" Margin="0,16,0,8" 
+                                             Style="{StaticResource MaterialDesignLinearProgressBar}"/>
+                                <TextBlock x:Name="TxtProgress" Text="Ready" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- Time Info Card -->
+                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="1" Grid.Column="1">
+                            <StackPanel>
+                                <TextBlock Text="⏱️ Time Information" Style="{StaticResource HeaderTextStyle}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                    </Grid.RowDefinitions>
+                                    
+                                    <TextBlock Text="Data Count:" Style="{StaticResource StatLabelStyle}" Grid.Row="0"/>
+                                    <TextBlock x:Name="TxtDataCount" Text="-" Style="{StaticResource StatValueStyle}" Grid.Row="0" Grid.Column="1"/>
+                                    
+                                    <TextBlock Text="Particles:" Style="{StaticResource StatLabelStyle}" Grid.Row="1"/>
+                                    <TextBlock x:Name="TxtParticleCount" Text="-" Style="{StaticResource StatValueStyle}" Grid.Row="1" Grid.Column="1"/>
+                                    
+                                    <TextBlock Text="Start Time:" Style="{StaticResource StatLabelStyle}" Grid.Row="2"/>
+                                    <TextBlock x:Name="TxtStartTime" Text="-" Style="{StaticResource StatValueStyle}" Grid.Row="2" Grid.Column="1"/>
+                                    
+                                    <TextBlock Text="Stop Time:" Style="{StaticResource StatLabelStyle}" Grid.Row="3"/>
+                                    <TextBlock x:Name="TxtStopTime" Text="-" Style="{StaticResource StatValueStyle}" Grid.Row="3" Grid.Column="1"/>
+                                </Grid>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- Actions Card -->
+                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="2" Grid.ColumnSpan="2">
+                            <StackPanel>
+                                <TextBlock Text="📋 Actions" Style="{StaticResource HeaderTextStyle}"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button x:Name="BtnHeaderCheck" Content="Check Header"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Click="BtnHeaderCheck_Click"
+                                            Margin="0,0,8,0"/>
+                                    <Button x:Name="BtnOpenResults" Content="Open Results"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                                            Click="BtnOpenResults_Click"
+                                            Margin="8,0,0,0"/>
+                                </StackPanel>
+                                <TextBlock x:Name="TxtHeaderStatus" Text="" Margin="0,8,0,0" 
+                                           HorizontalAlignment="Center" Foreground="LightGreen"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+
+                        <!-- Header Data Display -->
+                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="3" Grid.ColumnSpan="2">
+                            <StackPanel>
+                                <TextBlock Text="📄 Header Information" Style="{StaticResource HeaderTextStyle}"/>
+                                <TextBox x:Name="TxtHeaderData" 
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         TextWrapping="Wrap" AcceptsReturn="True"
+                                         IsReadOnly="True" MinHeight="120"
+                                         VerticalScrollBarVisibility="Auto"
+                                         FontFamily="Consolas" FontSize="12"/>
+                            </StackPanel>
+                        </materialDesign:Card>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Tab 2: DSSD Analysis -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="ChartBar" Width="24" Height="24" HorizontalAlignment="Center"/>
+                        <TextBlock Text="DSSD" HorizontalAlignment="Center" FontSize="10" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Controls Panel -->
+                    <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="0" Padding="12" Margin="0,0,0,8">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Layer:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Medium"/>
+                            <ComboBox x:Name="CmbDSSDLayer" Width="120" Margin="0,0,24,0"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                      SelectionChanged="CmbDSSDLayer_SelectionChanged">
+                                <ComboBoxItem Content="Layer 1" IsSelected="True"/>
+                                <ComboBoxItem Content="Layer 2"/>
+                                <ComboBoxItem Content="Layer 6"/>
+                                <ComboBoxItem Content="Layer 7"/>
+                            </ComboBox>
+                            
+                            <TextBlock Text="X Min:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox x:Name="TxtDSSDXMin" Text="0" Width="70" Margin="0,0,16,0"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     TextChanged="TxtDSSDAxisChanged"/>
+                            
+                            <TextBlock Text="X Max:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <TextBox x:Name="TxtDSSDXMax" Text="16384" Width="70" Margin="0,0,24,0"
+                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                     TextChanged="TxtDSSDAxisChanged"/>
+                            
+                            <CheckBox x:Name="ChkDSSDFit" Content="Curve Fitting" Margin="0,0,8,0"
+                                      Style="{StaticResource MaterialDesignCheckBox}"
+                                      Checked="ChkDSSDFit_Changed" Unchecked="ChkDSSDFit_Changed"/>
+                            
+                            <ComboBox x:Name="CmbDSSDFitMethod" Width="100"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                <ComboBoxItem Content="Gaussian" IsSelected="True"/>
+                                <ComboBoxItem Content="Lorentzian"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </materialDesign:Card>
+                    
+                    <!-- Inner TabControl for DSSD views -->
+                    <TabControl Grid.Row="1">
+                        
+                        <!-- Tab: DSSD Pulse Height -->
+                        <TabItem Header="DSSD Pulse Height">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- Pulse Height X -->
+                                <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Column="0" Margin="4">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="Pulse Height X" Style="{StaticResource HeaderTextStyle}"/>
+                                        <scottPlot:WpfPlot x:Name="PlotDSSDX" Grid.Row="1"/>
+                                        <WrapPanel Grid.Row="2" Margin="0,8,0,0">
+                                            <TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDXPeak" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF5252"/>
+                                            <TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDXCounts" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#B388FF"/>
+                                            <TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDXMean" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#69F0AE"/>
+                                            <TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDXRMS" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FFD740"/>
+                                            <TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDXFWHM" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#40C4FF"/>
+                                            <TextBlock Text="Res:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDXRes" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF80AB"/>
+                                        </WrapPanel>
+                                    </Grid>
+                                </materialDesign:Card>
+                                
+                                <!-- Pulse Height Y -->
+                                <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Column="1" Margin="4">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="Pulse Height Y" Style="{StaticResource HeaderTextStyle}"/>
+                                        <scottPlot:WpfPlot x:Name="PlotDSSDY" Grid.Row="1"/>
+                                        <WrapPanel Grid.Row="2" Margin="0,8,0,0">
+                                            <TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDYPeak" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF5252"/>
+                                            <TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDYCounts" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#B388FF"/>
+                                            <TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDYMean" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#69F0AE"/>
+                                            <TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDYRMS" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FFD740"/>
+                                            <TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDYFWHM" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#40C4FF"/>
+                                            <TextBlock Text="Res:" Style="{StaticResource StatLabelStyle}"/>
+                                            <TextBlock x:Name="TxtDSSDYRes" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF80AB"/>
+                                        </WrapPanel>
+                                    </Grid>
+                                </materialDesign:Card>
+                            </Grid>
+                        </TabItem>
+                        
+                        <!-- Tab: Histogram X Strip -->
+                        <TabItem Header="Histogram X Strip">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <UniformGrid Columns="2" Rows="4">
+                                    <!-- Strip X1 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripX1" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: X1" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX1Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX1Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX1Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX1RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX1FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX1Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip X2 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripX2" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: X2" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX2Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX2Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX2Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX2RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX2FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX2Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip X3 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripX3" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: X3" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX3Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX3Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX3Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX3RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX3FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX3Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip X4 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripX4" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: X4" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX4Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX4Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX4Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX4RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX4FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX4Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip X5 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripX5" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: X5" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX5Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX5Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX5Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX5RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX5FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX5Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip X6 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripX6" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: X6" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX6Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX6Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX6Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX6RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX6FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX6Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip X7 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripX7" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: X7" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX7Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX7Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX7Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX7RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX7FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX7Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip X8 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripX8" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: X8" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX8Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX8Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX8Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX8RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX8FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtX8Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </UniformGrid>
+                            </ScrollViewer>
+                        </TabItem>
+                        
+                        <!-- Tab: Histogram Y Strip -->
+                        <TabItem Header="Histogram Y Strip">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <UniformGrid Columns="2" Rows="4">
+                                    <!-- Strip Y1 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripY1" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: Y1" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY1Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY1Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY1Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY1RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY1FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY1Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip Y2 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripY2" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: Y2" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY2Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY2Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY2Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY2RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY2FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY2Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip Y3 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripY3" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: Y3" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY3Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY3Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY3Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY3RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY3FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY3Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip Y4 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripY4" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: Y4" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY4Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY4Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY4Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY4RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY4FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY4Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip Y5 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripY5" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: Y5" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY5Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY5Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY5Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY5RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY5FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY5Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip Y6 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripY6" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: Y6" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY6Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY6Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY6Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY6RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY6FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY6Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip Y7 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripY7" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: Y7" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY7Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY7Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY7Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY7RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY7FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY7Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                    <!-- Strip Y8 -->
+                                    <Grid Margin="4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <scottPlot:WpfPlot x:Name="PlotStripY8" MinHeight="150"/>
+                                        <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Strip No.: Y8" FontWeight="Bold" Foreground="#26C6DA"/>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY8Peak" Text="N/A" Foreground="#FF5252"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY8Counts" Text="N/A" Foreground="#B388FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY8Mean" Text="N/A" Foreground="#69F0AE"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY8RMS" Text="N/A" Foreground="#FFD740"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY8FWHM" Text="N/A" Foreground="#40C4FF"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/><TextBlock x:Name="TxtY8Res" Text="N/A" Foreground="#FF80AB"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </UniformGrid>
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+            </TabItem>
+
+            <!-- Tab 3: BGO Analysis -->
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <materialDesign:PackIcon Kind="ChartAreaspline" Width="24" Height="24" HorizontalAlignment="Center"/>
+                        <TextBlock Text="BGO" HorizontalAlignment="Center" FontSize="10" Margin="0,4,0,0"/>
+                    </StackPanel>
+                </TabItem.Header>
+                
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Controls Panel -->
+                    <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="0" Padding="12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- Row 1: Layer, Axis, Curve Fitting -->
+                            <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,8">
+                                <TextBlock Text="BGO Layer:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Medium"/>
+                                <ComboBox x:Name="CmbBGOLayer" Width="130" Margin="0,0,32,0"
+                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                          SelectionChanged="CmbBGOLayer_SelectionChanged">
+                                    <ComboBoxItem Content="- Select BGO Layer -"/>
+                                    <ComboBoxItem Content="Layer 3" IsSelected="True"/>
+                                    <ComboBoxItem Content="Layer 4"/>
+                                    <ComboBoxItem Content="Layer 5"/>
+                                </ComboBox>
+                                
+                                <TextBlock Text="X Min:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox x:Name="TxtBGOXMin" Text="0" Width="70" Margin="0,0,16,0"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         TextChanged="TxtBGOAxisChanged"/>
+                                
+                                <TextBlock Text="X Max:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBox x:Name="TxtBGOXMax" Text="4095" Width="70" Margin="0,0,32,0"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         TextChanged="TxtBGOAxisChanged"/>
+                                
+                                <CheckBox x:Name="ChkBGOFit" Content="Curve Fitting" Margin="0,0,8,0"
+                                          Style="{StaticResource MaterialDesignCheckBox}"
+                                          Checked="ChkBGOFit_Changed" Unchecked="ChkBGOFit_Changed"/>
+                                <ComboBox x:Name="CmbBGOFitMethod" Width="110" Margin="0,0,0,0"
+                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                          SelectionChanged="CmbBGOFitMethod_SelectionChanged">
+                                    <ComboBoxItem Content="Gaussian" IsSelected="True"/>
+                                    <ComboBoxItem Content="Lorentzian"/>
+                                </ComboBox>
+                            </StackPanel>
+                            
+                            <!-- Row 2: Filtering Options -->
+                            <StackPanel Orientation="Horizontal" Grid.Row="1">
+                                <CheckBox x:Name="ChkAdaptiveThreshold" Content="Adaptive Thresholding" Margin="0,0,8,0"
+                                          Style="{StaticResource MaterialDesignCheckBox}"
+                                          Checked="ChkBGOFilter_Changed" Unchecked="ChkBGOFilter_Changed"/>
+                                <TextBox x:Name="TxtAdaptiveK" Text="1.00" Width="60" Margin="0,0,32,0"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         TextChanged="ChkBGOFilter_Changed"/>
+                                
+                                <CheckBox x:Name="ChkKalman" Content="Kalman Filter" Margin="0,0,16,0"
+                                          Style="{StaticResource MaterialDesignCheckBox}"
+                                          Checked="ChkBGOFilter_Changed" Unchecked="ChkBGOFilter_Changed"/>
+                                
+                                <CheckBox x:Name="ChkZScore" Content="Z-Score Filter" Margin="0,0,16,0"
+                                          Style="{StaticResource MaterialDesignCheckBox}"
+                                          Checked="ChkBGOFilter_Changed" Unchecked="ChkBGOFilter_Changed"/>
+                                
+                                <CheckBox x:Name="ChkStatThreshold" Content="Statistical Threshold" Margin="0,0,8,0"
+                                          Style="{StaticResource MaterialDesignCheckBox}"
+                                          Checked="ChkBGOFilter_Changed" Unchecked="ChkBGOFilter_Changed"/>
+                                <TextBlock Text="k:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                <TextBox x:Name="TxtKValue" Text="1" Width="50"
+                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                         TextChanged="ChkBGOFilter_Changed"/>
+                            </StackPanel>
+                        </Grid>
+                    </materialDesign:Card>
+                    
+                    <!-- BGO Histograms -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Column="0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="BGO High Gain" Style="{StaticResource HeaderTextStyle}"/>
+                                <scottPlot:WpfPlot x:Name="PlotBGOHigh" Grid.Row="1"/>
+                                <WrapPanel Grid.Row="2" Margin="0,8,0,0">
+                                    <TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOHPeak" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF5252"/>
+                                    <TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOHMean" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#69F0AE"/>
+                                    <TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOHRMS" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FFD740"/>
+                                    <TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOHFWHM" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#40C4FF"/>
+                                    <TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOHRes" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF80AB"/>
+                                </WrapPanel>
+                            </Grid>
+                        </materialDesign:Card>
+                        
+                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Column="1">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="BGO Low Gain" Style="{StaticResource HeaderTextStyle}"/>
+                                <scottPlot:WpfPlot x:Name="PlotBGOLow" Grid.Row="1"/>
+                                <WrapPanel Grid.Row="2" Margin="0,8,0,0">
+                                    <TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOLPeak" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF5252"/>
+                                    <TextBlock Text="Mean:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOLMean" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#69F0AE"/>
+                                    <TextBlock Text="RMS:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOLRMS" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FFD740"/>
+                                    <TextBlock Text="FWHM:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOLFWHM" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#40C4FF"/>
+                                    <TextBlock Text="Resolution:" Style="{StaticResource StatLabelStyle}"/>
+                                    <TextBlock x:Name="TxtBGOLRes" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF80AB"/>
+                                </WrapPanel>
+                            </Grid>
+                        </materialDesign:Card>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Status Bar -->
+        <materialDesign:ColorZone Mode="PrimaryDark" Grid.Row="2" Padding="8,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtStatus" Text="Ready" VerticalAlignment="Center" FontSize="12"/>
+                <TextBlock x:Name="TxtParticleInfo" Text="" Grid.Column="1" VerticalAlignment="Center" FontSize="12"/>
+            </Grid>
+        </materialDesign:ColorZone>
+    </Grid>
+</Window>

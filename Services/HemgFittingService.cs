@@ -6,7 +6,7 @@ namespace BaselineMode.WPF.Services
 {
     /// <summary>
     /// HEMG (Hyper-Exponentially Modified Gaussian) Double-Sided Fitting Service
-    /// Converts MATLAB HEMG_DS_fit to C# using Accord.NET for optimization
+    /// Converts MATLAB HEMG_DS_fit to C# using native optimization
     /// </summary>
     public class HemgFittingService
     {
