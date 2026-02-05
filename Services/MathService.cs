@@ -566,6 +566,47 @@ namespace BaselineMode.WPF.Services
             }
         }
 
+        /// <summary>
+        /// Perform Double-Sided Hyper-EMG curve fitting
+        /// </summary>
+        public FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MathService));
+
+            if (xData == null || yData == null || xData.Length == 0)
+                return FittingResult.Empty(0);
+
+            try
+            {
+                var hemgService = new HemgFittingService();
+                var (fitCurve, parameters) = hemgService.HemgDoubleSidedFit(xData);
+
+                if (fitCurve.Length == 0 || parameters.Length < 7)
+                    return FittingResult.Empty(xData.Length);
+
+                // Create fitting result with HEMG parameters
+                // parameters = [A, mu, sigma, tauL1, tauR1, etaL1, etaR1]
+                var result = new FittingResult(
+                    fitCurve,
+                    parameters[0],      // A
+                    parameters[1],      // mu
+                    parameters[2],      // sigma
+                    parameters[3],      // tauL1
+                    parameters[4],      // tauR1
+                    parameters[5],      // etaL1
+                    parameters[6]       // etaR1
+                );
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"HyperEMG Double-Sided Fit Error: {ex.Message}");
+                return FittingResult.Empty(xData.Length);
+            }
+        }
+
         public void Dispose()
         {
             Dispose(true);
