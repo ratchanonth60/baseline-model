@@ -27,5 +27,10 @@ namespace BaselineMode.WPF.Services
         /// Perform Hyper-EMG curve fitting
         /// </summary>
         FittingResult HyperEMGFit(double[] xData, double[] yData);
+
+        /// <summary>
+        /// Perform Double-Sided Hyper-EMG curve fitting
+        /// </summary>
+        FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData);
     }
 }
