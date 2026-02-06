@@ -3,18 +3,18 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:BaselineMode.WPF"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             StartupUri="Views/MainWindow.xaml">
+             StartupUri="Presentation/Views/UnifiedMainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <!-- Material Design -->
-                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Blue" SecondaryColor="Cyan" />
+                <materialDesign:BundledTheme BaseTheme="Light" PrimaryColor="Indigo" SecondaryColor="Cyan" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign2.Defaults.xaml" />
                 
                 <!-- Custom Resources -->
-                <ResourceDictionary Source="Views/Resources/Colors.xaml"/>
-                <ResourceDictionary Source="Views/Resources/Buttons.xaml"/>
-                <ResourceDictionary Source="Views/Resources/Styles.xaml"/>
+                <ResourceDictionary Source="Presentation/Views/Resources/Colors.xaml"/>
+                <ResourceDictionary Source="Presentation/Views/Resources/Buttons.xaml"/>
+                <ResourceDictionary Source="Presentation/Views/Resources/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

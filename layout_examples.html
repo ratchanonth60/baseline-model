@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layout Examples - DSSD Analysis Suite</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Roboto', sans-serif; background: #f5f5f5; }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; color: #3f51b5; margin-bottom: 30px; }
+        h2 { color: #3f51b5; margin-bottom: 15px; font-size: 18px; }
+        h3 { color: #666; font-size: 14px; margin-bottom: 10px; }
+        
+        .layout-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .layout-preview {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Common elements */
+        .nav-rail {
+            width: 70px;
+            background: #3f51b5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px 0;
+            flex-shrink: 0;
+        }
+        .nav-item {
+            color: rgba(255,255,255,0.7);
+            text-align: center;
+            padding: 12px 8px;
+            cursor: pointer;
+            border-radius: 8px;
+            margin: 4px;
+            font-size: 10px;
+        }
+        .nav-item.active { background: rgba(255,255,255,0.2); color: white; }
+        .nav-item i { font-size: 24px; display: block; margin-bottom: 4px; }
+        
+        .header {
+            background: #3f51b5;
+            color: white;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin: 8px;
+        }
+        
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .btn-primary { background: #3f51b5; color: white; }
+        .btn-outline { background: white; border: 1px solid #3f51b5; color: #3f51b5; }
+        
+        .placeholder { background: #e3f2fd; border-radius: 4px; height: 100%; display: flex; align-items: center; justify-content: center; color: #1976d2; font-size: 12px; }
+        .placeholder-chart { background: linear-gradient(135deg, #e8eaf6 0%, #c5cae9 100%); }
+        
+        /* Layout 1: Dashboard */
+        .layout-dashboard {
+            display: flex;
+            height: 100%;
+        }
+        .layout-dashboard .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .layout-dashboard .content {
+            flex: 1;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: 300px 1fr 1fr;
+            grid-template-rows: auto 1fr 1fr;
+            gap: 12px;
+            background: #fafafa;
+        }
+        .layout-dashboard .stats-row {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 12px;
+        }
+        .layout-dashboard .stat-card {
+            flex: 1;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .layout-dashboard .stat-card .value { font-size: 24px; font-weight: 500; color: #3f51b5; }
+        .layout-dashboard .stat-card .label { font-size: 11px; color: #666; }
+        .layout-dashboard .controls { grid-row: 2 / 4; }
+        
+        /* Layout 2: Wizard */
+        .layout-wizard {
+            display: flex;
+            height: 100%;
+        }
+        .layout-wizard .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .layout-wizard .stepper {
+            display: flex;
+            padding: 20px 40px;
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .layout-wizard .step {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+        .layout-wizard .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            margin-right: 10px;
+        }
+        .layout-wizard .step.active .step-circle { background: #3f51b5; color: white; }
+        .layout-wizard .step.done .step-circle { background: #4caf50; color: white; }
+        .layout-wizard .step-line { flex: 1; height: 2px; background: #e0e0e0; margin: 0 10px; }
+        .layout-wizard .step.done .step-line { background: #4caf50; }
+        .layout-wizard .content {
+            flex: 1;
+            padding: 30px;
+            background: #fafafa;
+        }
+        .layout-wizard .step-content { max-width: 800px; margin: 0 auto; }
+        .layout-wizard .actions {
+            padding: 15px 30px;
+            background: white;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        /* Layout 3: Split View */
+        .layout-split {
+            display: flex;
+            height: 100%;
+        }
+        .layout-split .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .layout-split .content {
+            flex: 1;
+            display: flex;
+            background: #fafafa;
+        }
+        .layout-split .left-panel {
+            width: 350px;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .layout-split .right-panel {
+            flex: 1;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        /* Layout 4: Tab-based */
+        .layout-tabs {
+            display: flex;
+            height: 100%;
+        }
+        .layout-tabs .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .layout-tabs .tab-bar {
+            display: flex;
+            background: white;
+            border-bottom: 2px solid #e0e0e0;
+            padding: 0 20px;
+        }
+        .layout-tabs .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .layout-tabs .tab.active { color: #3f51b5; border-bottom-color: #3f51b5; }
+        .layout-tabs .tab i { font-size: 18px; }
+        .layout-tabs .content {
+            flex: 1;
+            padding: 20px;
+            background: #fafafa;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        /* Layout 5: Ribbon */
+        .layout-ribbon {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .layout-ribbon .ribbon {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .layout-ribbon .ribbon-tabs {
+            display: flex;
+            background: #3f51b5;
+            padding: 0 10px;
+        }
+        .layout-ribbon .ribbon-tab {
+            padding: 8px 20px;
+            color: rgba(255,255,255,0.7);
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .layout-ribbon .ribbon-tab.active { background: white; color: #3f51b5; border-radius: 4px 4px 0 0; }
+        .layout-ribbon .ribbon-content {
+            display: flex;
+            padding: 10px 15px;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        .layout-ribbon .ribbon-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 5px 15px;
+            border-right: 1px solid #e0e0e0;
+        }
+        .layout-ribbon .ribbon-group:last-child { border-right: none; }
+        .layout-ribbon .ribbon-group-title { font-size: 10px; color: #666; margin-top: 5px; }
+        .layout-ribbon .ribbon-buttons { display: flex; gap: 5px; }
+        .layout-ribbon .ribbon-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .layout-ribbon .ribbon-btn:hover { background: #f5f5f5; }
+        .layout-ribbon .ribbon-btn i { font-size: 24px; color: #3f51b5; }
+        .layout-ribbon .ribbon-btn span { font-size: 10px; margin-top: 4px; }
+        .layout-ribbon .main-content {
+            flex: 1;
+            display: flex;
+            background: #fafafa;
+        }
+        .layout-ribbon .sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            padding: 15px;
+        }
+        .layout-ribbon .charts {
+            flex: 1;
+            padding: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .description { color: #666; font-size: 13px; margin-bottom: 15px; line-height: 1.5; }
+        .pros-cons { display: flex; gap: 20px; margin-top: 15px; font-size: 12px; }
+        .pros, .cons { flex: 1; }
+        .pros h4 { color: #4caf50; } .cons h4 { color: #f44336; }
+        .pros li, .cons li { margin: 5px 0; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Layout Examples - DSSD Analysis Suite</h1>
+        
+        <!-- Layout 1: Dashboard -->
+        <div class="layout-section">
+            <h2>1. Dashboard Layout</h2>
+            <p class="description">แสดงข้อมูลสำคัญทั้งหมดในหน้าเดียว มี stat cards ด้านบน, controls ทางซ้าย, charts ทางขวา เหมาะสำหรับ monitoring และดูภาพรวม</p>
+            <div class="layout-preview">
+                <div class="layout-dashboard">
+                    <div class="nav-rail">
+                        <div class="nav-item active"><i class="material-icons">show_chart</i>Baseline</div>
+                        <div class="nav-item"><i class="material-icons">science</i>Observe</div>
+                        <div class="nav-item"><i class="material-icons">settings</i>Settings</div>
+                    </div>
+                    <div class="main">
+                        <div class="header">
+                            <span><i class="material-icons" style="vertical-align:middle">show_chart</i> Baseline Mode</span>
+                            <span>2026-02-05 14:30:00</span>
+                        </div>
+                        <div class="content">
+                            <div class="stats-row">
+                                <div class="stat-card"><div class="value">1,234</div><div class="label">Data Points</div></div>
+                                <div class="stat-card"><div class="value">8,192</div><div class="label">Peak Channel</div></div>
+                                <div class="stat-card"><div class="value">2.45σ</div><div class="label">Resolution</div></div>
+                                <div class="stat-card"><div class="value">00:05:32</div><div class="label">Duration</div></div>
+                            </div>
+                            <div class="card controls">
+                                <h3>Controls</h3>
+                                <button class="btn btn-primary" style="width:100%;margin:5px 0">Select Files</button>
+                                <button class="btn btn-outline" style="width:100%;margin:5px 0">Process</button>
+                                <hr style="margin:10px 0;border:none;border-top:1px solid #eee">
+                                <div style="font-size:11px;color:#666">Layer: DSSD L1</div>
+                                <div style="font-size:11px;color:#666">Mode: Cut off</div>
+                            </div>
+                            <div class="card"><div class="placeholder placeholder-chart">📊 Chart X1-X4</div></div>
+                            <div class="card"><div class="placeholder placeholder-chart">📊 Chart X5-X8</div></div>
+                            <div class="card"><div class="placeholder placeholder-chart">📊 Chart Z1-Z4</div></div>
+                            <div class="card"><div class="placeholder placeholder-chart">📊 Chart Z5-Z8</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pros-cons">
+                <div class="pros"><h4>✓ ข้อดี</h4><ul><li>เห็นภาพรวมทั้งหมด</li><li>ไม่ต้องสลับหน้า</li><li>เหมาะกับ monitoring</li></ul></div>
+                <div class="cons"><h4>✗ ข้อเสีย</h4><ul><li>อาจดูรกถ้าข้อมูลเยอะ</li><li>Charts อาจเล็กไป</li></ul></div>
+            </div>
+        </div>
+        
+        <!-- Layout 2: Wizard -->
+        <div class="layout-section">
+            <h2>2. Wizard / Step-by-Step Layout</h2>
+            <p class="description">ทำงานเป็นขั้นตอน: เลือกไฟล์ → ตั้งค่า → ประมวลผล → ดูผลลัพธ์ เหมาะสำหรับ workflow ที่มีลำดับขั้นตอนชัดเจน</p>
+            <div class="layout-preview">
+                <div class="layout-wizard">
+                    <div class="nav-rail">
+                        <div class="nav-item active"><i class="material-icons">show_chart</i>Baseline</div>
+                        <div class="nav-item"><i class="material-icons">science</i>Observe</div>
+                        <div class="nav-item"><i class="material-icons">settings</i>Settings</div>
+                    </div>
+                    <div class="main">
+                        <div class="stepper">
+                            <div class="step done">
+                                <div class="step-circle">✓</div>
+                                <span>Select Files</span>
+                                <div class="step-line"></div>
+                            </div>
+                            <div class="step active">
+                                <div class="step-circle">2</div>
+                                <span>Configure</span>
+                                <div class="step-line"></div>
+                            </div>
+                            <div class="step">
+                                <div class="step-circle">3</div>
+                                <span>Process</span>
+                                <div class="step-line"></div>
+                            </div>
+                            <div class="step">
+                                <div class="step-circle">4</div>
+                                <span>Results</span>
+                            </div>
+                        </div>
+                        <div class="content">
+                            <div class="step-content">
+                                <div class="card">
+                                    <h3>Step 2: Configure Analysis</h3>
+                                    <p style="color:#666;font-size:12px;margin:10px 0">Set up parameters for baseline analysis</p>
+                                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:15px">
+                                        <div><label style="font-size:11px;color:#666">DSSD Layer</label><div style="padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px">DSSD L1</div></div>
+                                        <div><label style="font-size:11px;color:#666">Mode</label><div style="padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px">Cut off baseline</div></div>
+                                        <div><label style="font-size:11px;color:#666">Delay (μs)</label><div style="padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px">0</div></div>
+                                        <div><label style="font-size:11px;color:#666">Threshold</label><div style="padding:8px;border:1px solid #ddd;border-radius:4px;margin-top:4px">100</div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-outline">← Back</button>
+                            <button class="btn btn-primary">Next Step →</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pros-cons">
+                <div class="pros"><h4>✓ ข้อดี</h4><ul><li>เข้าใจง่าย ทำตามขั้นตอน</li><li>ไม่สับสน</li><li>เหมาะกับผู้ใช้ใหม่</li></ul></div>
+                <div class="cons"><h4>✗ ข้อเสีย</h4><ul><li>ไม่ยืดหยุ่น</li><li>ต้องทำตามลำดับ</li><li>กลับไปแก้ไขยาก</li></ul></div>
+            </div>
+        </div>
+        
+        <!-- Layout 3: Split View -->
+        <div class="layout-section">
+            <h2>3. Split View Layout</h2>
+            <p class="description">แบ่งซ้าย-ขวาชัดเจน: Controls/Settings ทางซ้าย, Charts/Results ทางขวา เหมาะสำหรับทำงานที่ต้องปรับค่าแล้วดูผลทันที</p>
+            <div class="layout-preview">
+                <div class="layout-split">
+                    <div class="nav-rail">
+                        <div class="nav-item active"><i class="material-icons">show_chart</i>Baseline</div>
+                        <div class="nav-item"><i class="material-icons">science</i>Observe</div>
+                        <div class="nav-item"><i class="material-icons">settings</i>Settings</div>
+                    </div>
+                    <div class="main">
+                        <div class="header">
+                            <span>Baseline Mode - DSSD Analysis</span>
+                            <span>2026-02-05 14:30:00</span>
+                        </div>
+                        <div class="content">
+                            <div class="left-panel">
+                                <div class="card">
+                                    <h3>📁 Files</h3>
+                                    <button class="btn btn-primary" style="width:100%;margin:8px 0">Select Files</button>
+                                    <div style="font-size:11px;color:#666">3 files selected</div>
+                                </div>
+                                <div class="card">
+                                    <h3>⚙️ Settings</h3>
+                                    <div style="font-size:11px;margin:5px 0"><span style="color:#666">Layer:</span> DSSD L1</div>
+                                    <div style="font-size:11px;margin:5px 0"><span style="color:#666">Mode:</span> Cut off</div>
+                                    <div style="font-size:11px;margin:5px 0"><span style="color:#666">Threshold:</span> 100</div>
+                                </div>
+                                <div class="card">
+                                    <h3>▶️ Process</h3>
+                                    <button class="btn btn-primary" style="width:100%;margin:5px 0">Start</button>
+                                    <button class="btn btn-outline" style="width:100%;margin:5px 0">Stop</button>
+                                </div>
+                            </div>
+                            <div class="right-panel">
+                                <div class="card"><div class="placeholder placeholder-chart">📊 X-Strip 1-4</div></div>
+                                <div class="card"><div class="placeholder placeholder-chart">📊 X-Strip 5-8</div></div>
+                                <div class="card"><div class="placeholder placeholder-chart">📊 Z-Strip 1-4</div></div>
+                                <div class="card"><div class="placeholder placeholder-chart">📊 Z-Strip 5-8</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pros-cons">
+                <div class="pros"><h4>✓ ข้อดี</h4><ul><li>ใช้งานง่าย ชัดเจน</li><li>ปรับค่าแล้วเห็นผลทันที</li><li>Charts มีพื้นที่เยอะ</li></ul></div>
+                <div class="cons"><h4>✗ ข้อเสีย</h4><ul><li>Control panel อาจยาวเกินไป</li><li>ต้อง scroll</li></ul></div>
+            </div>
+        </div>
+        
+        <!-- Layout 4: Tab-based -->
+        <div class="layout-section">
+            <h2>4. Tab-based Layout</h2>
+            <p class="description">ทุกอย่างแบ่งเป็น tabs: Data, Analysis, Charts, Export แต่ละ tab มีหน้าที่เฉพาะ</p>
+            <div class="layout-preview">
+                <div class="layout-tabs">
+                    <div class="nav-rail">
+                        <div class="nav-item active"><i class="material-icons">show_chart</i>Baseline</div>
+                        <div class="nav-item"><i class="material-icons">science</i>Observe</div>
+                        <div class="nav-item"><i class="material-icons">settings</i>Settings</div>
+                    </div>
+                    <div class="main">
+                        <div class="header">
+                            <span>Baseline Mode</span>
+                            <span>2026-02-05 14:30:00</span>
+                        </div>
+                        <div class="tab-bar">
+                            <div class="tab"><i class="material-icons">folder_open</i> Data</div>
+                            <div class="tab active"><i class="material-icons">tune</i> Analysis</div>
+                            <div class="tab"><i class="material-icons">bar_chart</i> Charts</div>
+                            <div class="tab"><i class="material-icons">grid_on</i> Heatmap</div>
+                            <div class="tab"><i class="material-icons">save_alt</i> Export</div>
+                        </div>
+                        <div class="content">
+                            <div class="card">
+                                <h3>Analysis Settings</h3>
+                                <div style="margin:10px 0">
+                                    <label style="font-size:11px;color:#666">DSSD Layer</label>
+                                    <div style="padding:8px;border:1px solid #ddd;border-radius:4px;margin:4px 0">DSSD L1</div>
+                                </div>
+                                <div style="margin:10px 0">
+                                    <label style="font-size:11px;color:#666">Mode</label>
+                                    <div style="padding:8px;border:1px solid #ddd;border-radius:4px;margin:4px 0">Cut off baseline</div>
+                                </div>
+                                <div style="margin:10px 0">
+                                    <label style="font-size:11px;color:#666">Fitting</label>
+                                    <div style="padding:8px;border:1px solid #ddd;border-radius:4px;margin:4px 0">Gaussian</div>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <h3>Processing</h3>
+                                <button class="btn btn-primary" style="width:100%;margin:8px 0">Start Analysis</button>
+                                <div style="background:#e3f2fd;border-radius:4px;padding:10px;margin:10px 0">
+                                    <div style="font-size:11px;color:#666">Status: Ready</div>
+                                    <div style="font-size:11px;color:#666">Progress: 0%</div>
+                                </div>
+                                <div style="height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden">
+                                    <div style="width:0%;height:100%;background:#3f51b5"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pros-cons">
+                <div class="pros"><h4>✓ ข้อดี</h4><ul><li>จัดหมวดหมู่ชัดเจน</li><li>แต่ละ tab มีพื้นที่เยอะ</li><li>ไม่รก</li></ul></div>
+                <div class="cons"><h4>✗ ข้อเสีย</h4><ul><li>ต้องสลับ tab บ่อย</li><li>ไม่เห็นภาพรวม</li></ul></div>
+            </div>
+        </div>
+        
+        <!-- Layout 5: Ribbon -->
+        <div class="layout-section">
+            <h2>5. Ribbon Layout (Office-style)</h2>
+            <p class="description">มี Ribbon bar ด้านบนเหมือน Microsoft Office มี tools/actions จัดเป็นกลุ่ม พื้นที่หลักสำหรับแสดงผล</p>
+            <div class="layout-preview">
+                <div class="layout-ribbon">
+                    <div class="ribbon">
+                        <div class="ribbon-tabs">
+                            <div class="ribbon-tab active">Home</div>
+                            <div class="ribbon-tab">Analysis</div>
+                            <div class="ribbon-tab">View</div>
+                            <div class="ribbon-tab">Export</div>
+                        </div>
+                        <div class="ribbon-content">
+                            <div class="ribbon-group">
+                                <div class="ribbon-buttons">
+                                    <div class="ribbon-btn"><i class="material-icons">folder_open</i><span>Open</span></div>
+                                    <div class="ribbon-btn"><i class="material-icons">save</i><span>Save</span></div>
+                                </div>
+                                <div class="ribbon-group-title">File</div>
+                            </div>
+                            <div class="ribbon-group">
+                                <div class="ribbon-buttons">
+                                    <div class="ribbon-btn"><i class="material-icons">play_arrow</i><span>Start</span></div>
+                                    <div class="ribbon-btn"><i class="material-icons">stop</i><span>Stop</span></div>
+                                    <div class="ribbon-btn"><i class="material-icons">refresh</i><span>Reset</span></div>
+                                </div>
+                                <div class="ribbon-group-title">Process</div>
+                            </div>
+                            <div class="ribbon-group">
+                                <div class="ribbon-buttons">
+                                    <div class="ribbon-btn"><i class="material-icons">bar_chart</i><span>Charts</span></div>
+                                    <div class="ribbon-btn"><i class="material-icons">grid_on</i><span>Heatmap</span></div>
+                                    <div class="ribbon-btn"><i class="material-icons">table_chart</i><span>Table</span></div>
+                                </div>
+                                <div class="ribbon-group-title">View</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="main-content">
+                        <div class="sidebar">
+                            <div class="card">
+                                <h3 style="font-size:12px">Settings</h3>
+                                <div style="font-size:11px;margin:5px 0;color:#666">Layer: DSSD L1</div>
+                                <div style="font-size:11px;margin:5px 0;color:#666">Mode: Cut off</div>
+                            </div>
+                            <div class="card">
+                                <h3 style="font-size:12px">Stats</h3>
+                                <div style="font-size:11px;margin:5px 0;color:#666">Peak: 8192</div>
+                                <div style="font-size:11px;margin:5px 0;color:#666">Mean: 8150</div>
+                            </div>
+                        </div>
+                        <div class="charts">
+                            <div class="card"><div class="placeholder placeholder-chart">📊 X1-X4</div></div>
+                            <div class="card"><div class="placeholder placeholder-chart">📊 X5-X8</div></div>
+                            <div class="card"><div class="placeholder placeholder-chart">📊 Z1-Z4</div></div>
+                            <div class="card"><div class="placeholder placeholder-chart">📊 Z5-Z8</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="pros-cons">
+                <div class="pros"><h4>✓ ข้อดี</h4><ul><li>คุ้นเคย (เหมือน Office)</li><li>เข้าถึง tools ได้เร็ว</li><li>พื้นที่หลักกว้าง</li></ul></div>
+                <div class="cons"><h4>✗ ข้อเสีย</h4><ul><li>Ribbon กินพื้นที่</li><li>อาจ overwhelming</li></ul></div>
+            </div>
+        </div>
+        
+        <div style="text-align:center;padding:30px;color:#666">
+            <h3>💡 แนะนำ: Layout 1 (Dashboard) หรือ Layout 3 (Split View)</h3>
+            <p>เหมาะกับงาน scientific analysis ที่ต้องดูข้อมูลและปรับค่าไปพร้อมกัน</p>
+        </div>
+    </div>
+</body>
+</html>
