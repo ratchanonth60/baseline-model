@@ -1,7 +1,7 @@
 ﻿using System.Windows;
-using BaselineMode.WPF.Views.models;
+using BaselineMode.WPF.Presentation.ViewModels;
 using ScottPlot;
-using BaselineMode.WPF.Models;
+using BaselineMode.WPF.Core.Models;
 
 namespace BaselineMode.WPF.Views
 {

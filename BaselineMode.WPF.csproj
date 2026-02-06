@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <!-- ML.NET (replacement for Accord.NET) -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
     <PackageReference Include="Microsoft.ML" Version="4.0.2" />
     
     <!-- Math Libraries -->

@@ -5,10 +5,11 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using BaselineMode.WPF.Models;
+using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Interfaces;
 using OfficeOpenXml;
 
-namespace BaselineMode.WPF.Services
+namespace BaselineMode.WPF.Infrastructure.Services
 {
     public class FileService : IFileService
     {
@@ -496,6 +497,20 @@ namespace BaselineMode.WPF.Services
         {
             Dispose(true);
             GC.SuppressFinalize(this);
+        }
+        public string[]? OpenFileDialog(string filter, bool multiselect)
+        {
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = filter,
+                Multiselect = multiselect
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                return openFileDialog.FileNames;
+            }
+            return null;
         }
     }
 }

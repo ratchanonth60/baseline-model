@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace BaselineMode.WPF.Models
+namespace BaselineMode.WPF.Core.Models
 {
     public class BaselineData
     {

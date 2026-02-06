@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using BaselineMode.WPF.Models;
+using BaselineMode.WPF.Core.Models;
 
-namespace BaselineMode.WPF.Services
+namespace BaselineMode.WPF.Core.Interfaces
 {
     /// <summary>
     /// Interface for file processing services with memory-safe operations
@@ -23,5 +23,10 @@ namespace BaselineMode.WPF.Services
         /// Read data from Excel file
         /// </summary>
         List<BaselineData> ReadExcelFile(string filePath, IProgress<double>? progress = null);
+
+        /// <summary>
+        /// Open file dialog to select files
+        /// </summary>
+        string[]? OpenFileDialog(string filter, bool multiselect);
     }
 }

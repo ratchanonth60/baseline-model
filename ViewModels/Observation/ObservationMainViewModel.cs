@@ -5,29 +5,34 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using BaselineMode.WPF.Services.Observation;
-using BaselineMode.WPF.Interfaces.Observation;
-using BaselineMode.WPF.Models.Observation;
+using System.Threading.Tasks;
+using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Infrastructure.Services.Observation;
+using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Core.Interfaces.Observation;
+using BaselineMode.WPF.Core.Models.Observation;
 
-namespace BaselineMode.WPF.ViewModels.Observation
+namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 {
     public partial class ObservationMainViewModel : ObservableObject
     {
         private readonly IObservationDataProcessor _dataProcessor;
-        private readonly ObservationExcelHelper _excelHelper;
-        private readonly IObservationFittingService _fittingService;
+        private readonly IObservationExcelHelper _excelHelper;
+        private readonly IFittingService _fittingService;
+        private readonly IFileService _fileService;
 
         // Services exposed as Interfaces
         public IObservationDataProcessor DataProcessor => _dataProcessor;
-        public ObservationExcelHelper ExcelHelper => _excelHelper;
-        public IObservationFittingService FittingService => _fittingService;
+        public IObservationExcelHelper ExcelHelper => _excelHelper;
+        public IFittingService FittingService => _fittingService;
         public string CombinedOutputFileName { get; set; } = "CombinedData.xlsx";
 
-        public ObservationMainViewModel()
+        public ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IFileService fileService)
         {
-            _dataProcessor = new ObservationDataProcessor();
-            _excelHelper = new ObservationExcelHelper();
-            _fittingService = new ObservationFittingService();
+            _dataProcessor = dataProcessor;
+            _excelHelper = excelHelper;
+            _fittingService = fittingService;
+            _fileService = fileService;
         }
 
         [ObservableProperty]
@@ -41,6 +46,30 @@ namespace BaselineMode.WPF.ViewModels.Observation
 
         [ObservableProperty]
         private string? _outputFileName;
+
+        [ObservableProperty]
+        private string _dataCountStr = "-";
+
+        [ObservableProperty]
+        private string _particleCountStr = "-";
+
+        [ObservableProperty]
+        private string _startTimeStr = "-";
+
+        [ObservableProperty]
+        private string _stopTimeStr = "-";
+
+        public Dictionary<string, int[]>? HistogramData { get; private set; }
+
+        [RelayCommand]
+        private void SelectFiles()
+        {
+            var files = _fileService.OpenFileDialog("Text files (*.txt)|*.txt|All files (*.*)|*.*", true);
+            if (files != null && files.Length > 0)
+            {
+                LoadFiles(files);
+            }
+        }
 
         // --- Data Access Helpers for View ---
         public LayerData? GetDSSDLayerData(DetectorLayer layer)
@@ -64,7 +93,7 @@ namespace BaselineMode.WPF.ViewModels.Observation
         }
 
         [RelayCommand]
-        private void ProcessData()
+        private async Task ConvertFilesToExcel()
         {
             try
             {
@@ -84,24 +113,27 @@ namespace BaselineMode.WPF.ViewModels.Observation
 
                 var filteredSegments = new List<string>();
 
-                foreach (var fileName in InputFileList)
+                await Task.Run(() =>
                 {
-                    var fileContent = File.ReadAllText(fileName);
-                    var cleanedData = Regex.Replace(fileContent, @"\s+", "");
-                    var matches = Regex.Matches(cleanedData, $@"{ObservationConstants.HeaderStart}[0-9A-F]+");
-
-                    foreach (Match match in matches)
+                    foreach (var fileName in InputFileList)
                     {
-                        var segment = match.Value;
-                        int segmentLength = segment.Length;
+                        var fileContent = File.ReadAllText(fileName);
+                        var cleanedData = Regex.Replace(fileContent, @"\s+", "");
+                        var matches = Regex.Matches(cleanedData, $@"{ObservationConstants.HeaderStart}[0-9A-F]+");
 
-                        for (int i = 0; i < segmentLength; i += ObservationConstants.PacketHexLength)
+                        foreach (Match match in matches)
                         {
-                            var chunk = segment.Substring(i, Math.Min(ObservationConstants.PacketHexLength, segmentLength - i));
-                            filteredSegments.Add(chunk);
+                            var segment = match.Value;
+                            int segmentLength = segment.Length;
+
+                            for (int i = 0; i < segmentLength; i += ObservationConstants.PacketHexLength)
+                            {
+                                var chunk = segment.Substring(i, Math.Min(ObservationConstants.PacketHexLength, segmentLength - i));
+                                filteredSegments.Add(chunk);
+                            }
                         }
                     }
-                }
+                });
 
                 if (filteredSegments.Count > 0 && filteredSegments.Last().Length < ObservationConstants.PacketHexLength)
                 {
@@ -123,6 +155,48 @@ namespace BaselineMode.WPF.ViewModels.Observation
                 StatusMessage = $"Error: {ex.Message}";
             }
         }
+
+        [RelayCommand]
+        private async Task AnalyzeFiles()
+        {
+            if (InputFileList == null || InputFileList.Length == 0)
+            {
+                StatusMessage = "Please select files first.";
+                return;
+            }
+
+            try
+            {
+                StatusMessage = "Processing...";
+                ProgressValue = 0; // Indeterminate
+                IsBusy = true;
+
+                var result = await _dataProcessor.ProcessFilesAsync(InputFileList);
+                HistogramData = result;
+
+                StatusMessage = "Processing complete!";
+                IsBusy = false;
+                ProgressValue = 100;
+
+                // Notify UI to update plots (via property or event)
+                // In a real usage, we might expose the result as a property
+                // For now, we assume the View might pull from DataProcessor or we expose specific data
+
+                // TODO: Update Plot Objects or trigger event
+                RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "Error!";
+                IsBusy = false;
+                // Log or Show MessageBox via Service
+            }
+        }
+
+        [ObservableProperty]
+        private bool _isBusy;
+
+        public event EventHandler? RequestPlotUpdate;
 
         public void LoadFiles(string[] fileNames)
         {

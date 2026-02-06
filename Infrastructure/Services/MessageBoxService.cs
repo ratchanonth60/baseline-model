@@ -2,7 +2,7 @@ using System;
 using System.Windows;
 using BaselineMode.WPF.Views;
 
-namespace BaselineMode.WPF.Services
+namespace BaselineMode.WPF.Infrastructure.Services
 {
     public static class MessageBoxService
     {

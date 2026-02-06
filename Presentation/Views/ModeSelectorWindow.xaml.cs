@@ -1,4 +1,5 @@
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
 using BaselineMode.WPF.Views.Observation;
 
 namespace BaselineMode.WPF.Views
@@ -39,7 +40,8 @@ namespace BaselineMode.WPF.Views
 
         private void LaunchObservationMode()
         {
-            var observationWindow = new ObservationMainWindow();
+            var app = (App)Application.Current;
+            var observationWindow = app.ServiceProvider.GetRequiredService<ObservationMainWindow>();
             observationWindow.Show();
             this.Close();
         }

@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using BaselineMode.WPF.Models.Observation;
-using BaselineMode.WPF.Interfaces.Observation;
+using BaselineMode.WPF.Core.Models.Observation;
+using BaselineMode.WPF.Core.Interfaces.Observation;
 
-namespace BaselineMode.WPF.Services.Observation
+namespace BaselineMode.WPF.Infrastructure.Services.Observation
 {
     public class ObservationDataProcessor : IObservationDataProcessor
     {
@@ -83,16 +83,16 @@ namespace BaselineMode.WPF.Services.Observation
         public async Task<Dictionary<string, int[]>> ProcessFilesAsync(string[] filePaths)
         {
             ClearData();
-            
+
             foreach (var filePath in filePaths)
             {
                 await Task.Run(() => ProcessFile(filePath));
             }
-            
+
             // Return processed data as histogram arrays
             return GetHistogramData();
         }
-        
+
         /// <summary>
         /// Process a single file
         /// </summary>
@@ -102,7 +102,7 @@ namespace BaselineMode.WPF.Services.Observation
             foreach (var line in lines.Skip(1)) // Skip header
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
-                
+
                 var hexData = SplitHexData(line.Trim());
                 if (hexData.Length >= ObservationConstants.HeaderOffset + ObservationConstants.ParticleDataLength)
                 {
@@ -110,7 +110,7 @@ namespace BaselineMode.WPF.Services.Observation
                 }
             }
         }
-        
+
         /// <summary>
         /// Read header information from a file
         /// </summary>
@@ -118,14 +118,14 @@ namespace BaselineMode.WPF.Services.Observation
         {
             var lines = File.ReadAllLines(filePath);
             if (lines.Length == 0) return "Empty file";
-            
+
             var headerLine = lines[0];
             var sb = new System.Text.StringBuilder();
-            
+
             sb.AppendLine($"File: {Path.GetFileName(filePath)}");
             sb.AppendLine($"Header Length: {headerLine.Length} characters");
             sb.AppendLine($"Total Lines: {lines.Length}");
-            
+
             // Try to parse timestamp from header
             if (headerLine.Length >= 28)
             {
@@ -140,13 +140,13 @@ namespace BaselineMode.WPF.Services.Observation
                     sb.AppendLine("Start Time: Unable to parse");
                 }
             }
-            
+
             sb.AppendLine($"\nRaw Header (first 100 chars):");
             sb.AppendLine(headerLine.Length > 100 ? headerLine.Substring(0, 100) + "..." : headerLine);
-            
+
             return sb.ToString();
         }
-        
+
         /// <summary>
         /// Get histogram data for all DSSD layers
         /// </summary>
@@ -154,31 +154,31 @@ namespace BaselineMode.WPF.Services.Observation
         {
             var result = new Dictionary<string, int[]>();
             int histogramSize = 16384;
-            
+
             foreach (DetectorLayer layer in Enum.GetValues(typeof(DetectorLayer)))
             {
                 // Create histograms for X and Y
                 var histX = new int[histogramSize];
                 var histY = new int[histogramSize];
-                
+
                 foreach (var value in DSSDData[layer].PulseHeightX)
                 {
                     int intValue = (int)value;
                     if (intValue >= 0 && intValue < histogramSize)
                         histX[intValue]++;
                 }
-                
+
                 foreach (var value in DSSDData[layer].PulseHeightY)
                 {
                     int intValue = (int)value;
                     if (intValue >= 0 && intValue < histogramSize)
                         histY[intValue]++;
                 }
-                
+
                 result[$"DSSD{layer}_X"] = histX;
                 result[$"DSSD{layer}_Y"] = histY;
             }
-            
+
             return result;
         }
 

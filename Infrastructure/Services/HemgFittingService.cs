@@ -1,205 +1,407 @@
-// Services/HemgFittingService.cs
 using System;
 using System.Linq;
+using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Core.Models;
+using MathNet.Numerics.LinearAlgebra;
 
-namespace BaselineMode.WPF.Services
+namespace BaselineMode.WPF.Infrastructure.Services
 {
     /// <summary>
-    /// HEMG (Hyper-Exponentially Modified Gaussian) Double-Sided Fitting Service
-    /// Converts MATLAB HEMG_DS_fit to C# using native optimization
+    /// HEMG (Hyper-Exponentially Modified Gaussian) Fitting Service
+    /// uses Manual Levenberg-Marquardt Optimization via Math.NET Linear Algebra.
     /// </summary>
-    public class HemgFittingService
+    public class HemgFittingService : IFittingService
     {
-        private const double MAX_EXP_ARG = 700.0;  // Prevent overflow in exponential
+        private const double MAX_EXP_ARG = 700.0;
         private const double SQRT_2 = 1.41421356237;
+        private const double SQRT_2PI = 2.50662827463;
 
-        /// <summary>
-        /// Fit data with double-sided Hyper-EMG function
-        /// </summary>
-        /// <param name="thresholdedData">1D array of thresholded data (e.g., from histogram)</param>
-        /// <returns>Tuple of (fitCurve, parameters) where parameters = [A, mu, sigma, tauL1, tauR1, etaL1, etaR1]</returns>
-        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] thresholdedData)
+        public FittingResult GaussianFit(double[] xData, double[] yData)
         {
             try
             {
-                // Create histogram bins from 0 to 16384
-                var (edges, centers, counts) = CreateHistogram(thresholdedData);
+                if (xData == null || yData == null || xData.Length != yData.Length || xData.Length == 0)
+                    return FittingResult.Empty(0);
 
-                // Calculate initial parameters
-                double A0 = counts.Max();
-                double mu0 = thresholdedData.Average();
-                double sigma0 = CalculateStdDev(thresholdedData, mu0);
+                var (mu, sigma) = CalculateWeightedMoments(xData, yData);
+                double peak = yData.Max();
+                double[] p0 = new[] { peak, mu, sigma };
 
-                // Initial parameter vector: [A, mu, sigma, tauL1, tauR1, etaL1, etaR1]
-                double[] p0 = new[] { A0, mu0, sigma0, 0.5, 1.5, 0.5, 0.5 };
-                double[] lb = new[] { 0, 0, 0.01, 0.05, 0.05, 0.0, 0.0 };
-                double[] ub = new[] { double.PositiveInfinity, thresholdedData.Max(), 50, 5.0, 5.0, 1.0, 1.0 };
-
-                // Define the objective function - sum of squared residuals
-                Func<double[], double> objective = (p) =>
+                // Gaussian Model
+                Func<double, double[], double> gaussianModel = (x, p) =>
                 {
-                    double residualSum = 0.0;
-                    for (int i = 0; i < centers.Length; i++)
-                    {
-                        double predicted = HyperEmgDouble(centers[i], p[0], p[1], p[2], 
-                                                         new[] { p[3] }, new[] { p[5] }, 
-                                                         new[] { p[4] }, new[] { p[6] });
-                        double residual = counts[i] - predicted;
-                        residualSum += residual * residual;
-                    }
-                    return residualSum;
+                    double A = Math.Abs(p[0]);
+                    double m = p[1];
+                    double s = Math.Abs(p[2]);
+                    if (s < 1e-9) s = 1e-9;
+                    double s2 = 2 * s * s;
+                    return A * Math.Exp(-Math.Pow(x - m, 2) / s2);
                 };
 
-                // Fit the curve using gradient descent (fallback if Accord's advanced methods unavailable)
-                double[] pFit = FitCurveGradientDescent(objective, p0, lb, ub, centers, counts);
+                // Fit using Manual LM
+                double[] pFit = FitCurveLevenbergMarquardtManual(gaussianModel, p0, xData, yData);
 
-                // Ensure parameters are within bounds
-                for (int i = 0; i < pFit.Length; i++)
+                double fitA = Math.Abs(pFit[0]);
+                double fitMu = pFit[1];
+                double fitSigma = Math.Abs(pFit[2]);
+                double fitS2 = 2 * fitSigma * fitSigma;
+
+                double[] fitCurve = new double[xData.Length];
+                double sumSqErr = 0;
+                for (int i = 0; i < xData.Length; i++)
                 {
-                    pFit[i] = Math.Max(lb[i], Math.Min(ub[i], pFit[i]));
+                    double val = fitA * Math.Exp(-Math.Pow(xData[i] - fitMu, 2) / fitS2);
+                    fitCurve[i] = val;
+                    double r = yData[i] - val;
+                    sumSqErr += r * r;
                 }
+                double rms = Math.Sqrt(sumSqErr / xData.Length);
 
-                // Generate fitted curve
+                return new FittingResult(fitCurve, fitMu, fitSigma, fitA, rms);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Gaussian Fit Error: {ex.Message}");
+                return FittingResult.Empty(xData?.Length ?? 0);
+            }
+        }
+
+        public FittingResult HemgSingleSidedFit(double[] xData, double[] yData)
+        {
+            var result = HemgSingleSidedFitHistogram(xData, yData);
+            if (result.parameters == null || result.parameters.Length < 6)
+                return FittingResult.Empty(xData?.Length ?? 0);
+
+            var p = result.parameters;
+            var res = new FittingResult
+            {
+                FitCurve = result.fitCurve,
+                A = p[0],
+                Mu = p[1],
+                Sigma = p[2],
+                Peak = p[0],
+                TauL1 = p[3],
+                TauL2 = p[4],
+                EtaL1 = p[5],
+                EtaL2 = 1.0 - p[5],
+                TauR1 = 0,
+                EtaR1 = 0
+            };
+            return res;
+        }
+
+        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData)
+        {
+            var result = HemgDoubleSidedFitHistogram(xData, yData);
+            if (result.parameters == null || result.parameters.Length < 7)
+                return FittingResult.Empty(xData?.Length ?? 0);
+
+            var p = result.parameters;
+            return new FittingResult(result.fitCurve, p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
+        }
+
+        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] thresholdedData)
+        {
+            var (edges, centers, counts) = CreateHistogram(thresholdedData);
+            return HemgDoubleSidedFitHistogram(centers, counts, thresholdedData);
+        }
+
+        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFitHistogram(double[] centers, double[] counts, double[] rawDataOptional = null)
+        {
+            try
+            {
+                if (centers == null || counts == null || centers.Length == 0) return (Array.Empty<double>(), Array.Empty<double>());
+
+                // Normalization
+                double totalSum = counts.Sum();
+                if (totalSum <= 1e-9) totalSum = 1.0;
+                double[] normCounts = new double[counts.Length];
+                for (int i = 0; i < counts.Length; i++) normCounts[i] = counts[i] / totalSum;
+
+                double A0 = 1.0;
+                double mu0, sigma0;
+                (mu0, sigma0) = CalculateWeightedMoments(centers, counts);
+
+                double[] p0 = new[] { A0, mu0, sigma0, 0.5, 1.5, 0.5, 0.5 };
+
+                // Define Model
+                Func<double, double[], double> modelFunc = (xVal, p) =>
+                {
+                    // p: A, mu, sigma, tauL, tauR, etaL, etaR
+                    return HyperEmgDouble(xVal, Math.Abs(p[0]), p[1], Math.Abs(p[2]),
+                                          new[] { Math.Abs(p[3]) }, new[] { p[5] },
+                                          new[] { Math.Abs(p[4]) }, new[] { p[6] });
+                };
+
+                // Fit Manual LM (Targeting Normalized Data)
+                double[] pFit = FitCurveLevenbergMarquardtManual(modelFunc, p0, centers, normCounts);
+
+                // Denormalize
+                pFit[0] *= totalSum;
+
+                // Generate Curve
                 double[] fitCurve = new double[centers.Length];
                 for (int i = 0; i < centers.Length; i++)
                 {
                     fitCurve[i] = HyperEmgDouble(centers[i], pFit[0], pFit[1], pFit[2],
                                                  new[] { pFit[3] }, new[] { pFit[5] },
                                                  new[] { pFit[4] }, new[] { pFit[6] });
-                    if (!double.IsFinite(fitCurve[i]))
-                        fitCurve[i] = 0.0;
+                    if (!double.IsFinite(fitCurve[i])) fitCurve[i] = 0.0;
                 }
 
                 return (fitCurve, pFit);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"HEMG Fit Error: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"HEMG Double Fit Error: {ex.Message}");
                 return (Array.Empty<double>(), Array.Empty<double>());
             }
         }
 
-        /// <summary>
-        /// Fit curve using gradient descent optimization
-        /// </summary>
-        private double[] FitCurveGradientDescent(Func<double[], double> objective, double[] p0, 
-                                                double[] lb, double[] ub, double[] centers, double[] counts)
+        public (double[] fitCurve, double[] parameters) HemgSingleSidedFit(double[] input)
         {
-            double[] p = (double[])p0.Clone();
-            double learningRate = 0.01;
-            int maxIterations = 200;
-            double tolerance = 1e-6;
-
-            for (int iter = 0; iter < maxIterations; iter++)
-            {
-                double currentError = objective(p);
-
-                // Numerical gradient calculation
-                double[] gradient = new double[p.Length];
-                double delta = 1e-7;
-
-                for (int j = 0; j < p.Length; j++)
-                {
-                    double[] pPlus = (double[])p.Clone();
-                    pPlus[j] += delta;
-
-                    double errorPlus = objective(pPlus);
-                    gradient[j] = (errorPlus - currentError) / delta;
-                }
-
-                // Update parameters
-                bool updated = false;
-                for (int j = 0; j < p.Length; j++)
-                {
-                    double newP = p[j] - learningRate * gradient[j];
-                    newP = Math.Max(lb[j], Math.Min(ub[j], newP));
-
-                    if (Math.Abs(newP - p[j]) > tolerance * Math.Abs(p[j]) + tolerance)
-                        updated = true;
-
-                    p[j] = newP;
-                }
-
-                if (!updated) break;
-
-                // Check convergence
-                double newError = objective(p);
-                if (Math.Abs(newError - currentError) < tolerance)
-                    break;
-            }
-
-            return p;
+            var (edges, centers, counts) = CreateHistogram(input);
+            return HemgSingleSidedFitHistogram(centers, counts, input);
         }
 
-        /// <summary>
-        /// Hyper-EMG Double-Sided function
-        /// Computes the PDF value for a given x and parameters
-        /// </summary>
+        public (double[] fitCurve, double[] parameters) HemgSingleSidedFitHistogram(double[] centers, double[] counts, double[] rawDataOptional = null)
+        {
+            try
+            {
+                if (centers == null || counts == null || centers.Length == 0) return (Array.Empty<double>(), Array.Empty<double>());
+
+                double totalSum = counts.Sum();
+                if (totalSum <= 1e-9) totalSum = 1.0;
+                double[] normCounts = new double[counts.Length];
+                for (int i = 0; i < counts.Length; i++) normCounts[i] = counts[i] / totalSum;
+
+                double A0 = 1.0;
+                double mu0, sigma0;
+                (mu0, sigma0) = CalculateWeightedMoments(centers, counts);
+
+                double[] p0 = new[] { A0, mu0, sigma0, 0.5, 1.5, 0.5 };
+
+                Func<double, double[], double> modelFunc = (xVal, p) =>
+                {
+                    return HyperEmgLeft(xVal, Math.Abs(p[0]), p[1], Math.Abs(p[2]),
+                                        new[] { Math.Abs(p[3]), Math.Abs(p[4]) },
+                                        new[] { p[5], 1.0 - p[5] });
+                };
+
+                double[] pFit = FitCurveLevenbergMarquardtManual(modelFunc, p0, centers, normCounts);
+
+                pFit[0] *= totalSum;
+
+                double[] fitCurve = new double[centers.Length];
+                for (int i = 0; i < centers.Length; i++)
+                {
+                    fitCurve[i] = HyperEmgLeft(centers[i], pFit[0], pFit[1], pFit[2],
+                                             new[] { pFit[3], pFit[4] },
+                                             new[] { pFit[5], 1.0 - pFit[5] });
+                }
+
+                return (fitCurve, pFit);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"HEMG Single Fit Error: {ex.Message}");
+                return (Array.Empty<double>(), new double[6]);
+            }
+        }
+
+        // --- Manual Levenberg-Marquardt Optimization using Math.NET Algebra ---
+        private double[] FitCurveLevenbergMarquardtManual(Func<double, double[], double> modelFunc, double[] p0, double[] xData, double[] yData)
+        {
+            int n = p0.Length;
+            int m = xData.Length;
+            var p = Vector<double>.Build.DenseOfArray(p0);
+            var yObs = Vector<double>.Build.DenseOfArray(yData);
+
+            double lambda = 0.01;
+            int maxIter = 100;
+            double tolerance = 1e-5;
+
+            var r = CalcResiduals(modelFunc, p, xData, yObs);
+            double currentError = r.DotProduct(r);
+
+            for (int iter = 0; iter < maxIter; iter++)
+            {
+                var J = CalcJacobian(modelFunc, p, xData);
+                var Jt = J.Transpose();
+                var H = Jt * J;
+                var g = Jt * r;
+
+                var H_damp = H.Clone();
+                for (int i = 0; i < n; i++)
+                    H_damp[i, i] += lambda * (Math.Abs(H[i, i]) + 1e-6);
+
+                Vector<double> delta;
+                try { delta = H_damp.Solve(g); }
+                catch { delta = g * 0.001; } // Fallback
+
+                var p_new = p + delta;
+
+                var r_new = CalcResiduals(modelFunc, p_new, xData, yObs);
+                double newError = r_new.DotProduct(r_new);
+
+                if (newError < currentError)
+                {
+                    p = p_new;
+                    lambda /= 10.0;
+                    if (lambda < 1e-7) lambda = 1e-7;
+                    if (Math.Abs(currentError - newError) < tolerance) break;
+                    currentError = newError;
+                    r = r_new;
+                }
+                else
+                {
+                    lambda *= 10.0;
+                    if (lambda > 1e7) break;
+                }
+            }
+
+            double[] finalP = p.ToArray();
+            finalP[0] = Math.Abs(finalP[0]); // A
+            finalP[2] = Math.Abs(finalP[2]); // Sigma
+            for (int k = 3; k < finalP.Length; k++)
+            {
+                bool isEta = (p0.Length >= 7 && (k == 5 || k == 6)) || (p0.Length < 7 && k == 5);
+                if (isEta) finalP[k] = Math.Max(0, Math.Min(1, finalP[k]));
+                else finalP[k] = Math.Abs(finalP[k]);
+            }
+            return finalP;
+        }
+
+        private Vector<double> CalcResiduals(Func<double, double[], double> model, Vector<double> p, double[] x, Vector<double> y)
+        {
+            var res = new double[x.Length];
+            double[] pArr = p.ToArray();
+            for (int i = 0; i < x.Length; i++)
+                res[i] = y[i] - model(x[i], pArr);
+            return Vector<double>.Build.Dense(res);
+        }
+
+        private Matrix<double> CalcJacobian(Func<double, double[], double> model, Vector<double> p, double[] x)
+        {
+            int n = p.Count;
+            int m = x.Length;
+            var J = Matrix<double>.Build.Dense(m, n);
+            double[] pArr = p.ToArray();
+            double delta = 1e-6;
+
+            var f0 = new double[m];
+            for (int i = 0; i < m; i++) f0[i] = model(x[i], pArr);
+
+            for (int j = 0; j < n; j++)
+            {
+                double orig = pArr[j];
+                pArr[j] += delta;
+                for (int i = 0; i < m; i++)
+                {
+                    double fNew = model(x[i], pArr);
+                    J[i, j] = (fNew - f0[i]) / delta;
+                }
+                pArr[j] = orig;
+            }
+            return J;
+        }
+
+        // --- Helpers ---
+
+        private (double mean, double sigma) CalculateWeightedMoments(double[] x, double[] w)
+        {
+            double maxVal = w.Max();
+            int peakIdx = Array.IndexOf(w, maxVal);
+            if (peakIdx < 0) return (0, 1);
+            int window = 200;
+            int start = Math.Max(0, peakIdx - window);
+            int end = Math.Min(x.Length - 1, peakIdx + window);
+            double sumW = 0, sumWX = 0;
+            for (int i = start; i <= end; i++) { sumW += w[i]; sumWX += w[i] * x[i]; }
+            if (sumW <= 1e-9) return (0, 1);
+            double mean = sumWX / sumW;
+            double sumWSqDiff = 0;
+            for (int i = start; i <= end; i++) { double diff = x[i] - mean; sumWSqDiff += w[i] * diff * diff; }
+            double sigma = Math.Sqrt(Math.Max(0, sumWSqDiff / sumW));
+            if (sigma < 1e-6) sigma = 1;
+            return (mean, sigma);
+        }
+
+        private (double[] edges, double[] centers, double[] counts) CreateHistogram(double[] data)
+        {
+            int numBins = 16384;
+            double[] edges = new double[numBins + 1];
+            double[] centers = new double[numBins];
+            int[] counts_int = new int[numBins];
+
+            for (int i = 0; i <= numBins; i++) edges[i] = i;
+            for (int i = 0; i < numBins; i++) centers[i] = edges[i] + 0.5;
+
+            foreach (double value in data)
+            {
+                int bin = (int)Math.Floor(value);
+                if (bin >= 0 && bin < numBins) counts_int[bin]++;
+            }
+
+            double[] counts = new double[numBins];
+            for (int i = 0; i < numBins; i++) counts[i] = counts_int[i];
+
+            return (edges, centers, counts);
+        }
+
         private double HyperEmgDouble(double x, double A, double mu, double sigma,
                                      double[] tausLeft, double[] etasLeft,
                                      double[] tausRight, double[] etasRight)
         {
             double y = 0.0;
-
-            // Left tails (x < mu)
             for (int i = 0; i < tausLeft.Length; i++)
             {
-                double tau = tausLeft[i];
-                double eta = etasLeft[i];
-
-                if (tau <= 0) continue;
-
-                double sigma2 = sigma * sigma;
-                double tau2 = tau * tau;
-                double z = (sigma2 / (2 * tau2)) - (mu - x) / tau;
-                z = Math.Min(z, MAX_EXP_ARG);
-
-                double arg = (sigma2 / tau - (mu - x)) / (SQRT_2 * sigma);
-                double erfc_val = Erfc(arg);
-
-                y += eta * (1.0 / (2.0 * tau)) * Math.Exp(z) * erfc_val;
+                if (tausLeft[i] > 0)
+                    y += etasLeft[i] * HyperComponent(x, mu, sigma, tausLeft[i], true);
             }
-
-            // Right tails (x >= mu)
             for (int i = 0; i < tausRight.Length; i++)
             {
-                double tau = tausRight[i];
-                double eta = etasRight[i];
-
-                if (tau <= 0) continue;
-
-                double sigma2 = sigma * sigma;
-                double tau2 = tau * tau;
-                double z = (sigma2 / (2 * tau2)) + (x - mu) / tau;
-                z = Math.Min(z, MAX_EXP_ARG);
-
-                double arg = (sigma2 / tau + (x - mu)) / (SQRT_2 * sigma);
-                double erfc_val = Erfc(arg);
-
-                y += eta * (1.0 / (2.0 * tau)) * Math.Exp(z) * erfc_val;
+                if (tausRight[i] > 0)
+                    y += etasRight[i] * HyperComponent(x, mu, sigma, tausRight[i], false);
             }
-
             y = A * y;
-
-            // Ensure no NaN or Infinity values
-            if (!double.IsFinite(y))
-                y = 0.0;
-
+            if (!double.IsFinite(y)) y = 0.0;
             return y;
         }
 
-        /// <summary>
-        /// Complementary error function (erfc) approximation
-        /// erfc(x) = 1 - erf(x)
-        /// </summary>
-        private double Erfc(double x)
+        private double HyperEmgLeft(double x, double A, double mu, double sigma, double[] taus, double[] etas)
         {
-            return 1.0 - Erf(x);
+            double y = 0.0;
+            for (int i = 0; i < taus.Length; i++)
+            {
+                if (taus[i] > 0)
+                    y += etas[i] * HyperComponent(x, mu, sigma, taus[i], true);
+            }
+            y = A * y;
+            if (!double.IsFinite(y)) y = 0.0;
+            return y;
         }
 
-        /// <summary>
-        /// Error function (erf) approximation using Abramowitz and Stegun formula
-        /// </summary>
+        private double HyperComponent(double x, double mu, double sigma, double tau, bool isLeft)
+        {
+            double sigma2 = sigma * sigma;
+            double tau2 = tau * tau;
+            double dist = isLeft ? (mu - x) : (x - mu);
+            double z = (sigma2 / (2 * tau2)) + (isLeft ? -dist / tau : dist / tau);
+            z = Math.Min(z, MAX_EXP_ARG);
+            double arg = (sigma2 / tau + (isLeft ? -dist : dist)) / (SQRT_2 * sigma);
+
+            if (arg > 25.0)
+            {
+                double d = x - mu;
+                double gArg = (d * d) / (2 * sigma2);
+                gArg = Math.Min(gArg, MAX_EXP_ARG);
+                return (1.0 / (sigma * SQRT_2PI)) * Math.Exp(-gArg);
+            }
+            return (1.0 / (2.0 * tau)) * Math.Exp(z) * Erfc(arg);
+        }
+
+        private double Erfc(double x) { return 1.0 - Erf(x); }
         private double Erf(double x)
         {
             const double a1 = 0.254829592;
@@ -216,65 +418,6 @@ namespace BaselineMode.WPF.Services
             double y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.Exp(-x * x);
 
             return sign * y;
-        }
-
-        /// <summary>
-        /// Create histogram from data with 16384 bins from 0 to 16384
-        /// </summary>
-        private (double[] edges, double[] centers, double[] counts) CreateHistogram(double[] data)
-        {
-            int numBins = 16384;
-            double[] edges = new double[numBins + 1];
-            double[] centers = new double[numBins];
-            int[] counts_int = new int[numBins];
-
-            // Create bin edges from 0 to 16384
-            for (int i = 0; i <= numBins; i++)
-            {
-                edges[i] = i;
-            }
-
-            // Calculate bin centers
-            for (int i = 0; i < numBins; i++)
-            {
-                centers[i] = edges[i] + (edges[i + 1] - edges[i]) / 2.0;
-            }
-
-            // Bin the data
-            foreach (double value in data)
-            {
-                int bin = (int)Math.Floor(value);
-                if (bin >= 0 && bin < numBins)
-                {
-                    counts_int[bin]++;
-                }
-            }
-
-            // Convert to double array
-            double[] counts = new double[numBins];
-            for (int i = 0; i < numBins; i++)
-            {
-                counts[i] = counts_int[i];
-            }
-
-            return (edges, centers, counts);
-        }
-
-        /// <summary>
-        /// Calculate standard deviation
-        /// </summary>
-        private double CalculateStdDev(double[] data, double mean)
-        {
-            if (data.Length <= 1) return 0;
-
-            double sumSquaredDiff = 0;
-            foreach (double value in data)
-            {
-                double diff = value - mean;
-                sumSquaredDiff += diff * diff;
-            }
-
-            return Math.Sqrt(sumSquaredDiff / (data.Length - 1));
         }
     }
 }

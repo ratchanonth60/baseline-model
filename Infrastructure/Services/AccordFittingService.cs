@@ -3,7 +3,7 @@
 using System;
 using System.Linq;
 
-namespace BaselineMode.WPF.Services
+namespace BaselineMode.WPF.Infrastructure.Services
 {
     /// <summary>
     /// Fitting service that provides Gaussian fit functionality.

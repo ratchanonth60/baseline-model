@@ -7,13 +7,14 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using BaselineMode.WPF.Models;
-using BaselineMode.WPF.Services;
+using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Core.Interfaces;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScottPlot;
 
-namespace BaselineMode.WPF.Views.models
+namespace BaselineMode.WPF.Presentation.ViewModels
 {
     public partial class MainViewModel : ObservableObject, IDisposable
     {
@@ -56,7 +57,7 @@ namespace BaselineMode.WPF.Views.models
         private double _kFactor = 2.0;
 
         [ObservableProperty]
-        private int _selectedFitMethod = 0; // 0=Gaussian, 1=Hyper-EMG
+        private int _selectedFitMethod = 0; // 0=Gaussian, 1=Hyper-EMG Single, 2=Hyper-EMG Double
 
         [ObservableProperty]
         private bool _useGaussianFit = false;
@@ -93,12 +94,12 @@ namespace BaselineMode.WPF.Views.models
         [ObservableProperty]
         private ObservableCollection<ChannelViewModel> _channelsZ = new ObservableCollection<ChannelViewModel>();
 
-        public event EventHandler<PlotUpdateEventArgs> RequestPlotUpdate;
+        public event EventHandler<PlotUpdateEventArgs>? RequestPlotUpdate;
 
-        public MainViewModel()
+        public MainViewModel(IFileService fileService, IMathService mathService)
         {
-            _fileService = new FileService();
-            _mathService = new MathService();
+            _fileService = fileService;
+            _mathService = mathService;
             // Initialize 16 channels
             InitializeChannels();
 
@@ -153,7 +154,7 @@ namespace BaselineMode.WPF.Views.models
         [ObservableProperty]
         private string _dataCountsStr = "-";
 
-        private CancellationTokenSource _cts;
+        private CancellationTokenSource? _cts;
 
         protected virtual void Dispose(bool disposing)
         {
@@ -166,7 +167,7 @@ namespace BaselineMode.WPF.Views.models
                     _cts?.Dispose();
                     _fileService?.Dispose();
                     _mathService?.Dispose();
-                    
+
                     // Clear large data structures
                     ProcessedData?.Clear();
                     Channels?.Clear();

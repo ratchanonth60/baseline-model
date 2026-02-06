@@ -5,12 +5,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using BaselineMode.WPF.Models;
-using BaselineMode.WPF.Services;
+using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Infrastructure.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BaselineMode.WPF.Views.models
+namespace BaselineMode.WPF.Presentation.ViewModels
 {
     public partial class MainViewModel
     {

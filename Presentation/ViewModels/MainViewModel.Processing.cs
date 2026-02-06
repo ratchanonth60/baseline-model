@@ -5,12 +5,12 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using BaselineMode.WPF.Models;
-using BaselineMode.WPF.Services;
+using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Infrastructure.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BaselineMode.WPF.Views.models
+namespace BaselineMode.WPF.Presentation.ViewModels
 {
     public partial class MainViewModel
     {
@@ -261,7 +261,7 @@ namespace BaselineMode.WPF.Views.models
                                 }
 
                                 // UI Update (ต้องระวัง Thread Safety)
-                                ProcessChannelData(chIndex, filteredData, counts, binCenters);
+                                System.Windows.Application.Current.Dispatcher.Invoke(() => ProcessChannelData(chIndex, filteredData, counts, binCenters));
                             }
                             else
                             {
@@ -312,12 +312,8 @@ namespace BaselineMode.WPF.Views.models
         // Helper เพื่อป้องกัน Cross-thread exception เวลา update UI object จาก Parallel Loop
         private void UpdateChannelStatsSafe(int chIndex, string msg, double[] counts)
         {
-            // สมมติว่า Channels เป็น ObservableCollection หรือ List ที่ผูกกับ UI
-            // การแก้ไขค่าข้างในอาจต้องทำบน UI Thread หรือใช้ lock ถ้า object นั้นไม่ได้ thread-safe
-            // แต่ถ้า Channels[i] แยกกันอิสระ มักจะแก้ property พื้นฐานได้ (แต่ระวัง ObservableCollection จะเด้ง event)
-
-            // ทางที่ดีที่สุด:
-            lock (Channels)
+            // ต้องใช้ Dispatcher.Invoke เพื่อ update UI-bound properties จาก background thread
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
                 Channels[chIndex].StatsText = msg;
                 if (counts != null)
@@ -325,7 +321,7 @@ namespace BaselineMode.WPF.Views.models
                     Channels[chIndex].Counts = counts;
                     Channels[chIndex].RawCounts = counts;
                 }
-            }
+            });
         }
         private double[] ApplyThresholding(double[] centeredData)
         {
@@ -365,15 +361,17 @@ namespace BaselineMode.WPF.Views.models
             return filteredData.Length > 5 && counts.Max() > 0;
         }
 
-        private FittingResult PerformFit(double[] binCenters, double[] counts)
+        private FittingResult PerformFit(double[] binCenters, double[] counts, double[] filteredData)
         {
-            if (SelectedFitMethod == 1) // Hyper-EMG
+            switch (SelectedFitMethod)
             {
-                return _mathService.HyperEMGFit(binCenters, counts);
-            }
-            else // Gaussian
-            {
-                return _mathService.GaussianFit(binCenters, counts);
+                case 1: // Hyper-EMG Single-Sided
+                    // Pass raw data for better initialization (sigma calculation)
+                    return _mathService.HyperEMGFit(binCenters, counts, filteredData);
+                case 2: // Hyper-EMG Double-Sided
+                    return _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
+                default: // 0 = Gaussian
+                    return _mathService.GaussianFit(binCenters, counts);
             }
         }
 

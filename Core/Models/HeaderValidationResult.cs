@@ -1,4 +1,4 @@
-namespace BaselineMode.WPF.Models
+namespace BaselineMode.WPF.Core.Models
 {
     public class HeaderValidationResult
     {

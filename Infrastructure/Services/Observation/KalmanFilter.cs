@@ -1,6 +1,6 @@
 using System;
 
-namespace BaselineMode.WPF.Services.Observation
+namespace BaselineMode.WPF.Infrastructure.Services.Observation
 {
     public class KalmanFilter
     {

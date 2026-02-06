@@ -1,8 +1,8 @@
 using System;
 using System.IO;
-using BaselineMode.WPF.Models;
+using BaselineMode.WPF.Core.Models;
 
-namespace BaselineMode.WPF.Services
+namespace BaselineMode.WPF.Infrastructure.Services
 {
     // HeaderValidationResult moved to Models namespace
 

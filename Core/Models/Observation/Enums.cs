@@ -1,4 +1,4 @@
-namespace BaselineMode.WPF.Models.Observation
+namespace BaselineMode.WPF.Core.Models.Observation
 {
     public enum DetectorLayer
     {

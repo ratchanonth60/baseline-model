@@ -1,13 +1,13 @@
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using BaselineMode.WPF.Models;
+using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Core.Models;
 
-namespace BaselineMode.WPF.Services
+namespace BaselineMode.WPF.Infrastructure.Services
 {
-    public class MathService : IMathService
+    public class MathService : IMathService, IFittingService
     {
         // Pre-computed constants
         private static readonly double SQRT_2PI = Math.Sqrt(2 * Math.PI);
@@ -144,151 +144,6 @@ namespace BaselineMode.WPF.Services
 
             return totalWeight < MIN_VALUE ? 0 : Math.Sqrt(sumSquaredDifferences / totalWeight);
         }
-        // Services/MathService.cs
-        private (double mu, double sigma, double peak) OptimizeGaussian(
-            double[] xData, double[] yData, double mu0, double sigma0, double peak0)
-        {
-            // Simple gradient descent optimization
-            double mu = mu0;
-            double sigma = sigma0;
-            double peak = peak0;
-
-            double learningRate = 0.1;
-            int maxIterations = 100;
-            double tolerance = 1e-6;
-
-            for (int iter = 0; iter < maxIterations; iter++)
-            {
-                // Calculate current error
-                double currentError = 0;
-                double mu_gradient = 0;
-                double sigma_gradient = 0;
-                double peak_gradient = 0;
-
-                double invSigma2 = 1.0 / (sigma * sigma);
-                double invSigma3 = invSigma2 / sigma;
-
-                int validPoints = 0;
-                for (int i = 0; i < xData.Length; i++)
-                {
-                    if (yData[i] <= 0) continue; // Skip zero counts
-
-                    double x = xData[i];
-                    double y_observed = yData[i];
-
-                    // Predicted value
-                    double diff = x - mu;
-                    double exponent = -0.5 * diff * diff * invSigma2;
-                    if (exponent < -MAX_EXP_ARG) continue;
-
-                    double y_predicted = peak * Math.Exp(exponent);
-                    double error = y_predicted - y_observed;
-
-                    currentError += error * error;
-
-                    // Gradients
-                    double exp_term = Math.Exp(exponent);
-                    mu_gradient += 2 * error * peak * exp_term * diff * invSigma2;
-                    sigma_gradient += 2 * error * peak * exp_term * diff * diff * invSigma3;
-                    peak_gradient += 2 * error * exp_term;
-
-                    validPoints++;
-                }
-
-                if (validPoints == 0) break;
-
-                // Normalize gradients
-                currentError /= validPoints;
-                mu_gradient /= validPoints;
-                sigma_gradient /= validPoints;
-                peak_gradient /= validPoints;
-
-                // Check convergence
-                if (Math.Abs(mu_gradient) < tolerance &&
-                    Math.Abs(sigma_gradient) < tolerance &&
-                    Math.Abs(peak_gradient) < tolerance)
-                {
-                    break;
-                }
-
-                // Update parameters
-                double step = learningRate / (1 + iter * 0.01); // Adaptive learning rate
-                mu -= step * mu_gradient;
-                sigma -= step * sigma_gradient;
-                peak -= step * peak_gradient;
-
-                // Constraints
-                if (sigma < MIN_VALUE) sigma = MIN_VALUE;
-                if (peak < 0) peak = 0;
-            }
-
-            return (mu, sigma, peak);
-        }
-        public FittingResult GaussianFitWeighted(double[] xData, double[] yData)
-        {
-            // คำนวณ initial guess
-            var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
-
-            if (peak_guess <= 0 || sigma_guess <= MIN_VALUE)
-            {
-                return FittingResult.Empty(xData.Length);
-            }
-
-            // Refine parameters using weighted fit
-            // แทนที่จะ optimize ทั้งหมด เราจะใช้ weighted moments รอบ peak
-
-            // 1. หา peak index
-            int peakIdx = 0;
-            double maxY = yData[0];
-            for (int i = 1; i < yData.Length; i++)
-            {
-                if (yData[i] > maxY)
-                {
-                    maxY = yData[i];
-                    peakIdx = i;
-                }
-            }
-
-            // 2. สร้าง window รอบ peak (±3 sigma)
-            double windowSize = 3 * sigma_guess;
-            double peakX = xData[peakIdx];
-
-            double weightedSum = 0;
-            double weightedSumX = 0;
-            double weightedSumX2 = 0;
-
-            for (int i = 0; i < xData.Length; i++)
-            {
-                if (Math.Abs(xData[i] - peakX) <= windowSize && yData[i] > 0)
-                {
-                    double weight = yData[i];
-                    weightedSum += weight;
-                    weightedSumX += weight * xData[i];
-                    weightedSumX2 += weight * xData[i] * xData[i];
-                }
-            }
-
-            // 3. Recalculate parameters
-            double mu_refined = weightedSumX / weightedSum;
-            double variance = (weightedSumX2 / weightedSum) - (mu_refined * mu_refined);
-            double sigma_refined = Math.Sqrt(Math.Max(variance, MIN_VALUE));
-            double peak_refined = maxY; // Peak height จาก histogram โดยตรง
-
-            // 4. Generate fit curve
-            double[] fitCurve = new double[xData.Length];
-            double invSigma2 = 1.0 / (sigma_refined * sigma_refined);
-
-            for (int i = 0; i < xData.Length; i++)
-            {
-                double diff = xData[i] - mu_refined;
-                double exponent = -0.5 * diff * diff * invSigma2;
-                exponent = Math.Max(exponent, -MAX_EXP_ARG);
-                fitCurve[i] = peak_refined * Math.Exp(exponent);
-            }
-
-            double rms = CalculateRMS(xData, fitCurve, mu_refined);
-            return new FittingResult(fitCurve, mu_refined, sigma_refined, peak_refined, rms);
-        }
 
         /// <summary>
         /// Performs Gaussian curve fitting with optimized calculations.
@@ -297,6 +152,12 @@ namespace BaselineMode.WPF.Services
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         public FittingResult GaussianFit(double[] xData, double[] yData)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MathService));
+
+            if (xData == null || yData == null || xData.Length == 0)
+                return FittingResult.Empty(0);
+
             // Step 1: Find peak
             int peakIdx = 0;
             double maxCount = yData[0];
@@ -319,8 +180,8 @@ namespace BaselineMode.WPF.Services
             double weightedSumX = 0;
             double weightedSumX2 = 0;
 
-            // Use data within ±50% of peak height
-            double threshold = maxCount * 0.1; // 10% threshold
+            // Use data within ±10% of peak height
+            double threshold = maxCount * 0.1;
 
             for (int i = 0; i < yData.Length; i++)
             {
@@ -354,15 +215,264 @@ namespace BaselineMode.WPF.Services
                 double gaussianValue = coeff * Math.Exp(exponent);
 
                 // Scale to match peak height
+                // Note: The previous implementation scaled it correctly
                 fitCurve[i] = gaussianValue * (maxCount / (coeff * Math.Exp(0)));
             }
 
+            // Calculate Stats
             double rms = CalculateRMS(xData, fitCurve, mu);
-            return new FittingResult(fitCurve, mu, sigma, maxCount, rms);
+            double fwhm = 2.355 * sigma;
+            double resolution = (Math.Abs(mu) > 1e-9) ? (fwhm / mu * 100.0) : 0;
+
+            // Calculate R-Squared
+            double yMean = yData.Average();
+            double ssTot = yData.Sum(y => Math.Pow(y - yMean, 2));
+            double ssRes = yData.Zip(fitCurve, (y, f) => Math.Pow(y - f, 2)).Sum();
+            double rSquared = (ssTot > 1e-9) ? 1 - (ssRes / ssTot) : 0;
+
+            var result = new FittingResult(fitCurve, mu, sigma, maxCount, rms)
+            {
+                FWHM = fwhm,
+                Resolution = resolution,
+                R_Squared = rSquared
+            };
+            return result;
         }
-        /// <summary>
-        /// Optimized 3x3 linear system solver using Cramer's rule
-        /// </summary>
+
+        // Helper to forward to internal implementation with optional raw data
+        public FittingResult HyperEMGFit(double[] xData, double[] yData) => HemgSingleSidedFit(xData, yData, null);
+        public FittingResult HyperEMGFit(double[] xData, double[] yData, double[] rawData) => HemgSingleSidedFit(xData, yData, rawData);
+
+        // Implementation regarding IFittingService (Standard signature)
+        public FittingResult HemgSingleSidedFit(double[] xData, double[] yData) => HemgSingleSidedFit(xData, yData, null);
+
+        // Extended signature with rawData
+        public FittingResult HemgSingleSidedFit(double[] xData, double[] yData, double[] rawData)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MathService));
+
+            if (xData == null || yData == null || xData.Length == 0)
+                return FittingResult.Empty(0);
+
+            try
+            {
+                var hemgService = new HemgFittingService();
+                var (fitCurve, p) = hemgService.HemgSingleSidedFitHistogram(xData, yData, rawData);
+
+                if (fitCurve == null || p == null || p.Length < 6)
+                    return FittingResult.Empty(xData.Length);
+
+                // p: [A, mu, sigma, tauL1, tauL2, etaL1]
+                var result = new FittingResult
+                {
+                    FitCurve = fitCurve,
+                    Peak = p[0],
+                    Mu = p[1],
+                    Sigma = p[2],
+                    TauL1 = p[3],
+                    TauL2 = p[4],
+                    EtaL1 = p[5],
+                    A = p[0]
+                };
+
+                CalculateFitStats(result, xData, yData, fitCurve);
+                return result;
+            }
+            catch (Exception)
+            {
+                return FittingResult.Empty(xData.Length);
+            }
+        }
+
+        public FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData) => HemgDoubleSidedFit(xData, yData, null);
+        public FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData, double[] rawData) => HemgDoubleSidedFit(xData, yData, rawData);
+
+        // Implementation regarding IFittingService (Standard signature)
+        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData) => HemgDoubleSidedFit(xData, yData, null);
+
+        // Extended signature with rawData
+        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData, double[] rawData)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MathService));
+
+            if (xData == null || yData == null || xData.Length == 0)
+                return FittingResult.Empty(0);
+
+            try
+            {
+                var hemgService = new HemgFittingService();
+                var (fitCurve, p) = hemgService.HemgDoubleSidedFitHistogram(xData, yData, rawData);
+
+                if (fitCurve == null || p == null || p.Length < 7)
+                    return FittingResult.Empty(xData.Length);
+
+                // p: [A, mu, sigma, tauL1, tauR1, etaL1, etaR1]
+                var result = new FittingResult
+                {
+                    FitCurve = fitCurve,
+                    Peak = p[0],
+                    Mu = p[1],
+                    Sigma = p[2],
+                    TauL1 = p[3],
+                    TauR1 = p[4],
+                    EtaL1 = p[5],
+                    EtaR1 = p[6],
+                    A = p[0]
+                };
+
+                CalculateFitStats(result, xData, yData, fitCurve);
+                return result;
+            }
+            catch (Exception)
+            {
+                return FittingResult.Empty(xData.Length);
+            }
+        }
+
+        private void CalculateFitStats(FittingResult result, double[] xData, double[] yData, double[] fitCurve)
+        {
+            // RMS
+            result.RMS = CalculateRMS(xData, fitCurve, result.Mu);
+
+            // R-Squared
+            double yMean = yData.Average();
+            double ssTot = yData.Sum(y => Math.Pow(y - yMean, 2));
+            double ssRes = yData.Zip(fitCurve, (y, f) => Math.Pow(y - f, 2)).Sum();
+            result.R_Squared = (ssTot > 1e-9) ? 1 - (ssRes / ssTot) : 0;
+
+            // FWHM (Numerical search on fitCurve)
+            result.FWHM = CalculateFWHM(xData, fitCurve, result.Peak, result.Mu);
+
+            // Resolution
+            result.Resolution = (Math.Abs(result.Mu) > 1e-9) ? (result.FWHM / result.Mu * 100.0) : 0;
+        }
+
+        private double CalculateFWHM(double[] x, double[] y, double peak, double mu)
+        {
+            double halfMax = peak / 2.0;
+            int peakIdx = -1;
+
+            // Find peak index closest to mu
+            double minDist = double.MaxValue;
+            for (int i = 0; i < x.Length; i++)
+            {
+                if (Math.Abs(x[i] - mu) < minDist)
+                {
+                    minDist = Math.Abs(x[i] - mu);
+                    peakIdx = i;
+                }
+            }
+
+            if (peakIdx == -1) return 0;
+
+            // Search Left
+            int leftIdx = 0;
+            for (int i = peakIdx; i >= 0; i--)
+            {
+                if (y[i] <= halfMax)
+                {
+                    leftIdx = i;
+                    break;
+                }
+            }
+
+            // Search Right
+            int rightIdx = x.Length - 1;
+            for (int i = peakIdx; i < x.Length; i++)
+            {
+                if (y[i] <= halfMax)
+                {
+                    rightIdx = i;
+                    break;
+                }
+            }
+
+            if (leftIdx < rightIdx)
+            {
+                return x[rightIdx] - x[leftIdx];
+            }
+            return 2.355 * (x[rightIdx] - x[peakIdx]); // Fallback
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+        private double Erfc(double x)
+        {
+            const double p = 0.3275911;
+            const double a1 = 0.254829592;
+            const double a2 = -0.284496736;
+            const double a3 = 1.421413741;
+            const double a4 = -1.453152027;
+            const double a5 = 1.061405429;
+
+            bool isNegative = x < 0;
+            double absX = isNegative ? -x : x;
+            double t = 1.0 / (1.0 + p * absX);
+            double poly = t * (a1 + t * (a2 + t * (a3 + t * (a4 + t * a5))));
+            double val = poly * Math.Exp(-absX * absX);
+
+            return isNegative ? 2.0 - val : val;
+        }
+
+        private double[] SolveLinearSystem(double[][] A, double[] b, int n)
+        {
+            if (n == 3)
+                return SolveLinearSystem3x3(A, b);
+
+            double[][] M = _jaggedPool.Rent(n);
+            try
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    M[i] = _doublePool.Rent(n + 1);
+                    Array.Copy(A[i], M[i], n);
+                    M[i][n] = b[i];
+                }
+
+                for (int k = 0; k < n; k++)
+                {
+                    int max = k;
+                    for (int i = k + 1; i < n; i++)
+                        if (Math.Abs(M[i][k]) > Math.Abs(M[max][k])) max = i;
+
+                    var temp = M[k];
+                    M[k] = M[max];
+                    M[max] = temp;
+
+                    if (Math.Abs(M[k][k]) < MIN_VALUE)
+                        throw new Exception("Singular matrix");
+
+                    double invPivot = 1.0 / M[k][k];
+                    for (int i = k + 1; i < n; i++)
+                    {
+                        double factor = M[i][k] * invPivot;
+                        for (int j = k; j <= n; j++)
+                            M[i][j] -= factor * M[k][j];
+                    }
+                }
+
+                double[] x = new double[n];
+                for (int i = n - 1; i >= 0; i--)
+                {
+                    double sum = 0;
+                    for (int j = i + 1; j < n; j++)
+                        sum += M[i][j] * x[j];
+                    x[i] = (M[i][n] - sum) / M[i][i];
+                }
+                return x;
+            }
+            finally
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    if (M[i] != null)
+                        _doublePool.Return(M[i]);
+                }
+                _jaggedPool.Return(M);
+            }
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private double[] SolveLinearSystem3x3(double[][] A, double[] b)
         {
@@ -391,219 +501,12 @@ namespace BaselineMode.WPF.Services
             return x;
         }
 
-        /// <summary>
-        /// Performs Hyper-EMG curve fitting with optimized calculations.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        public FittingResult HyperEMGFit(
-            double[] xData, double[] yData)
-        {
-            var (mu_guess, sigma_guess, peak_guess) = CalculateMoments(xData, yData);
-
-            if (peak_guess <= 0 || sigma_guess <= MIN_VALUE)
-            {
-                return FittingResult.Empty(xData.Length);
-            }
-
-            // Pre-compute EMG parameters
-            double A = peak_guess * sigma_guess * SQRT_2PI;
-            double tau = sigma_guess * 0.5;
-
-            if (tau < MIN_VALUE) tau = MIN_VALUE;
-
-            // Pre-compute constants for EMG calculation
-            int length = xData.Length;
-            double[] fitCurve = new double[length];
-            double maxVal = 0;
-
-            double invTau = 1.0 / tau;
-            double sigma2 = sigma_guess * sigma_guess;
-            double halfInvTau2 = 0.5 * invTau * invTau;
-            double coeff = A * 0.5 * invTau;
-            double invSqrt2Sigma = 1.0 / (SQRT_2 * sigma_guess);
-
-            // Vectorized EMG generation
-            for (int i = 0; i < length; i++)
-            {
-                double xDiff = xData[i] - mu_guess;
-                double expArg = (sigma2 * halfInvTau2) - (xDiff * invTau);
-
-                // Clamp to prevent overflow
-                expArg = Math.Clamp(expArg, -MAX_EXP_ARG, MAX_EXP_ARG);
-
-                double erfcArg = (sigma2 - (tau * xDiff)) * invSqrt2Sigma / tau;
-                double emgVal = coeff * Math.Exp(expArg) * Erfc(erfcArg);
-
-                // Check for invalid values
-                if (double.IsNaN(emgVal) || double.IsInfinity(emgVal))
-                    emgVal = 0;
-
-                fitCurve[i] = emgVal;
-                if (emgVal > maxVal) maxVal = emgVal;
-            }
-
-            // Scale to match peak if needed
-            if (maxVal > MIN_VALUE && Math.Abs(maxVal - peak_guess) > peak_guess * 0.3)
-            {
-                double scale = peak_guess / maxVal;
-                for (int i = 0; i < length; i++)
-                {
-                    fitCurve[i] *= scale;
-                }
-                maxVal = peak_guess;
-            }
-
-            double finalRMS = CalculateRMS(xData, fitCurve, mu_guess);
-            return new FittingResult(fitCurve, mu_guess, sigma_guess, maxVal, finalRMS);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-        private double Erfc(double x)
-        {
-            // Abramowitz and Stegun approximation with Horner's method
-            const double p = 0.3275911;
-            const double a1 = 0.254829592;
-            const double a2 = -0.284496736;
-            const double a3 = 1.421413741;
-            const double a4 = -1.453152027;
-            const double a5 = 1.061405429;
-
-            bool isNegative = x < 0;
-            double absX = isNegative ? -x : x;
-
-            double t = 1.0 / (1.0 + p * absX);
-
-            // Horner's method for polynomial evaluation (more efficient)
-            double poly = t * (a1 + t * (a2 + t * (a3 + t * (a4 + t * a5))));
-            double val = poly * Math.Exp(-absX * absX);
-
-            return isNegative ? 2.0 - val : val;
-        }
-
-        /// <summary>
-        /// Generic solver for larger systems using Gaussian elimination
-        ///  SAFE MEMORY: Uses ArrayPool for temporary allocations
-        /// </summary>
-        private double[] SolveLinearSystem(double[][] A, double[] b, int n)
-        {
-            // Use optimized 3x3 solver if applicable
-            if (n == 3)
-                return SolveLinearSystem3x3(A, b);
-
-            //  SAFE: Rent working matrix from pool
-            double[][] M = _jaggedPool.Rent(n);
-
-            try
-            {
-                // Initialize augmented matrix
-                for (int i = 0; i < n; i++)
-                {
-                    M[i] = _doublePool.Rent(n + 1);
-                    Array.Copy(A[i], M[i], n);
-                    M[i][n] = b[i];
-                }
-
-                // Gaussian elimination with partial pivoting
-                for (int k = 0; k < n; k++)
-                {
-                    // Find pivot
-                    int max = k;
-                    for (int i = k + 1; i < n; i++)
-                        if (Math.Abs(M[i][k]) > Math.Abs(M[max][k])) max = i;
-
-                    // Swap rows
-                    var temp = M[k];
-                    M[k] = M[max];
-                    M[max] = temp;
-
-                    if (Math.Abs(M[k][k]) < MIN_VALUE)
-                        throw new Exception("Singular matrix");
-
-                    // Eliminate
-                    double invPivot = 1.0 / M[k][k];
-                    for (int i = k + 1; i < n; i++)
-                    {
-                        double factor = M[i][k] * invPivot;
-                        for (int j = k; j <= n; j++)
-                            M[i][j] -= factor * M[k][j];
-                    }
-                }
-
-                // Back substitution
-                double[] x = new double[n];
-                for (int i = n - 1; i >= 0; i--)
-                {
-                    double sum = 0;
-                    for (int j = i + 1; j < n; j++)
-                        sum += M[i][j] * x[j];
-                    x[i] = (M[i][n] - sum) / M[i][i];
-                }
-
-                return x;
-            }
-            finally
-            {
-                //  CRITICAL: Return all rented arrays
-                for (int i = 0; i < n; i++)
-                {
-                    if (M[i] != null)
-                        _doublePool.Return(M[i]);
-                }
-                _jaggedPool.Return(M);
-            }
-        }
-
         protected virtual void Dispose(bool disposing)
         {
             if (!_disposed)
             {
-                if (disposing)
-                {
-                    // ArrayPools are static shared resources, no need to dispose
-                    // Just mark as disposed to prevent further usage
-                }
+                // ArrayPools are static, nothing to resolve
                 _disposed = true;
-            }
-        }
-
-        /// <summary>
-        /// Perform Double-Sided Hyper-EMG curve fitting
-        /// </summary>
-        public FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData)
-        {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(MathService));
-
-            if (xData == null || yData == null || xData.Length == 0)
-                return FittingResult.Empty(0);
-
-            try
-            {
-                var hemgService = new HemgFittingService();
-                var (fitCurve, parameters) = hemgService.HemgDoubleSidedFit(xData);
-
-                if (fitCurve.Length == 0 || parameters.Length < 7)
-                    return FittingResult.Empty(xData.Length);
-
-                // Create fitting result with HEMG parameters
-                // parameters = [A, mu, sigma, tauL1, tauR1, etaL1, etaR1]
-                var result = new FittingResult(
-                    fitCurve,
-                    parameters[0],      // A
-                    parameters[1],      // mu
-                    parameters[2],      // sigma
-                    parameters[3],      // tauL1
-                    parameters[4],      // tauR1
-                    parameters[5],      // etaL1
-                    parameters[6]       // etaR1
-                );
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"HyperEMG Double-Sided Fit Error: {ex.Message}");
-                return FittingResult.Empty(xData.Length);
             }
         }
 

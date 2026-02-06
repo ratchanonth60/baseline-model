@@ -10,9 +10,12 @@ using System.Windows.Threading;
 using ExcelDataReader;
 using MathNet.Numerics.Statistics;
 using Microsoft.Win32;
-using BaselineMode.WPF.Services.Observation;
-using BaselineMode.WPF.ViewModels.Observation;
-using BaselineMode.WPF.Models.Observation;
+using BaselineMode.WPF.Infrastructure.Services.Observation;
+using BaselineMode.WPF.Presentation.ViewModels.Observation;
+using BaselineMode.WPF.Core.Models.Observation; // Keep for other models if any (e.g. data structures)
+using BaselineMode.WPF.Core.Models; // Added for FittingResult
+using BaselineMode.WPF.Core.Interfaces; // Added for IFittingService
+using BaselineMode.WPF.Core.Interfaces.Observation; // Added for IObservationExcelHelper
 using ScottPlot;
 
 namespace BaselineMode.WPF.Views.Observation
@@ -22,7 +25,7 @@ namespace BaselineMode.WPF.Views.Observation
         #region Fields
 
         private readonly ObservationMainViewModel _viewModel;
-        private readonly ObservationExcelHelper _excelHelper = new ObservationExcelHelper();
+        private readonly IObservationExcelHelper _excelHelper;
         private readonly DispatcherTimer _timer;
         private string _lastSavedFilePath;
         private int _totalSteps;
@@ -35,11 +38,12 @@ namespace BaselineMode.WPF.Views.Observation
 
         #region Constructor
 
-        public ObservationMainWindow()
+        public ObservationMainWindow(ObservationMainViewModel viewModel, IObservationExcelHelper excelHelper)
         {
             InitializeComponent();
 
-            _viewModel = new ObservationMainViewModel();
+            _viewModel = viewModel;
+            _excelHelper = excelHelper;
             DataContext = _viewModel;
 
             // Setup timer for datetime display
@@ -105,9 +109,9 @@ namespace BaselineMode.WPF.Views.Observation
         private void BtnProcessData_Click(object sender, RoutedEventArgs e)
         {
             _viewModel.OutputFileName = TxtOutputFileName.Text;
-            if (_viewModel.ProcessDataCommand.CanExecute(null))
+            if (_viewModel.ConvertFilesToExcelCommand.CanExecute(null))
             {
-                _viewModel.ProcessDataCommand.Execute(null);
+                _viewModel.ConvertFilesToExcelCommand.Execute(null);
                 UpdateStatus(_viewModel.StatusMessage);
             }
         }
@@ -350,39 +354,39 @@ namespace BaselineMode.WPF.Views.Observation
 
             // Plot strip histograms with stats
             // X Strips
-            PlotStripHistogram(PlotStripX1, xStrips?[0]?.Select(x => (double)x).ToArray(), "X1",
+            PlotStripHistogram(PlotStripX1, xStrips?[0]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "X1",
                 TxtX1Peak, TxtX1Counts, TxtX1Mean, TxtX1RMS, TxtX1FWHM, TxtX1Res);
-            PlotStripHistogram(PlotStripX2, xStrips?[1]?.Select(x => (double)x).ToArray(), "X2",
+            PlotStripHistogram(PlotStripX2, xStrips?[1]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "X2",
                 TxtX2Peak, TxtX2Counts, TxtX2Mean, TxtX2RMS, TxtX2FWHM, TxtX2Res);
-            PlotStripHistogram(PlotStripX3, xStrips?[2]?.Select(x => (double)x).ToArray(), "X3",
+            PlotStripHistogram(PlotStripX3, xStrips?[2]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "X3",
                 TxtX3Peak, TxtX3Counts, TxtX3Mean, TxtX3RMS, TxtX3FWHM, TxtX3Res);
-            PlotStripHistogram(PlotStripX4, xStrips?[3]?.Select(x => (double)x).ToArray(), "X4",
+            PlotStripHistogram(PlotStripX4, xStrips?[3]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "X4",
                 TxtX4Peak, TxtX4Counts, TxtX4Mean, TxtX4RMS, TxtX4FWHM, TxtX4Res);
-            PlotStripHistogram(PlotStripX5, xStrips?[4]?.Select(x => (double)x).ToArray(), "X5",
+            PlotStripHistogram(PlotStripX5, xStrips?[4]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "X5",
                 TxtX5Peak, TxtX5Counts, TxtX5Mean, TxtX5RMS, TxtX5FWHM, TxtX5Res);
-            PlotStripHistogram(PlotStripX6, xStrips?[5]?.Select(x => (double)x).ToArray(), "X6",
+            PlotStripHistogram(PlotStripX6, xStrips?[5]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "X6",
                 TxtX6Peak, TxtX6Counts, TxtX6Mean, TxtX6RMS, TxtX6FWHM, TxtX6Res);
-            PlotStripHistogram(PlotStripX7, xStrips?[6]?.Select(x => (double)x).ToArray(), "X7",
+            PlotStripHistogram(PlotStripX7, xStrips?[6]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "X7",
                 TxtX7Peak, TxtX7Counts, TxtX7Mean, TxtX7RMS, TxtX7FWHM, TxtX7Res);
-            PlotStripHistogram(PlotStripX8, xStrips?[7]?.Select(x => (double)x).ToArray(), "X8",
+            PlotStripHistogram(PlotStripX8, xStrips?[7]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "X8",
                 TxtX8Peak, TxtX8Counts, TxtX8Mean, TxtX8RMS, TxtX8FWHM, TxtX8Res);
 
             // Y Strips
-            PlotStripHistogram(PlotStripY1, yStrips?[0]?.Select(x => (double)x).ToArray(), "Y1",
+            PlotStripHistogram(PlotStripY1, yStrips?[0]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "Y1",
                 TxtY1Peak, TxtY1Counts, TxtY1Mean, TxtY1RMS, TxtY1FWHM, TxtY1Res);
-            PlotStripHistogram(PlotStripY2, yStrips?[1]?.Select(x => (double)x).ToArray(), "Y2",
+            PlotStripHistogram(PlotStripY2, yStrips?[1]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "Y2",
                 TxtY2Peak, TxtY2Counts, TxtY2Mean, TxtY2RMS, TxtY2FWHM, TxtY2Res);
-            PlotStripHistogram(PlotStripY3, yStrips?[2]?.Select(x => (double)x).ToArray(), "Y3",
+            PlotStripHistogram(PlotStripY3, yStrips?[2]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "Y3",
                 TxtY3Peak, TxtY3Counts, TxtY3Mean, TxtY3RMS, TxtY3FWHM, TxtY3Res);
-            PlotStripHistogram(PlotStripY4, yStrips?[3]?.Select(x => (double)x).ToArray(), "Y4",
+            PlotStripHistogram(PlotStripY4, yStrips?[3]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "Y4",
                 TxtY4Peak, TxtY4Counts, TxtY4Mean, TxtY4RMS, TxtY4FWHM, TxtY4Res);
-            PlotStripHistogram(PlotStripY5, yStrips?[4]?.Select(x => (double)x).ToArray(), "Y5",
+            PlotStripHistogram(PlotStripY5, yStrips?[4]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "Y5",
                 TxtY5Peak, TxtY5Counts, TxtY5Mean, TxtY5RMS, TxtY5FWHM, TxtY5Res);
-            PlotStripHistogram(PlotStripY6, yStrips?[5]?.Select(x => (double)x).ToArray(), "Y6",
+            PlotStripHistogram(PlotStripY6, yStrips?[5]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "Y6",
                 TxtY6Peak, TxtY6Counts, TxtY6Mean, TxtY6RMS, TxtY6FWHM, TxtY6Res);
-            PlotStripHistogram(PlotStripY7, yStrips?[6]?.Select(x => (double)x).ToArray(), "Y7",
+            PlotStripHistogram(PlotStripY7, yStrips?[6]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "Y7",
                 TxtY7Peak, TxtY7Counts, TxtY7Mean, TxtY7RMS, TxtY7FWHM, TxtY7Res);
-            PlotStripHistogram(PlotStripY8, yStrips?[7]?.Select(x => (double)x).ToArray(), "Y8",
+            PlotStripHistogram(PlotStripY8, yStrips?[7]?.Select(x => (double)x).ToArray() ?? Array.Empty<double>(), "Y8",
                 TxtY8Peak, TxtY8Counts, TxtY8Mean, TxtY8RMS, TxtY8FWHM, TxtY8Res);
         }
 
@@ -484,10 +488,10 @@ namespace BaselineMode.WPF.Views.Observation
                 lowGainList = dp.BGOData[layerKey].LowGain;
             }
 
-            PlotBGOHistogram(PlotBGOHigh, highGainList?.ToArray(), "BGO High Gain",
+            PlotBGOHistogram(PlotBGOHigh, highGainList?.ToArray() ?? Array.Empty<double>(), "BGO High Gain",
                 TxtBGOHPeak, TxtBGOHMean, TxtBGOHRMS, TxtBGOHFWHM, TxtBGOHRes);
 
-            PlotBGOHistogram(PlotBGOLow, lowGainList?.ToArray(), "BGO Low Gain",
+            PlotBGOHistogram(PlotBGOLow, lowGainList?.ToArray() ?? Array.Empty<double>(), "BGO Low Gain",
                 TxtBGOLPeak, TxtBGOLMean, TxtBGOLRMS, TxtBGOLFWHM, TxtBGOLRes);
         }
 
@@ -535,11 +539,11 @@ namespace BaselineMode.WPF.Views.Observation
                 var fitResult = _viewModel.FittingService.GaussianFit(binMidpoints, hist);
                 if (fitResult != null)
                 {
-                    plot.Plot.AddScatter(binMidpoints, fitResult.FittedCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2); // #FF5252
-                    plot.Plot.AddPoint(fitResult.Mean, fitResult.Amplitude, color: System.Drawing.Color.Yellow, size: 8);
+                    plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2); // #FF5252
+                    plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
 
-                    peakLabel.Text = $"{fitResult.Amplitude:F0}";
-                    meanLabel.Text = $"{fitResult.Mean:F2}";
+                    peakLabel.Text = $"{fitResult.Peak:F0}";
+                    meanLabel.Text = $"{fitResult.Mu:F2}";
                     rmsLabel.Text = $"{fitResult.Sigma:F2}";
                     fwhmLabel.Text = $"{fitResult.FWHM:F2}";
                     resLabel.Text = $"{fitResult.Resolution:F2}%";
@@ -607,15 +611,15 @@ namespace BaselineMode.WPF.Views.Observation
                 try
                 {
                     var fitResult = _viewModel.FittingService.GaussianFit(binMidpoints, hist);
-                    if (fitResult != null && fitResult.FittedCurve != null)
+                    if (fitResult != null && fitResult.FitCurve != null)
                     {
-                        plot.Plot.AddScatter(binMidpoints, fitResult.FittedCurve,
+                        plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve,
                             System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2);
-                        plot.Plot.AddPoint(fitResult.Mean, fitResult.Amplitude,
+                        plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak,
                             color: System.Drawing.Color.Yellow, size: 6);
 
-                        if (peakLabel != null) peakLabel.Text = $"{fitResult.Amplitude:F0}";
-                        if (meanLabel != null) meanLabel.Text = $"{fitResult.Mean:F2}";
+                        if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F0}";
+                        if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
                         if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
                         if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
                         if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
@@ -672,11 +676,11 @@ namespace BaselineMode.WPF.Views.Observation
                 var fitResult = _viewModel.FittingService.GaussianFit(binMidpoints, hist);
                 if (fitResult != null)
                 {
-                    plot.Plot.AddScatter(binMidpoints, fitResult.FittedCurve, System.Drawing.Color.Red, lineWidth: 2);
-                    plot.Plot.AddPoint(fitResult.Mean, fitResult.Amplitude, color: System.Drawing.Color.Yellow, size: 8);
+                    plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
+                    plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
 
-                    peakLabel.Text = $"{fitResult.Amplitude:F2}";
-                    meanLabel.Text = $"{fitResult.Mean:F2}";
+                    peakLabel.Text = $"{fitResult.Peak:F2}";
+                    meanLabel.Text = $"{fitResult.Mu:F2}";
                     rmsLabel.Text = $"{fitResult.Sigma:F2}";
                     fwhmLabel.Text = $"{fitResult.FWHM:F2}";
                     resLabel.Text = $"{fitResult.Resolution:F2}%";

@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-        xmlns:vm="clr-namespace:BaselineMode.WPF.Views.models"
+        xmlns:vm="clr-namespace:BaselineMode.WPF.Presentation.ViewModels"
         xmlns:scott="clr-namespace:ScottPlot;assembly=ScottPlot.WPF"
         mc:Ignorable="d"
         Title="DSSD Analysis Suite - v1.4.0"
@@ -51,17 +51,17 @@
                 <Setter Property="VerticalAlignment" Value="Center"/>
             </Style>
             
-            <!-- Ribbon Tab Style -->
+            <!-- Ribbon Tab Style - Dark Theme -->
             <Style x:Key="RibbonTabItem" TargetType="TabItem">
-                <Setter Property="Padding" Value="16,8"/>
+                <Setter Property="Padding" Value="20,10"/>
                 <Setter Property="FontWeight" Value="Medium"/>
                 <Setter Property="FontSize" Value="13"/>
-                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground}"/>
+                <Setter Property="Foreground" Value="#AAAAAA"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="TabItem">
                             <Border x:Name="border" Padding="{TemplateBinding Padding}" 
-                                    Background="Transparent" BorderThickness="0,0,0,3" BorderBrush="Transparent"
+                                    Background="#1E1E2E" BorderThickness="0,0,0,3" BorderBrush="Transparent"
                                     Cursor="Hand">
                                 <ContentPresenter x:Name="contentPresenter" 
                                                   ContentSource="Header" 
@@ -70,12 +70,13 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary}"/>
-                                    <Setter TargetName="border" Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Primary}"/>
+                                    <Setter TargetName="border" Property="BorderBrush" Value="#5B9BD5"/>
+                                    <Setter TargetName="border" Property="Background" Value="#252535"/>
+                                    <Setter Property="Foreground" Value="White"/>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="border" Property="Background" Value="{DynamicResource MaterialDesign.Brush.Background}"/>
+                                    <Setter TargetName="border" Property="Background" Value="#2A2A3A"/>
+                                    <Setter Property="Foreground" Value="#DDDDDD"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -83,9 +84,9 @@
                 </Setter>
             </Style>
             
-            <!-- Ribbon Group Box Style -->
+            <!-- Ribbon Group Box Style - Dark Theme -->
             <Style x:Key="RibbonGroupStyle" TargetType="Border">
-                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.TextBox.HoverBackground}"/>
+                <Setter Property="BorderBrush" Value="#404050"/>
                 <Setter Property="BorderThickness" Value="0,0,1,0"/>
                 <Setter Property="Padding" Value="12,8"/>
                 <Setter Property="Margin" Value="0"/>
@@ -108,16 +109,37 @@
             
             <Style x:Key="RibbonGroupLabelStyle" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="10"/>
-                <Setter Property="Foreground" Value="{DynamicResource MaterialDesign.Brush.Foreground.Light}"/>
+                <Setter Property="Foreground" Value="#888888"/>
                 <Setter Property="HorizontalAlignment" Value="Center"/>
                 <Setter Property="Margin" Value="0,4,0,0"/>
+            </Style>
+            
+            <!-- Dark Theme TabControl for Ribbon -->
+            <Style x:Key="DarkRibbonTabControl" TargetType="TabControl">
+                <Setter Property="Background" Value="#1E1E2E"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TabControl">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                <Border Background="#1E1E2E" Grid.Row="0">
+                                    <TabPanel IsItemsHost="True" Background="#1E1E2E"/>
+                                </Border>
+                                <ContentPresenter Grid.Row="1" ContentSource="SelectedContent"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
         </ResourceDictionary>
     </Window.Resources>
 
-    <Window.DataContext>
-        <vm:MainViewModel/>
-    </Window.DataContext>
+
 
     <Grid>
         <Grid.RowDefinitions>
@@ -147,211 +169,102 @@
             </Grid>
         </materialDesign:ColorZone>
 
-        <!-- Ribbon Tabs -->
-        <Border Grid.Row="1" BorderBrush="{DynamicResource MaterialDesign.Brush.TextBox.HoverBackground}" 
-                BorderThickness="0,0,0,1" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
-            <TabControl x:Name="RibbonTabControl" Style="{StaticResource MaterialDesignTabControl}" 
+        <!-- Ribbon Tabs - Office Style Dark Theme -->
+        <Border Grid.Row="1" BorderBrush="#404050" BorderThickness="0,0,0,1" Background="#1E1E2E">
+            <TabControl x:Name="RibbonTabControl" Style="{StaticResource DarkRibbonTabControl}" 
                         SelectionChanged="RibbonTabControl_SelectionChanged">
-                <!-- Home Tab -->
-                <TabItem Header="🏠 Home" Style="{StaticResource RibbonTabItem}">
-                    <Border Padding="8,4" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
-                        <StackPanel Orientation="Horizontal">
-                            <!-- Mode Selection Group -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button x:Name="BtnSwitchToBaseline" Style="{StaticResource RibbonButtonLargeStyle}" 
-                                                Click="BtnSwitchToBaseline_Click" ToolTip="Baseline Mode">
-                                            <StackPanel>
-                                                <materialDesign:PackIcon Kind="ChartLine" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Baseline" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Button>
-                                        <Button x:Name="BtnSwitchToObservation" Style="{StaticResource RibbonButtonLargeStyle}" 
-                                                Click="BtnSwitchToObservation_Click" ToolTip="Observation Mode">
-                                            <StackPanel>
-                                                <materialDesign:PackIcon Kind="Microscope" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Observe" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Button>
-                                    </StackPanel>
-                                    <TextBlock Text="Mode" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                            
-                            <!-- Quick Actions Group -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding SelectFilesCommand}" 
-                                                ToolTip="Select Input Files">
-                                            <StackPanel>
-                                                <materialDesign:PackIcon Kind="FolderOpen" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Open" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding ProcessDataCommand}" 
-                                                ToolTip="Start Processing">
-                                            <StackPanel>
-                                                <materialDesign:PackIcon Kind="Play" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Start" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Button>
-                                        <StackPanel VerticalAlignment="Center" Margin="4,0">
-                                            <Button Style="{StaticResource RibbonButtonStyle}" Command="{Binding StopCommand}" 
-                                                    Content="⏹ Stop" ToolTip="Stop Processing"/>
-                                            <Button Style="{StaticResource RibbonButtonStyle}" Command="{Binding ResetCommand}" 
-                                                    Content="🔄 Reset" ToolTip="Reset All"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                    <TextBlock Text="Quick Actions" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                            
-                            <!-- Current Mode Info -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel VerticalAlignment="Center" MinWidth="150">
-                                    <TextBlock x:Name="TxtCurrentMode" Text="📊 Baseline Mode" FontSize="14" FontWeight="Bold" 
-                                               Foreground="{DynamicResource MaterialDesign.Brush.Primary}"/>
-                                    <TextBlock x:Name="TxtModeDescription" Text="Charged Particle Detector Analysis" 
-                                               FontSize="11" Opacity="0.7" Margin="0,4,0,0"/>
-                                    <TextBlock Text="Current Mode" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-                </TabItem>
-
-                <!-- Data Tab -->
-                <TabItem Header="📁 Data" Style="{StaticResource RibbonTabItem}">
-                    <Border Padding="8,4" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
+                
+                <!-- Baseline Tab -->
+                <TabItem Header="Baseline" Style="{StaticResource RibbonTabItem}">
+                    <Border Padding="8,6" Background="#2D2D3D">
                         <StackPanel Orientation="Horizontal">
                             <!-- File Group -->
                             <Border Style="{StaticResource RibbonGroupStyle}">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding SelectFilesCommand}">
+                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding SelectFilesCommand}" 
+                                                ToolTip="Open Files">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="FileMultiple" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Select Files" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="FolderOpen" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#5B9BD5"/>
+                                                <TextBlock Text="Open" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
                                             </StackPanel>
                                         </Button>
-                                        <StackPanel VerticalAlignment="Center" Margin="4,0">
-                                            <Button Style="{StaticResource RibbonButtonStyle}" Command="{Binding BrowseOutputDirectoryCommand}" 
-                                                    Content="📂 Output Folder"/>
+                                        <StackPanel VerticalAlignment="Center" Margin="8,0">
                                             <Button Style="{StaticResource RibbonButtonStyle}" Command="{Binding CheckHeaderCommand}" 
-                                                    Content="📋 Check Header"/>
+                                                    ToolTip="Check Header">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FileDocument" Width="16" Height="16" Foreground="#5B9BD5" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="Header" FontSize="11" Foreground="White"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource RibbonButtonStyle}" Command="{Binding BrowseOutputDirectoryCommand}" 
+                                                    ToolTip="Output Folder" Margin="0,2,0,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FolderOutline" Width="16" Height="16" Foreground="#5B9BD5" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="Output" FontSize="11" Foreground="White"/>
+                                                </StackPanel>
+                                            </Button>
                                         </StackPanel>
                                     </StackPanel>
-                                    <TextBlock Text="File" Style="{StaticResource RibbonGroupLabelStyle}"/>
+                                    <TextBlock Text="File" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
                             
-                            <!-- Processing Group -->
+                            <!-- Process Group -->
                             <Border Style="{StaticResource RibbonGroupStyle}">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding PreProcessDataCommand}">
+                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding ProcessDataCommand}" 
+                                                ToolTip="Start Processing">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="DatabaseRefresh" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Pre-Process" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="Play" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#70C0A0"/>
+                                                <TextBlock Text="Start" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
                                             </StackPanel>
                                         </Button>
-                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding ProcessDataCommand}">
+                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding PreProcessDataCommand}" 
+                                                ToolTip="Pre-Process Data">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="Cogs" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Process" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="DatabaseRefresh" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#5B9BD5"/>
+                                                <TextBlock Text="Process" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
                                             </StackPanel>
                                         </Button>
+                                        <StackPanel VerticalAlignment="Center" Margin="8,0">
+                                            <Button Style="{StaticResource RibbonButtonStyle}" Command="{Binding StopCommand}" 
+                                                    ToolTip="Stop">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Stop" Width="14" Height="14" Foreground="#FF6B6B" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="Stop" FontSize="11" Foreground="White"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource RibbonButtonStyle}" Command="{Binding ResetCommand}" 
+                                                    ToolTip="Reset" Margin="0,2,0,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" Foreground="#FFB347" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="Reset" FontSize="11" Foreground="White"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
                                     </StackPanel>
-                                    <TextBlock Text="Processing" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                            
-                            <!-- Output Group -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Output Filename:" FontSize="11" Margin="0,0,0,4"/>
-                                    <TextBox Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" 
-                                             Style="{StaticResource MaterialDesignOutlinedTextBox}" 
-                                             Width="180" materialDesign:HintAssist.Hint="filename"/>
-                                    <TextBlock Text="Output" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-                </TabItem>
-
-                <!-- Analysis Tab -->
-                <TabItem Header="📊 Analysis" Style="{StaticResource RibbonTabItem}">
-                    <Border Padding="8,4" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
-                        <StackPanel Orientation="Horizontal">
-                            <!-- DSSD Settings Group -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel VerticalAlignment="Center">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="100"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition/><RowDefinition/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Text="Layer:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,4"/>
-                                        <ComboBox Grid.Column="1" SelectedIndex="{Binding SelectedLayerIndex}" Margin="0,0,0,4"
-                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
-                                            <ComboBoxItem Content="DSSD L1"/><ComboBoxItem Content="DSSD L2"/>
-                                            <ComboBoxItem Content="DSSD L6"/><ComboBoxItem Content="DSSD L7"/>
-                                        </ComboBox>
-                                        <TextBlock Text="Strip:" Grid.Row="1" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding SelectedDirectionIndex}"
-                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
-                                            <ComboBoxItem Content="X (1-8)"/><ComboBoxItem Content="Z (9-16)"/>
-                                        </ComboBox>
-                                    </Grid>
-                                    <TextBlock Text="DSSD" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                            
-                            <!-- Mode Settings Group -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel VerticalAlignment="Center">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="130"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition/><RowDefinition/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Text="Mode:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,4"/>
-                                        <ComboBox Grid.Column="1" SelectedIndex="{Binding SelectedMode}" Margin="0,0,0,4"
-                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
-                                            <ComboBoxItem Content="Cut off baseline"/><ComboBoxItem Content="Baseline setting"/>
-                                        </ComboBox>
-                                        <TextBlock Text="Subtract:" Grid.Row="1" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding SelectedBaselineMode}"
-                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
-                                            <ComboBoxItem Content="Before"/><ComboBoxItem Content="After"/>
-                                            <ComboBoxItem Content="Before (log)"/><ComboBoxItem Content="After (log)"/>
-                                        </ComboBox>
-                                    </Grid>
-                                    <TextBlock Text="Baseline" Style="{StaticResource RibbonGroupLabelStyle}"/>
+                                    <TextBlock Text="Process" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
                             
                             <!-- Fitting Group -->
                             <Border Style="{StaticResource RibbonGroupStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <CheckBox IsChecked="{Binding UseThresholding}" Content="Adaptive Threshold" 
-                                              Style="{StaticResource MaterialDesignCheckBox}" Margin="0,0,0,4"/>
-                                    <CheckBox IsChecked="{Binding UseGaussianFit}" Content="Curve Fitting" 
-                                              Style="{StaticResource MaterialDesignCheckBox}" Margin="0,0,0,4"/>
-                                    <ComboBox SelectedIndex="{Binding SelectedFitMethod}" IsEnabled="{Binding UseGaussianFit}"
-                                              Style="{StaticResource MaterialDesignOutlinedComboBox}" Width="110">
-                                        <ComboBoxItem Content="Gaussian"/><ComboBoxItem Content="Hyper-EMG"/>
-                                    </ComboBox>
-                                    <TextBlock Text="Fitting" Style="{StaticResource RibbonGroupLabelStyle}"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <CheckBox IsChecked="{Binding UseThresholding}" Content="Threshold" 
+                                                  Style="{StaticResource MaterialDesignCheckBox}" Foreground="White" Margin="0,0,12,0"/>
+                                        <ComboBox SelectedIndex="{Binding SelectedFitMethod}" Width="130"
+                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                            <ComboBoxItem Content="Gaussian"/>
+                                            <ComboBoxItem Content="Hyper-EMG Single"/>
+                                            <ComboBoxItem Content="Hyper-EMG Double"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <CheckBox IsChecked="{Binding UseGaussianFit}" Content="Curve Fit" 
+                                              Style="{StaticResource MaterialDesignCheckBox}" Foreground="White"/>
+                                    <TextBlock Text="Fitting" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
                             
@@ -359,86 +272,22 @@
                             <Border Style="{StaticResource RibbonGroupStyle}">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal">
-                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding ShowHeatmapCommand}">
+                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding ShowHeatmapCommand}"
+                                                ToolTip="Show 2D Heatmap">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="Grid" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="2D Heatmap" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="ViewGrid" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#9B59B6"/>
+                                                <TextBlock Text="Heatmap" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
                                             </StackPanel>
                                         </Button>
                                         <Button Style="{StaticResource RibbonButtonLargeStyle}" Command="{Binding SaveMeanCommand}" 
-                                                IsEnabled="{Binding CanSaveMean}">
+                                                IsEnabled="{Binding CanSaveMean}" ToolTip="Save Mean Values">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="ContentSave" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Save Mean" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="ContentSave" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#3498DB"/>
+                                                <TextBlock Text="Save&#x0a;Mean" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White" TextAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
                                     </StackPanel>
-                                    <TextBlock Text="View" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </Border>
-                </TabItem>
-
-                <!-- Config Tab -->
-                <TabItem Header="⚙️ Config" Style="{StaticResource RibbonTabItem}">
-                    <Border Padding="8,4" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
-                        <StackPanel Orientation="Horizontal">
-                            <!-- Parameters Group -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel VerticalAlignment="Center">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="80"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition/><RowDefinition/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Text="Delay (μs):" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,4"/>
-                                        <TextBox Grid.Column="1" Text="{Binding DelayTimeMs, UpdateSourceTrigger=PropertyChanged}" 
-                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}" Margin="0,0,0,4"/>
-                                        <TextBlock Text="Threshold:" Grid.Row="1" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ThresholdValue, UpdateSourceTrigger=PropertyChanged}" 
-                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
-                                    </Grid>
-                                    <TextBlock Text="Parameters" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                            
-                            <!-- X-Axis Group -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="X-Axis Unit:" FontSize="11" Margin="0,0,0,4"/>
-                                    <ComboBox SelectedIndex="{Binding SelectedXAxisIndex}" Width="120"
-                                              Style="{StaticResource MaterialDesignOutlinedComboBox}">
-                                        <ComboBoxItem Content="ADC Channel"/>
-                                        <ComboBoxItem Content="Voltage (mV)"/>
-                                        <ComboBoxItem Content="Energy (MeV)"/>
-                                    </ComboBox>
-                                    <TextBlock Text="X-Axis" Style="{StaticResource RibbonGroupLabelStyle}"/>
-                                </StackPanel>
-                            </Border>
-                            
-                            <!-- Settings Group -->
-                            <Border Style="{StaticResource RibbonGroupStyle}">
-                                <StackPanel>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button x:Name="BtnSettings" Style="{StaticResource RibbonButtonLargeStyle}" 
-                                                Click="BtnSettings_Click">
-                                            <StackPanel>
-                                                <materialDesign:PackIcon Kind="Cog" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Settings" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Button>
-                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" ToolTip="About">
-                                            <StackPanel>
-                                                <materialDesign:PackIcon Kind="InformationOutline" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="About" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
-                                            </StackPanel>
-                                        </Button>
-                                    </StackPanel>
-                                    <TextBlock Text="Application" Style="{StaticResource RibbonGroupLabelStyle}"/>
+                                    <TextBlock Text="View" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -446,90 +295,224 @@
                 </TabItem>
 
                 <!-- Observation Tab -->
-                <TabItem Header="🔬 Observation" Style="{StaticResource RibbonTabItem}">
-                    <Border Padding="8,4" Background="{DynamicResource MaterialDesign.Brush.Card.Background}">
+                <TabItem Header="Observation" Style="{StaticResource RibbonTabItem}">
+                    <Border Padding="8,6" Background="#2D2D3D">
                         <StackPanel Orientation="Horizontal">
-                            <!-- Obs File Group -->
+                            <!-- File Group -->
                             <Border Style="{StaticResource RibbonGroupStyle}">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal">
                                         <Button x:Name="ObsBtnSelectFiles" Style="{StaticResource RibbonButtonLargeStyle}" 
-                                                Click="ObsBtnSelectFiles_Click">
+                                                Click="ObsBtnSelectFiles_Click" ToolTip="Select Files">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="FileMultiple" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Select Files" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="FileMultiple" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#5B9BD5"/>
+                                                <TextBlock Text="Select" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
                                             </StackPanel>
                                         </Button>
-                                        <StackPanel VerticalAlignment="Center" Margin="4,0">
+                                        <StackPanel VerticalAlignment="Center" Margin="8,0">
                                             <Button x:Name="ObsBtnHeaderCheck" Style="{StaticResource RibbonButtonStyle}" 
-                                                    Content="📋 Check Header" Click="ObsBtnHeaderCheck_Click"/>
+                                                    Click="ObsBtnHeaderCheck_Click" ToolTip="Check Header">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FileDocument" Width="16" Height="16" Foreground="#5B9BD5" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="Header" FontSize="11" Foreground="White"/>
+                                                </StackPanel>
+                                            </Button>
                                             <Button x:Name="ObsBtnOpenResults" Style="{StaticResource RibbonButtonStyle}" 
-                                                    Content="📂 Open Results" Click="ObsBtnOpenResults_Click"/>
+                                                    Click="ObsBtnOpenResults_Click" ToolTip="Open Results" Margin="0,2,0,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="FolderOpen" Width="16" Height="16" Foreground="#5B9BD5" Margin="0,0,4,0"/>
+                                                    <TextBlock Text="Results" FontSize="11" Foreground="White"/>
+                                                </StackPanel>
+                                            </Button>
                                         </StackPanel>
                                     </StackPanel>
-                                    <TextBlock Text="File" Style="{StaticResource RibbonGroupLabelStyle}"/>
+                                    <TextBlock Text="File" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
                             
-                            <!-- Obs Processing Group -->
+                            <!-- Process Group -->
                             <Border Style="{StaticResource RibbonGroupStyle}">
                                 <StackPanel>
                                     <StackPanel Orientation="Horizontal">
                                         <Button x:Name="ObsBtnProcessData" Style="{StaticResource RibbonButtonLargeStyle}" 
-                                                Click="ObsBtnProcessData_Click">
+                                                Click="ObsBtnProcessData_Click" ToolTip="Process Data">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="Cogs" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Process" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="Cogs" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#70C0A0"/>
+                                                <TextBlock Text="Process" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
                                             </StackPanel>
                                         </Button>
                                         <Button x:Name="ObsBtnReadData" Style="{StaticResource RibbonButtonLargeStyle}" 
-                                                Click="ObsBtnReadData_Click">
+                                                Click="ObsBtnReadData_Click" ToolTip="Read Data">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="DatabaseImport" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Read Data" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="DatabaseImport" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#FFB347"/>
+                                                <TextBlock Text="Read" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
                                             </StackPanel>
                                         </Button>
                                         <Button x:Name="ObsBtnReset" Style="{StaticResource RibbonButtonLargeStyle}" 
-                                                Click="ObsBtnReset_Click">
+                                                Click="ObsBtnReset_Click" ToolTip="Reset">
                                             <StackPanel>
-                                                <materialDesign:PackIcon Kind="Refresh" Width="28" Height="28" HorizontalAlignment="Center"/>
-                                                <TextBlock Text="Reset" FontSize="10" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                                <materialDesign:PackIcon Kind="Refresh" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#FF6B6B"/>
+                                                <TextBlock Text="Reset" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
                                             </StackPanel>
                                         </Button>
                                     </StackPanel>
-                                    <TextBlock Text="Processing" Style="{StaticResource RibbonGroupLabelStyle}"/>
+                                    <TextBlock Text="Process" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
                             
-                            <!-- Obs DSSD Group -->
+                            <!-- DSSD Settings Group -->
                             <Border Style="{StaticResource RibbonGroupStyle}">
                                 <StackPanel VerticalAlignment="Center">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="100"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition/><RowDefinition/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Text="Layer:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,4"/>
-                                        <ComboBox x:Name="ObsCmbDSSDLayer" Grid.Column="1" Margin="0,0,0,4"
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <TextBlock Text="Layer:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White"/>
+                                        <ComboBox x:Name="ObsCmbDSSDLayer" Width="85"
                                                   Style="{StaticResource MaterialDesignOutlinedComboBox}"
                                                   SelectionChanged="ObsCmbDSSDLayer_SelectionChanged">
-                                            <ComboBoxItem Content="Layer 1" IsSelected="True"/>
-                                            <ComboBoxItem Content="Layer 2"/>
-                                            <ComboBoxItem Content="Layer 6"/>
-                                            <ComboBoxItem Content="Layer 7"/>
+                                            <ComboBoxItem Content="L1" IsSelected="True"/>
+                                            <ComboBoxItem Content="L2"/>
+                                            <ComboBoxItem Content="L6"/>
+                                            <ComboBoxItem Content="L7"/>
                                         </ComboBox>
-                                        <CheckBox x:Name="ObsChkDSSDFit" Grid.Row="1" Grid.ColumnSpan="2" Content="Curve Fit" 
-                                                  Checked="ObsChkDSSDFit_Changed" Unchecked="ObsChkDSSDFit_Changed"/>
-                                    </Grid>
-                                    <TextBlock Text="DSSD Settings" Style="{StaticResource RibbonGroupLabelStyle}"/>
+                                    </StackPanel>
+                                    <CheckBox x:Name="ObsChkDSSDFit" Content="Curve Fit" Foreground="White"
+                                              Checked="ObsChkDSSDFit_Changed" Unchecked="ObsChkDSSDFit_Changed"/>
+                                    <TextBlock Text="DSSD" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
                     </Border>
                 </TabItem>
+
+                <!-- Settings Tab -->
+                <TabItem Header="Settings" Style="{StaticResource RibbonTabItem}">
+                    <Border Padding="8,6" Background="#2D2D3D">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- DSSD Config Group -->
+                            <Border Style="{StaticResource RibbonGroupStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="90"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/><RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="Layer:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,4" Foreground="White"/>
+                                        <ComboBox Grid.Column="1" SelectedIndex="{Binding SelectedLayerIndex}" Margin="0,0,0,4"
+                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                            <ComboBoxItem Content="DSSD L1"/><ComboBoxItem Content="DSSD L2"/>
+                                            <ComboBoxItem Content="DSSD L6"/><ComboBoxItem Content="DSSD L7"/>
+                                        </ComboBox>
+                                        <TextBlock Text="Strip:" Grid.Row="1" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White"/>
+                                        <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding SelectedDirectionIndex}"
+                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                            <ComboBoxItem Content="X (1-8)"/><ComboBoxItem Content="Z (9-16)"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <TextBlock Text="DSSD" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Baseline Config Group -->
+                            <Border Style="{StaticResource RibbonGroupStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="110"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/><RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="Mode:" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,4" Foreground="White"/>
+                                        <ComboBox Grid.Column="1" SelectedIndex="{Binding SelectedMode}" Margin="0,0,0,4"
+                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                            <ComboBoxItem Content="Cut off"/><ComboBoxItem Content="Setting"/>
+                                        </ComboBox>
+                                        <TextBlock Text="Subtract:" Grid.Row="1" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White"/>
+                                        <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding SelectedBaselineMode}"
+                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                            <ComboBoxItem Content="Before"/><ComboBoxItem Content="After"/>
+                                            <ComboBoxItem Content="Before (log)"/><ComboBoxItem Content="After (log)"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <TextBlock Text="Baseline" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Parameters Group -->
+                            <Border Style="{StaticResource RibbonGroupStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="70"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/><RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="Delay (μs):" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,4" Foreground="White"/>
+                                        <TextBox Grid.Column="1" Text="{Binding DelayTimeMs, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}" Margin="0,0,0,4"/>
+                                        <TextBlock Text="Threshold:" Grid.Row="1" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="White"/>
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ThresholdValue, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"/>
+                                    </Grid>
+                                    <TextBlock Text="Parameters" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- X-Axis Group -->
+                            <Border Style="{StaticResource RibbonGroupStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="X-Axis Unit:" FontSize="11" Margin="0,0,0,4" Foreground="White"/>
+                                    <ComboBox SelectedIndex="{Binding SelectedXAxisIndex}" Width="100"
+                                              Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                        <ComboBoxItem Content="ADC Ch"/>
+                                        <ComboBoxItem Content="Voltage"/>
+                                        <ComboBoxItem Content="Energy"/>
+                                    </ComboBox>
+                                    <TextBlock Text="X-Axis" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Output Group -->
+                            <Border Style="{StaticResource RibbonGroupStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Output Filename:" FontSize="11" Margin="0,0,0,4" Foreground="White"/>
+                                    <TextBox Text="{Binding OutputFileName, UpdateSourceTrigger=PropertyChanged}" 
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}" 
+                                             Width="140" materialDesign:HintAssist.Hint="filename"/>
+                                    <TextBlock Text="Output" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- App Group -->
+                            <Border Style="{StaticResource RibbonGroupStyle}">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="BtnSettings" Style="{StaticResource RibbonButtonLargeStyle}" 
+                                                Click="BtnSettings_Click" ToolTip="Settings">
+                                            <StackPanel>
+                                                <materialDesign:PackIcon Kind="Cog" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#888"/>
+                                                <TextBlock Text="Settings" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource RibbonButtonLargeStyle}" ToolTip="About">
+                                            <StackPanel>
+                                                <materialDesign:PackIcon Kind="InformationOutline" Width="24" Height="24" HorizontalAlignment="Center" Foreground="#888"/>
+                                                <TextBlock Text="About" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" Foreground="White"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                    <TextBlock Text="App" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </TabItem>
+
             </TabControl>
         </Border>
 

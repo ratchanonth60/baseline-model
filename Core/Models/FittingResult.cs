@@ -1,4 +1,4 @@
-namespace BaselineMode.WPF.Models
+namespace BaselineMode.WPF.Core.Models
 {
     public class FittingResult
     {
@@ -11,9 +11,20 @@ namespace BaselineMode.WPF.Models
         // HEMG-specific parameters
         public double A { get; set; }
         public double TauL1 { get; set; }
+        public double TauL2 { get; set; } // For 2-component Left
         public double TauR1 { get; set; }
         public double EtaL1 { get; set; }
+        public double EtaL2 { get; set; } // For 2-component Left
         public double EtaR1 { get; set; }
+
+        // Statistics
+        public double FWHM { get; set; }
+        public double Resolution { get; set; }
+        public double R_Squared { get; set; }
+
+        public FittingResult()
+        {
+        }
 
         public FittingResult(double[] fitCurve, double mu, double sigma, double peak, double rms)
         {
@@ -30,7 +41,7 @@ namespace BaselineMode.WPF.Models
         }
 
         // Constructor for HEMG results
-        public FittingResult(double[] fitCurve, double a, double mu, double sigma, double tauL1, 
+        public FittingResult(double[] fitCurve, double a, double mu, double sigma, double tauL1,
             double tauR1, double etaL1, double etaR1)
         {
             FitCurve = fitCurve;

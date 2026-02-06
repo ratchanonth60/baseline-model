@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScottPlot;
 
-namespace BaselineMode.WPF.Views.models
+namespace BaselineMode.WPF.Presentation.ViewModels
 {
     public partial class ChannelViewModel : ObservableObject
     {

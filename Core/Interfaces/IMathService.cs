@@ -1,7 +1,7 @@
 using System;
-using BaselineMode.WPF.Models;
+using BaselineMode.WPF.Core.Models;
 
-namespace BaselineMode.WPF.Services
+namespace BaselineMode.WPF.Core.Interfaces
 {
     /// <summary>
     /// Interface for mathematical operations with memory-safe implementations
@@ -26,11 +26,24 @@ namespace BaselineMode.WPF.Services
         /// <summary>
         /// Perform Hyper-EMG curve fitting
         /// </summary>
+        /// <summary>
+        /// Perform Hyper-EMG curve fitting
+        /// </summary>
         FittingResult HyperEMGFit(double[] xData, double[] yData);
+
+        /// <summary>
+        /// Perform Hyper-EMG curve fitting with raw data for initialization
+        /// </summary>
+        FittingResult HyperEMGFit(double[] xData, double[] yData, double[] rawData);
 
         /// <summary>
         /// Perform Double-Sided Hyper-EMG curve fitting
         /// </summary>
         FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData);
+
+        /// <summary>
+        /// Perform Double-Sided Hyper-EMG curve fitting with raw data for initialization
+        /// </summary>
+        FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData, double[] rawData);
     }
 }

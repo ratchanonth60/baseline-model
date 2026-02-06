@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using OfficeOpenXml;
-using BaselineMode.WPF.Models.Observation;
+using BaselineMode.WPF.Core.Models.Observation;
 
-namespace BaselineMode.WPF.Services.Observation
+using BaselineMode.WPF.Core.Interfaces.Observation;
+
+namespace BaselineMode.WPF.Infrastructure.Services.Observation
 {
-    public class ObservationExcelHelper
+    public class ObservationExcelHelper : IObservationExcelHelper
     {
         public ObservationExcelHelper()
         {

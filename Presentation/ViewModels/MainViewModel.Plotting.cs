@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using BaselineMode.WPF.Models;
+using BaselineMode.WPF.Core.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace BaselineMode.WPF.Views.models
+namespace BaselineMode.WPF.Presentation.ViewModels
 {
     public partial class MainViewModel
     {
@@ -189,15 +189,17 @@ namespace BaselineMode.WPF.Views.models
                 {
                     FittingResult result;
 
-                    if (SelectedFitMethod == 1)
+                    switch (SelectedFitMethod)
                     {
-                        // Hyper-EMG
-                        result = _mathService.HyperEMGFit(binCenters, counts);
-                    }
-                    else
-                    {
-                        // Gaussian - ใช้ weighted method ใหม่
-                        result = _mathService.GaussianFit(binCenters, counts);
+                        case 1: // Hyper-EMG Single-Sided
+                            result = _mathService.HyperEMGFit(binCenters, counts, filteredData);
+                            break;
+                        case 2: // Hyper-EMG Double-Sided
+                            result = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
+                            break;
+                        default: // 0 = Gaussian
+                            result = _mathService.GaussianFit(binCenters, counts);
+                            break;
                     }
 
                     if (result.FitCurve != null && result.FitCurve.Length > 0)
@@ -209,6 +211,14 @@ namespace BaselineMode.WPF.Views.models
 
                         // คำนวณ FWHM จาก fit curve
                         (fwhm, resolution) = CalculateFWHM(binCenters, fitCurveLinear, mu);
+
+                        // DEBUG: Log successful fitting
+                        System.Diagnostics.Debug.WriteLine($"Ch{chIndex}: FitCurve Length={fitCurveLinear.Length}, Max={fitCurveLinear.Max():F2}, Mu={mu:F2}");
+                    }
+                    else
+                    {
+                        // DEBUG: Log when FitCurve is empty
+                        System.Diagnostics.Debug.WriteLine($"Ch{chIndex}: FitCurve is null or empty! result.FitCurve?.Length={result.FitCurve?.Length}");
                     }
                 }
                 catch (Exception ex)
