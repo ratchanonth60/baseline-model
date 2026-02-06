@@ -255,15 +255,17 @@
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                         <CheckBox IsChecked="{Binding UseThresholding}" Content="Threshold" 
                                                   Style="{StaticResource MaterialDesignCheckBox}" Foreground="White" Margin="0,0,12,0"/>
-                                        <ComboBox SelectedIndex="{Binding SelectedFitMethod}" Width="130"
-                                                  Style="{StaticResource MaterialDesignOutlinedComboBox}">
-                                            <ComboBoxItem Content="Gaussian"/>
-                                            <ComboBoxItem Content="Hyper-EMG Single"/>
-                                            <ComboBoxItem Content="Hyper-EMG Double"/>
-                                        </ComboBox>
+                                        
+                                        <!-- Multi-Fit Selection -->
+                                        <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <CheckBox IsChecked="{Binding ShowGaussianFit}" Content="Gauss" FontSize="10" Foreground="White" Margin="0,0,4,0"/>
+                                                <CheckBox IsChecked="{Binding ShowHemgSingleFit}" Content="HEMG-1" FontSize="10" Foreground="White"/>
+                                            </StackPanel>
+                                            <CheckBox IsChecked="{Binding ShowHemgDoubleFit}" Content="HEMG-Doub" FontSize="10" Foreground="White"/>
+                                        </StackPanel>
                                     </StackPanel>
-                                    <CheckBox IsChecked="{Binding UseGaussianFit}" Content="Curve Fit" 
-                                              Style="{StaticResource MaterialDesignCheckBox}" Foreground="White"/>
+                                    <!-- Removed old toggle, selection implies active -->
                                     <TextBlock Text="Fitting" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
@@ -462,6 +464,20 @@
                                     <TextBlock Text="Parameters" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
                                 </StackPanel>
                             </Border>
+
+                            <!-- Fitting Algo Group -->
+                            <Border Style="{StaticResource RibbonGroupStyle}">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Algorithm:" FontSize="11" Margin="0,0,0,4" Foreground="White"/>
+                                    <ComboBox SelectedIndex="{Binding SelectedFittingAlgorithm}" Width="110"
+                                              Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                        <ComboBoxItem Content="LMA (Std)"/>
+                                        <ComboBoxItem Content="Nelder-Mead"/>
+                                        <ComboBoxItem Content="GradDesc (Old)"/>
+                                    </ComboBox>
+                                    <TextBlock Text="Optimizer" Style="{StaticResource RibbonGroupLabelStyle}" Foreground="#888"/>
+                                </StackPanel>
+                            </Border>
                             
                             <!-- X-Axis Group -->
                             <Border Style="{StaticResource RibbonGroupStyle}">
@@ -595,6 +611,12 @@
                                                 </Grid.RowDefinitions>
                                                 <TextBlock Text="{Binding Title}" FontWeight="Bold" Margin="6,4" FontSize="10"/>
                                                 <scott:WpfPlot Grid.Row="1" x:Name="WpfPlot" Loaded="WpfPlot_Loaded" Tag="{Binding}" Margin="2"/>
+                                                
+                                                <!-- Loading Indicator -->
+                                                <Grid Grid.Row="1" Background="#80000000" Visibility="{Binding IsFitting, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}" Value="0" IsIndeterminate="True" Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Grid>
+
                                                 <TextBlock Text="{Binding StatsText}" Grid.Row="2" FontSize="9" Margin="6,2,6,4" Foreground="Gray"/>
                                             </Grid>
                                         </materialDesign:Card>

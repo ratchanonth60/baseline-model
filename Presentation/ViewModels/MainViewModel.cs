@@ -56,11 +56,21 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         [ObservableProperty]
         private double _kFactor = 2.0;
 
+        // --- Multi-Fit Flags ---
         [ObservableProperty]
-        private int _selectedFitMethod = 0; // 0=Gaussian, 1=Hyper-EMG Single, 2=Hyper-EMG Double
+        private bool _showGaussianFit = true;
 
         [ObservableProperty]
-        private bool _useGaussianFit = false;
+        private bool _showHemgSingleFit = false;
+
+        [ObservableProperty]
+        private bool _showHemgDoubleFit = false;
+
+        // Deprecated: private int _selectedFitMethod = 0; 
+
+        partial void OnShowGaussianFitChanged(bool value) => RefreshIfHasData();
+        partial void OnShowHemgSingleFitChanged(bool value) => RefreshIfHasData();
+        partial void OnShowHemgDoubleFitChanged(bool value) => RefreshIfHasData();
 
         [ObservableProperty]
         private int _selectedXAxisIndex = 0; // 0=ADC, 1=Voltage

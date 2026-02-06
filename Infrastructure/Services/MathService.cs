@@ -246,6 +246,11 @@ namespace BaselineMode.WPF.Infrastructure.Services
         // Implementation regarding IFittingService (Standard signature)
         public FittingResult HemgSingleSidedFit(double[] xData, double[] yData) => HemgSingleSidedFit(xData, yData, null);
 
+        // IMPLEMENTATION OF IFittingService.Algorithm
+        public FittingAlgorithm Algorithm { get; set; } = FittingAlgorithm.LevenbergMarquardt;
+
+        // ...
+
         // Extended signature with rawData
         public FittingResult HemgSingleSidedFit(double[] xData, double[] yData, double[] rawData)
         {
@@ -258,6 +263,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             try
             {
                 var hemgService = new HemgFittingService();
+                hemgService.Algorithm = this.Algorithm; // Pass selected algorithm
                 var (fitCurve, p) = hemgService.HemgSingleSidedFitHistogram(xData, yData, rawData);
 
                 if (fitCurve == null || p == null || p.Length < 6)
@@ -303,6 +309,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             try
             {
                 var hemgService = new HemgFittingService();
+                hemgService.Algorithm = this.Algorithm; // Pass selected algorithm
                 var (fitCurve, p) = hemgService.HemgDoubleSidedFitHistogram(xData, yData, rawData);
 
                 if (fitCurve == null || p == null || p.Length < 7)

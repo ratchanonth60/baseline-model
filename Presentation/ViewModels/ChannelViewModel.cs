@@ -5,27 +5,53 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 {
     public partial class ChannelViewModel : ObservableObject
     {
+        public class FitData
+        {
+            public double[]? Curve { get; set; }
+            public System.Drawing.Color Color { get; set; }
+            public string Label { get; set; } = "Fit";
+        }
+
         [ObservableProperty]
         private string _title = "Channel";
 
         [ObservableProperty]
         private string _statsText = "No Data";
 
-        // We can hold the plot data here to update the specific WpfPlot
         public double[]? BinCenters { get; set; }
-        public double[]? Counts { get; set; } // Log scale counts for display
-        public double[]? RawCounts { get; set; } // Linear scale counts (original)
-        public double[]? FitCurve { get; set; }
+        public double[]? Counts { get; set; }
+        public double[]? RawCounts { get; set; }
+
+        [ObservableProperty]
+        private bool _isFitting = false;
+
+        // Multi-Fit Support: Dictionary of FitName -> FitData
+        public Dictionary<string, FitData> ActiveFits { get; set; } = new Dictionary<string, FitData>();
+
+        // Cache: FitType -> FitData
+        private Dictionary<string, FitData> _fitCache = new Dictionary<string, FitData>();
+
+        public void CacheFit(string fitType, FitData data)
+        {
+            if (!_fitCache.ContainsKey(fitType))
+                _fitCache[fitType] = data;
+        }
+
+        public FitData? GetCachedFit(string fitType)
+        {
+            return _fitCache.ContainsKey(fitType) ? _fitCache[fitType] : null;
+        }
+
         [ObservableProperty]
         private bool _isLogScale = false;
-        // Statistics
+
+        // Statistics (Primary Fit)
         public double Mu { get; set; }
         public double Sigma { get; set; }
         public double Peak { get; set; }
         public double FWHM { get; set; }
         public double Resolution { get; set; }
 
-        // Reference to the actual control for refreshing
         public WpfPlot? PlotControl { get; set; }
 
         public void RenderPlot()
@@ -41,13 +67,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
             if (Counts != null && Counts.Length > 0 && BinCenters != null)
             {
-                // ตรวจสอบว่าเป็น Log Scale หรือไม่
-                bool isLogScale = IsLogScale; // ต้องเพิ่ม property นี้
+                bool isLogScale = IsLogScale;
 
                 if (isLogScale)
-
                 {
-                    // Log Scale - ใช้ Scatter Plot เหมือน WinForms
                     var scatter = targetPlot.Plot.AddScatter(BinCenters, Counts);
                     scatter.LineWidth = 2;
                     scatter.Color = System.Drawing.Color.Black;
@@ -55,37 +78,39 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                     scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
                     scatter.MarkerLineWidth = 0;
                     scatter.MarkerColor = System.Drawing.Color.DarkRed;
+                    scatter.Label = "Data";
 
-                    // ตั้งค่า Y-axis format
                     targetPlot.Plot.YAxis.TickLabelFormat(value => $"10^{value:F0}");
                     targetPlot.Plot.SetAxisLimitsY(0.1, double.NaN);
                 }
                 else
                 {
-                    // Linear Scale - ใช้ Bar Chart เหมือน WinForms
                     var bar = targetPlot.Plot.AddBar(values: Counts, positions: BinCenters);
                     bar.FillColor = System.Drawing.Color.Black;
                     bar.BorderLineWidth = 0;
+                    bar.Label = "Data";
 
                     targetPlot.Plot.SetAxisLimitsY(0, double.NaN);
                 }
 
-                // Plot Fit Curve (ถ้ามี)
-                if (FitCurve != null && FitCurve.Length > 0)
+                // Plot All Active Fits
+                if (ActiveFits != null && ActiveFits.Count > 0)
                 {
-                    double maxFit = FitCurve.Max();
-                    if (maxFit > 0)
+                    foreach (var fit in ActiveFits.Values)
                     {
-                        var fitScatter = targetPlot.Plot.AddScatter(BinCenters, FitCurve);
-                        fitScatter.LineWidth = 2;
-                        fitScatter.Color = System.Drawing.Color.Red;
-                        fitScatter.MarkerSize = 0;
-                        fitScatter.Label = "Fit";
+                        if (fit.Curve != null && fit.Curve.Length > 0)
+                        {
+                            var fitScatter = targetPlot.Plot.AddScatter(BinCenters, fit.Curve);
+                            fitScatter.LineWidth = 2;
+                            fitScatter.Color = fit.Color;
+                            fitScatter.MarkerSize = 0;
+                            fitScatter.Label = fit.Label;
+                        }
                     }
                 }
 
-                // Statistics Annotation
-                if (Mu > 0 && !isLogScale) // แสดงแค่ linear scale
+                // Stats Annotation (Only for primary/last update or consolidated)
+                if (Mu > 0 && !isLogScale)
                 {
                     string statsLabel = $"μ = {Mu:F2}\nσ = {Sigma:F2}\nFWHM = {FWHM:F2}\nRes = {Resolution:F2}%";
                     var annotation = targetPlot.Plot.AddText(statsLabel, 0.02, 0.98);
@@ -96,15 +121,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                     annotation.Alignment = ScottPlot.Alignment.UpperLeft;
                 }
 
-                targetPlot.Plot.XLabel("ADC Channel (0-16384)");
-                targetPlot.Plot.YLabel(isLogScale ? "log scale Count (#)" : "Count (#)");
+                targetPlot.Plot.XLabel("ADC Channel");
+                targetPlot.Plot.YLabel(isLogScale ? "log scale Count" : "Count");
+                targetPlot.Plot.Legend(true, ScottPlot.Alignment.UpperRight); // Show Legend
                 targetPlot.Plot.AxisAuto();
             }
 
             targetPlot.Refresh();
         }
-
-        private ScottPlot.MarkerShape createMarkerShape() => ScottPlot.MarkerShape.filledCircle;
 
         public int ChannelIndex { get; set; }
     }

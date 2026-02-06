@@ -5,6 +5,8 @@ namespace BaselineMode.WPF.Core.Interfaces
 {
     public interface IFittingService
     {
+        FittingAlgorithm Algorithm { get; set; }
+
         /// <summary>
         /// Perform Gaussian curve fitting
         /// </summary>

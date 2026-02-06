@@ -46,8 +46,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         }
 
         partial void OnSelectedDirectionIndexChanged(int value) => RefreshIfHasData();
-        partial void OnUseGaussianFitChanged(bool value) => RefreshIfHasData();
-        partial void OnSelectedFitMethodChanged(int value) => RefreshIfHasData();
+        // Removed: partial void OnUseGaussianFitChanged(bool value) => RefreshIfHasData();
+        // Removed: partial void OnSelectedFitMethodChanged(int value) => RefreshIfHasData();
         partial void OnUseThresholdingChanged(bool value) => RefreshIfHasData();
         partial void OnKFactorChanged(double value) => RefreshIfHasData();
         partial void OnSelectedXAxisIndexChanged(int value) => RefreshIfHasData();
@@ -122,7 +122,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
                     if (filteredData.Length > 5)
                     {
-                        // *** FIX: คำนวณ histogram range ให้ถูกต้อง ***
+                        // Declare minVal/maxVal BEFORE usage
                         double minVal, maxVal;
 
                         if (shouldSubtract)
@@ -143,28 +143,36 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                             maxVal = 16383;
                         }
 
-                        // สร้าง histogram
                         var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
-                            filteredData,
-                            min: minVal,
-                            max: maxVal,
-                            binCount: 16384);
+                            filteredData, min: minVal, max: maxVal, binCount: 16384);
 
-                        // คำนวณ bin centers แบบเดียวกับ WinForms
                         double[] binCenters = new double[binEdges.Length - 1];
                         for (int k = 0; k < binCenters.Length; k++)
-                        {
                             binCenters[k] = (binEdges[k] + binEdges[k + 1]) / 2.0;
-                        }
 
-                        // Voltage conversion (ถ้าเลือก)
                         if (SelectedXAxisIndex == 1 && !shouldSubtract)
-                        {
-                            // แปลงเป็น Voltage เฉพาะตอนไม่ลบ baseline
                             binCenters = binCenters.Select(v => ((v / 16383.0) * 5) * 1000).ToArray();
+
+                        // Perform Fits Here (UI Thread - Can be slow, but this is for 'Refresh' only)
+                        var fitResults = new Dictionary<string, ChannelViewModel.FitData>();
+
+                        if (ShowGaussianFit)
+                        {
+                            var res = _mathService.GaussianFit(binCenters, counts);
+                            if (res.FitCurve != null) fitResults["Gaussian"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.LimeGreen, Label = "Gaussian" };
+                        }
+                        if (ShowHemgSingleFit)
+                        {
+                            var res = _mathService.HyperEMGFit(binCenters, counts, filteredData);
+                            if (res.FitCurve != null) fitResults["HEMG-S"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Red, Label = "HEMG(1)" };
+                        }
+                        if (ShowHemgDoubleFit)
+                        {
+                            var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
+                            if (res.FitCurve != null) fitResults["HEMG-D"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Magenta, Label = "HEMG(2)" };
                         }
 
-                        ProcessChannelData(chIndex, filteredData, counts, binCenters);
+                        ProcessChannelData(chIndex, filteredData, counts, binCenters, fitResults);
                     }
                     else
                     {
@@ -177,70 +185,43 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
         }
 
-        private void ProcessChannelData(int chIndex, double[] filteredData, double[] counts, double[] binCenters)
+        private void ProcessChannelData(int chIndex, double[] filteredData, double[] counts, double[] binCenters, Dictionary<string, ChannelViewModel.FitData> fitResults)
         {
-            double[]? fitCurveLinear = null;
             double mu = 0, sigma = 0, peak = 0;
             double fwhm = 0, resolution = 0;
 
-            if (UseGaussianFit && HasSufficientData(filteredData, counts))
+            // Use Primary Fit for Statistics (Priority: HEMG-D > HEMG-S > Gaussian)
+            // FittingResult? primaryStats = null;
+            // NOTE: We don't have the full FittingResult object passed here in the dictionary, only the curve.
+            // For now, we recalculate moments if we want generic stats, OR we should pass the full stats object.
+            // As a quick optimization, let's use Method of Moments for the text label if stats aren't explicitly passed,
+            // OR we calculate FWHM from the curve we have.
+
+            // Fallback: Calculate basic moments from data
+            var moments = _mathService.CalculateMoments(binCenters, counts);
+            mu = moments.mean;
+            sigma = moments.sigma;
+            peak = moments.peak;
+            fwhm = 2.355 * sigma;
+            resolution = (Math.Abs(mu) > 1e-9) ? (fwhm / mu * 100.0) : 0;
+
+            // Refine stats from the "Best" available fit curve
+            double[]? bestFitCurve = null;
+            if (fitResults.ContainsKey("HEMG-D")) bestFitCurve = fitResults["HEMG-D"].Curve;
+            else if (fitResults.ContainsKey("HEMG-S")) bestFitCurve = fitResults["HEMG-S"].Curve;
+            else if (fitResults.ContainsKey("Gaussian")) bestFitCurve = fitResults["Gaussian"].Curve;
+
+            if (bestFitCurve != null && bestFitCurve.Length > 0)
             {
-                try
-                {
-                    FittingResult result;
-
-                    switch (SelectedFitMethod)
-                    {
-                        case 1: // Hyper-EMG Single-Sided
-                            result = _mathService.HyperEMGFit(binCenters, counts, filteredData);
-                            break;
-                        case 2: // Hyper-EMG Double-Sided
-                            result = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
-                            break;
-                        default: // 0 = Gaussian
-                            result = _mathService.GaussianFit(binCenters, counts);
-                            break;
-                    }
-
-                    if (result.FitCurve != null && result.FitCurve.Length > 0)
-                    {
-                        fitCurveLinear = result.FitCurve;
-                        mu = result.Mu;
-                        sigma = result.Sigma;
-                        peak = result.Peak;
-
-                        // คำนวณ FWHM จาก fit curve
-                        (fwhm, resolution) = CalculateFWHM(binCenters, fitCurveLinear, mu);
-
-                        // DEBUG: Log successful fitting
-                        System.Diagnostics.Debug.WriteLine($"Ch{chIndex}: FitCurve Length={fitCurveLinear.Length}, Max={fitCurveLinear.Max():F2}, Mu={mu:F2}");
-                    }
-                    else
-                    {
-                        // DEBUG: Log when FitCurve is empty
-                        System.Diagnostics.Debug.WriteLine($"Ch{chIndex}: FitCurve is null or empty! result.FitCurve?.Length={result.FitCurve?.Length}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Fitting error Ch{chIndex}: {ex.Message}");
-                }
-            }
-            else
-            {
-                // No fitting - use moments
-                var moments = _mathService.CalculateMoments(binCenters, counts);
-                mu = moments.mean;
-                sigma = moments.sigma;
-                peak = moments.peak;
-                fwhm = 2.355 * sigma;
-                resolution = mu != 0 ? (fwhm / mu) * 100 : 0;
+                // Refine FWHM from the fit curve
+                (fwhm, resolution) = CalculateFWHM(binCenters, bestFitCurve, mu);
             }
 
             // Set channel data
             var chVM = Channels[chIndex];
             chVM.BinCenters = binCenters;
             chVM.RawCounts = counts;
+            chVM.ActiveFits = fitResults; // Assign the multi-fit dictionary
 
             bool isLogScale = (SelectedBaselineMode == 2 || SelectedBaselineMode == 3);
             chVM.IsLogScale = isLogScale;
@@ -248,13 +229,19 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             if (isLogScale)
             {
                 chVM.Counts = counts.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
-                if (fitCurveLinear != null)
-                    chVM.FitCurve = fitCurveLinear.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
+                // Update fit curves to log scale
+                foreach (var key in fitResults.Keys.ToList())
+                {
+                    var fit = fitResults[key];
+                    if (fit.Curve != null)
+                    {
+                        fit.Curve = fit.Curve.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
+                    }
+                }
             }
             else
             {
                 chVM.Counts = counts;
-                chVM.FitCurve = fitCurveLinear;
             }
 
             chVM.Mu = mu;
@@ -263,6 +250,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             chVM.FWHM = fwhm;
             chVM.Resolution = resolution;
             chVM.StatsText = $"μ={mu:F2}, σ={sigma:F2}, FWHM={fwhm:F2}, Res={resolution:F2}%";
+
+            // Trigger Plot Refresh
+            chVM.RenderPlot();
         }
 
         private (double fwhm, double resolution) CalculateFWHM(double[] binCenters, double[] fitCurve, double mu)

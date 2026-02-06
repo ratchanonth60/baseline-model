@@ -260,8 +260,60 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                                         binCenters[k] = center;
                                 }
 
-                                // UI Update (ต้องระวัง Thread Safety)
-                                System.Windows.Application.Current.Dispatcher.Invoke(() => ProcessChannelData(chIndex, filteredData, counts, binCenters));
+                                // Prepare Multi-Fit Results
+                                var fitResults = new Dictionary<string, ChannelViewModel.FitData>();
+
+                                if (filteredData.Length > 5)
+                                {
+                                    // 1. Gaussian Fit
+                                    if (ShowGaussianFit)
+                                    {
+                                        var res = _mathService.GaussianFit(binCenters, counts);
+                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        {
+                                            fitResults["Gaussian"] = new ChannelViewModel.FitData
+                                            {
+                                                Curve = res.FitCurve,
+                                                Color = System.Drawing.Color.LimeGreen,
+                                                Label = "Gaussian"
+                                            };
+                                        }
+                                    }
+
+                                    // 2. HEMG Single
+                                    if (ShowHemgSingleFit)
+                                    {
+                                        var res = _mathService.HyperEMGFit(binCenters, counts, filteredData);
+                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        {
+                                            fitResults["HEMG-S"] = new ChannelViewModel.FitData
+                                            {
+                                                Curve = res.FitCurve,
+                                                Color = System.Drawing.Color.Red,
+                                                Label = "HEMG(1)"
+                                            };
+                                        }
+                                    }
+
+                                    // 3. HEMG Double
+                                    if (ShowHemgDoubleFit)
+                                    {
+                                        var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
+                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        {
+                                            fitResults["HEMG-D"] = new ChannelViewModel.FitData
+                                            {
+                                                Curve = res.FitCurve,
+                                                Color = System.Drawing.Color.Magenta,
+                                                Label = "HEMG(2)"
+                                            };
+                                        }
+                                    }
+                                }
+
+                                // UI Update (Assign Results + Render)
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                    ProcessChannelData(chIndex, filteredData, counts, binCenters, fitResults));
                             }
                             else
                             {
@@ -361,19 +413,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             return filteredData.Length > 5 && counts.Max() > 0;
         }
 
+        // Removed unused PerformFit method
+        /* 
         private FittingResult PerformFit(double[] binCenters, double[] counts, double[] filteredData)
         {
-            switch (SelectedFitMethod)
-            {
-                case 1: // Hyper-EMG Single-Sided
-                    // Pass raw data for better initialization (sigma calculation)
-                    return _mathService.HyperEMGFit(binCenters, counts, filteredData);
-                case 2: // Hyper-EMG Double-Sided
-                    return _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
-                default: // 0 = Gaussian
-                    return _mathService.GaussianFit(binCenters, counts);
-            }
-        }
+             // Replaced by inline multi-fit logic in ProcessData
+             return null; 
+        } 
+        */
 
         private double[,] CalculateCoincidenceMatrix()
         {
@@ -424,6 +471,124 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             }
 
             return matrix;
+        }
+        public async Task ProcessChannelFitAsync(int chIndex, double[] binCenters, double[] counts, double[] filteredData)
+        {
+            var chVM = Channels[chIndex];
+
+            // 1. Check if fitting is required
+            bool fitGaussian = ShowGaussianFit;
+            bool fitHemgS = ShowHemgSingleFit;
+            bool fitHemgD = ShowHemgDoubleFit;
+
+            if (!fitGaussian && !fitHemgS && !fitHemgD)
+            {
+                // No fits selected, just render data
+                ProcessChannelData(chIndex, filteredData, counts, binCenters, new Dictionary<string, ChannelViewModel.FitData>());
+                return;
+            }
+
+            // 2. Set Loading State
+            chVM.IsFitting = true;
+
+            // 3. Prepare Dictionary for results
+            var fitResults = new Dictionary<string, ChannelViewModel.FitData>();
+
+            try
+            {
+                // 4. Run Fits (Background Thread)
+                await Task.Run(() =>
+                {
+                    // Gaussian
+                    if (fitGaussian)
+                    {
+                        var cached = chVM.GetCachedFit("Gaussian");
+                        if (cached != null)
+                        {
+                            fitResults["Gaussian"] = cached;
+                        }
+                        else
+                        {
+                            var res = _mathService.GaussianFit(binCenters, counts);
+                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            {
+                                var data = new ChannelViewModel.FitData
+                                {
+                                    Curve = res.FitCurve,
+                                    Color = System.Drawing.Color.LimeGreen,
+                                    Label = "Gaussian"
+                                };
+                                fitResults["Gaussian"] = data;
+                                chVM.CacheFit("Gaussian", data);
+                            }
+                        }
+                    }
+
+                    // HEMG Single
+                    if (fitHemgS)
+                    {
+                        var cached = chVM.GetCachedFit("HEMG-S");
+                        if (cached != null)
+                        {
+                            fitResults["HEMG-S"] = cached;
+                        }
+                        else
+                        {
+                            var res = _mathService.HyperEMGFit(binCenters, counts, filteredData);
+                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            {
+                                var data = new ChannelViewModel.FitData
+                                {
+                                    Curve = res.FitCurve,
+                                    Color = System.Drawing.Color.Red,
+                                    Label = "HEMG(1)"
+                                };
+                                fitResults["HEMG-S"] = data;
+                                chVM.CacheFit("HEMG-S", data);
+                            }
+                        }
+                    }
+
+                    // HEMG Double
+                    if (fitHemgD)
+                    {
+                        var cached = chVM.GetCachedFit("HEMG-D");
+                        if (cached != null)
+                        {
+                            fitResults["HEMG-D"] = cached;
+                        }
+                        else
+                        {
+                            var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
+                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            {
+                                var data = new ChannelViewModel.FitData
+                                {
+                                    Curve = res.FitCurve,
+                                    Color = System.Drawing.Color.Magenta,
+                                    Label = "HEMG(2)"
+                                };
+                                fitResults["HEMG-D"] = data;
+                                chVM.CacheFit("HEMG-D", data); // Cache it!
+                            }
+                        }
+                    }
+                });
+
+                // 5. Update UI (Main Thread)
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    ProcessChannelData(chIndex, filteredData, counts, binCenters, fitResults);
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in Async Fit Ch {chIndex}: {ex.Message}");
+            }
+            finally
+            {
+                chVM.IsFitting = false;
+            }
         }
     }
 }
