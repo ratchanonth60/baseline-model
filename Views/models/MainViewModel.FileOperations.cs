@@ -384,9 +384,11 @@ namespace BaselineMode.WPF.Views.models
 
             try
             {
-                if (File.Exists(layerFile))
+                string outputDir = GetDailyOutputDirectory();
+                string fullPath = Path.Combine(outputDir, layerFile);
+                if (File.Exists(fullPath))
                 {
-                    var lines = File.ReadAllLines(layerFile);
+                    var lines = File.ReadAllLines(fullPath);
                     if (channelIndex < lines.Length && double.TryParse(lines[channelIndex], out double mean))
                         return mean;
                 }

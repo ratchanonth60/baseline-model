@@ -71,7 +71,7 @@ namespace BaselineMode.WPF.Views.models
                 }
 
                 // Plot Fit Curve (ถ้ามี)
-                if (FitCurve != null && FitCurve.Length > 0)
+                if (FitCurve != null && FitCurve.Length > 0 && BinCenters.Length == FitCurve.Length)
                 {
                     double maxFit = FitCurve.Max();
                     if (maxFit > 0)
@@ -84,27 +84,28 @@ namespace BaselineMode.WPF.Views.models
                     }
                 }
 
-                // Statistics Annotation
-                if (Mu > 0 && !isLogScale) // แสดงแค่ linear scale
+                targetPlot.Plot.XLabel("ADC Channel (0-16384)");
+                targetPlot.Plot.YLabel(isLogScale ? "log scale Count (#)" : "Count (#)");
+                targetPlot.Plot.AxisAuto();
+
+                // Statistics Annotation (after AxisAuto so we know the axis limits)
+                if (Mu > 0 && !isLogScale)
                 {
                     string statsLabel = $"μ = {Mu:F2}\nσ = {Sigma:F2}\nFWHM = {FWHM:F2}\nRes = {Resolution:F2}%";
-                    var annotation = targetPlot.Plot.AddText(statsLabel, 0.02, 0.98);
+                    var limits = targetPlot.Plot.GetAxisLimits();
+                    double textX = limits.XMin + (limits.XMax - limits.XMin) * 0.02;
+                    double textY = limits.YMax - (limits.YMax - limits.YMin) * 0.02;
+                    var annotation = targetPlot.Plot.AddText(statsLabel, textX, textY);
                     annotation.Font.Size = 10;
                     annotation.Font.Color = System.Drawing.Color.Blue;
                     annotation.BackgroundColor = System.Drawing.Color.FromArgb(220, 255, 255, 255);
                     annotation.BorderColor = System.Drawing.Color.Blue;
                     annotation.Alignment = ScottPlot.Alignment.UpperLeft;
                 }
-
-                targetPlot.Plot.XLabel("ADC Channel (0-16384)");
-                targetPlot.Plot.YLabel(isLogScale ? "log scale Count (#)" : "Count (#)");
-                targetPlot.Plot.AxisAuto();
             }
 
             targetPlot.Refresh();
         }
-
-        private ScottPlot.MarkerShape createMarkerShape() => ScottPlot.MarkerShape.filledCircle;
 
         public int ChannelIndex { get; set; }
     }

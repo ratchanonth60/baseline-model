@@ -35,7 +35,7 @@ namespace BaselineMode.WPF.Views
             }
         }
 
-        private void Vm_RequestPlotUpdate(object sender, PlotUpdateEventArgs e)
+        private void Vm_RequestPlotUpdate(object? sender, PlotUpdateEventArgs e)
         {
             if (DataContext is not MainViewModel vm)
                 return;

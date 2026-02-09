@@ -194,78 +194,31 @@ namespace BaselineMode.WPF.Views.models
                         UpdateDisplayTable();
                     });
                     if (!ProcessedData.Any()) return;
-                    // OPTIMIZE: Parallelize processing
-                    Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
-                    {
-                        1 => (d) => d.L2,
-                        2 => (d) => d.L6,
-                        3 => (d) => d.L7,
-                        _ => (d) => d.L1
-                    };
+
+                    var layerSelector = GetLayerSelector();
 
                     int processedCount = 0;
                     object processedLock = new object();
                     Parallel.For(0, 16, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = _cts.Token }, i =>
                     {
                         int chIndex = i;
-                        // Optimization: ดึงข้อมูลออกมาเป็น Array เดียวเพื่อลดการเข้าถึง Property ซ้ำๆ
-                        // การใช้ Loop ธรรมดาเร็วกว่า LINQ .Select().ToArray() ในกรณี Performance Critical
-                        int dataCount = ProcessedData.Count;
-                        double[] rawData = new double[dataCount];
-                        for (int j = 0; j < dataCount; j++)
-                        {
-                            rawData[j] = layerSelector(ProcessedData[j])[chIndex];
-                        }
+                        double[] rawData = ExtractChannelData(layerSelector, chIndex);
+
                         if (rawData.Length > 0)
                         {
-                            // Calculate Mean for baseline subtraction (modes 1 and 3)
-                            double meanToSubtract = 0;
-                            bool applyBaselineSubtraction = (SelectedBaselineMode == 1 || SelectedBaselineMode == 3);
-                            if (applyBaselineSubtraction)
-                            {
-                                double sum = 0;
-                                for (int k = 0; k < rawData.Length; k++) sum += rawData[k];
-                                meanToSubtract = sum / rawData.Length;
-                            }
-                            // Apply Mean Subtraction (In-Place เพื้่อประหยัด ram)
-                            // เราแก้ค่าใน rawData เลย ไม่ต้องสร้าง centeredData ใหม่
-                            if (meanToSubtract != 0)
-                            {
-                                for (int k = 0; k < rawData.Length; k++)
-                                {
-                                    rawData[k] -= meanToSubtract;
-                                }
-                            }
-
-                            // Filter / Thresholding
-                            var filteredData = ApplyThresholding(rawData); // ตรวจสอบว่าฟังก์ชันนี้สร้าง Array ใหม่หรือไม่ ถ้าแก้ให้รับ Span หรือ Array ได้จะดีมาก
+                            bool subtracted = ApplyBaselineSubtraction(rawData, chIndex, out _);
+                            var filteredData = ApplyThresholding(rawData);
 
                             if (filteredData.Length > 0)
                             {
-                                double hMin = 0;
-                                double hMax = 16383;
+                                var (counts, binCenters) = BuildHistogram(filteredData, subtracted);
 
-                                // ScottPlot Histogram
-                                var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: hMin, max: hMax, binCount: 16383);
-
-                                // สร้าง BinCenters
-                                double[] binCenters = new double[binEdges.Length - 1];
-                                for (int k = 0; k < binCenters.Length; k++)
-                                {
-                                    double center = binEdges[k] + 0.5;
-                                    // Apply X-Axis Conversion ใน Loop เดียว
-                                    if (SelectedXAxisIndex == 1) // Voltage
-                                        binCenters[k] = ((center / 16383.0) * 5) * 1000;
-                                    else
-                                        binCenters[k] = center;
-                                }
-
-                                // UI Update (ต้องระวัง Thread Safety)
-                                ProcessChannelData(chIndex, filteredData, counts, binCenters);
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                    ProcessChannelData(chIndex, filteredData, counts, binCenters));
                             }
                             else
                             {
-                                UpdateChannelStatsSafe(chIndex, "No Signal", new double[0]);
+                                UpdateChannelStatsSafe(chIndex, "No Signal", Array.Empty<double>());
                             }
                         }
                         else
@@ -273,14 +226,12 @@ namespace BaselineMode.WPF.Views.models
                             UpdateChannelStatsSafe(chIndex, "No Data", Array.Empty<double>());
                         }
 
-                        // Update Progress (Thread Safe)
                         lock (processedLock)
                         {
                             processedCount++;
                             double progress = 50 + ((double)processedCount / 16 * 50);
                             System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = progress);
                         }
-
                     });
                 }, _cts.Token);
                 stopWatch.Stop();
@@ -331,12 +282,21 @@ namespace BaselineMode.WPF.Views.models
         {
             if (!UseThresholding) return centeredData;
 
-            // Optimized: Calculate sigma without LINQ
-            double sumSquares = 0;
+            // Calculate mean first
             int length = centeredData.Length;
+            double sum = 0;
             for (int i = 0; i < length; i++)
             {
-                sumSquares += centeredData[i] * centeredData[i];
+                sum += centeredData[i];
+            }
+            double mean = sum / length;
+
+            // Calculate sigma using mean-centered standard deviation
+            double sumSquares = 0;
+            for (int i = 0; i < length; i++)
+            {
+                double diff = centeredData[i] - mean;
+                sumSquares += diff * diff;
             }
             double sigma = Math.Sqrt(sumSquares / length);
             double threshold = KFactor * sigma;
@@ -345,14 +305,14 @@ namespace BaselineMode.WPF.Views.models
             int count = 0;
             for (int i = 0; i < length; i++)
             {
-                if (centeredData[i] > threshold) count++;
+                if (Math.Abs(centeredData[i] - mean) > threshold) count++;
             }
 
             double[] result = new double[count];
             int index = 0;
             for (int i = 0; i < length; i++)
             {
-                if (centeredData[i] > threshold)
+                if (Math.Abs(centeredData[i] - mean) > threshold)
                 {
                     result[index++] = centeredData[i];
                 }
@@ -365,18 +325,6 @@ namespace BaselineMode.WPF.Views.models
             return filteredData.Length > 5 && counts.Max() > 0;
         }
 
-        private FittingResult PerformFit(double[] binCenters, double[] counts)
-        {
-            if (SelectedFitMethod == 1) // Hyper-EMG
-            {
-                return _mathService.HyperEMGFit(binCenters, counts);
-            }
-            else // Gaussian
-            {
-                return _mathService.GaussianFit(binCenters, counts);
-            }
-        }
-
         private double[,] CalculateCoincidenceMatrix()
         {
             // 8x8 Matrix
@@ -384,13 +332,7 @@ namespace BaselineMode.WPF.Views.models
             // Rows (Z): Ch 8-15 (9-16)
             double[,] matrix = new double[8, 8];
 
-            Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
-            {
-                1 => (d) => d.L2,
-                2 => (d) => d.L6,
-                3 => (d) => d.L7,
-                _ => (d) => d.L1
-            };
+            var layerSelector = GetLayerSelector();
 
             // Optimized: Loop through all events with reduced property access
             int dataCount = ProcessedData.Count;

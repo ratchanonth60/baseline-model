@@ -420,7 +420,6 @@ namespace BaselineMode.WPF.Services
             double sigma2 = sigma_guess * sigma_guess;
             double halfInvTau2 = 0.5 * invTau * invTau;
             double coeff = A * 0.5 * invTau;
-            double invSqrt2Sigma = 1.0 / (SQRT_2 * sigma_guess);
 
             // Vectorized EMG generation
             for (int i = 0; i < length; i++)
@@ -431,7 +430,8 @@ namespace BaselineMode.WPF.Services
                 // Clamp to prevent overflow
                 expArg = Math.Clamp(expArg, -MAX_EXP_ARG, MAX_EXP_ARG);
 
-                double erfcArg = (sigma2 - (tau * xDiff)) * invSqrt2Sigma / tau;
+                // erfc arg: (sigma/tau - xDiff/sigma) / √2
+                double erfcArg = (sigma_guess * invTau - xDiff / sigma_guess) / SQRT_2;
                 double emgVal = coeff * Math.Exp(expArg) * Erfc(erfcArg);
 
                 // Check for invalid values
@@ -580,7 +580,7 @@ namespace BaselineMode.WPF.Services
             try
             {
                 var hemgService = new HemgFittingService();
-                var (fitCurve, parameters) = hemgService.HemgDoubleSidedFit(xData);
+                var (fitCurve, parameters) = hemgService.HemgDoubleSidedFit(xData, yData);
 
                 if (fitCurve.Length == 0 || parameters.Length < 7)
                     return FittingResult.Empty(xData.Length);

@@ -14,44 +14,100 @@ namespace BaselineMode.WPF.Services
         private const double SQRT_2 = 1.41421356237;
 
         /// <summary>
-        /// Fit data with double-sided Hyper-EMG function
+        /// Fit data with double-sided Hyper-EMG function (from raw thresholded data)
+        /// Creates histogram internally - fitCurve length = 16384
         /// </summary>
-        /// <param name="thresholdedData">1D array of thresholded data (e.g., from histogram)</param>
-        /// <returns>Tuple of (fitCurve, parameters) where parameters = [A, mu, sigma, tauL1, tauR1, etaL1, etaR1]</returns>
         public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] thresholdedData)
         {
             try
             {
-                // Create histogram bins from 0 to 16384
                 var (edges, centers, counts) = CreateHistogram(thresholdedData);
+                return HemgDoubleSidedFit(centers, counts);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"HEMG Fit Error: {ex.Message}");
+                return (Array.Empty<double>(), Array.Empty<double>());
+            }
+        }
 
-                // Calculate initial parameters
+        /// <summary>
+        /// Fit data with double-sided Hyper-EMG function (from pre-computed histogram)
+        /// fitCurve length matches binCenters length
+        /// </summary>
+        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] binCenters, double[] counts)
+        {
+            try
+            {
+                // Calculate initial parameters from histogram
                 double A0 = counts.Max();
-                double mu0 = thresholdedData.Average();
-                double sigma0 = CalculateStdDev(thresholdedData, mu0);
+
+                // Weighted mean from histogram
+                double totalWeight = 0, weightedSum = 0;
+                for (int i = 0; i < binCenters.Length; i++)
+                {
+                    totalWeight += counts[i];
+                    weightedSum += counts[i] * binCenters[i];
+                }
+                double mu0 = totalWeight > 0 ? weightedSum / totalWeight : binCenters[binCenters.Length / 2];
+
+                // Weighted sigma from histogram
+                double weightedSqSum = 0;
+                for (int i = 0; i < binCenters.Length; i++)
+                {
+                    double diff = binCenters[i] - mu0;
+                    weightedSqSum += counts[i] * diff * diff;
+                }
+                double sigma0 = totalWeight > 0 ? Math.Sqrt(weightedSqSum / totalWeight) : 1.0;
+                if (sigma0 < 0.01) sigma0 = 1.0;
+
+                // tau must be in the SAME units as sigma (ADC channels)
+                // Typical: tauL ~ 0.3*sigma to 2*sigma
+                double tauL0 = sigma0 * 0.5;
+                double tauR0 = sigma0 * 1.5;
 
                 // Initial parameter vector: [A, mu, sigma, tauL1, tauR1, etaL1, etaR1]
-                double[] p0 = new[] { A0, mu0, sigma0, 0.5, 1.5, 0.5, 0.5 };
-                double[] lb = new[] { 0, 0, 0.01, 0.05, 0.05, 0.0, 0.0 };
-                double[] ub = new[] { double.PositiveInfinity, thresholdedData.Max(), 50, 5.0, 5.0, 1.0, 1.0 };
+                double[] p0 = new[] { A0, mu0, sigma0, tauL0, tauR0, 0.5, 0.5 };
+                double[] lb = new[] { 0.0, binCenters[0], sigma0 * 0.1, sigma0 * 0.05, sigma0 * 0.05, 0.01, 0.01 };
+                double[] ub = new[] { A0 * 3.0, binCenters[binCenters.Length - 1], sigma0 * 5, sigma0 * 10, sigma0 * 10, 1.0, 1.0 };
 
-                // Define the objective function - sum of squared residuals
+                // Pre-allocate tau/eta arrays to avoid allocation per evaluation
+                double[] tauL = new double[1];
+                double[] etaL = new double[1];
+                double[] tauR = new double[1];
+                double[] etaR = new double[1];
+
+                // Only fit on bins near the peak (within ±5σ of mu) for performance & stability
+                int startBin = 0, endBin = binCenters.Length;
+                double fitWindow = sigma0 * 5;
+                for (int i = 0; i < binCenters.Length; i++)
+                {
+                    if (binCenters[i] >= mu0 - fitWindow) { startBin = i; break; }
+                }
+                for (int i = binCenters.Length - 1; i >= 0; i--)
+                {
+                    if (binCenters[i] <= mu0 + fitWindow) { endBin = i + 1; break; }
+                }
+
+                // Define the objective function - sum of squared residuals (normalized)
                 Func<double[], double> objective = (p) =>
                 {
+                    tauL[0] = p[3]; etaL[0] = p[5];
+                    tauR[0] = p[4]; etaR[0] = p[6];
                     double residualSum = 0.0;
-                    for (int i = 0; i < centers.Length; i++)
+                    for (int i = startBin; i < endBin; i++)
                     {
-                        double predicted = HyperEmgDouble(centers[i], p[0], p[1], p[2], 
-                                                         new[] { p[3] }, new[] { p[5] }, 
-                                                         new[] { p[4] }, new[] { p[6] });
+                        if (counts[i] <= 0) continue;
+                        double predicted = HyperEmgDouble(binCenters[i], p[0], p[1], p[2], 
+                                                         tauL, etaL, tauR, etaR);
                         double residual = counts[i] - predicted;
                         residualSum += residual * residual;
                     }
                     return residualSum;
                 };
 
-                // Fit the curve using gradient descent (fallback if Accord's advanced methods unavailable)
-                double[] pFit = FitCurveGradientDescent(objective, p0, lb, ub, centers, counts);
+                // Fit the curve using gradient descent
+                double[] pFit = FitCurveGradientDescent(objective, p0, lb, ub, binCenters, counts);
 
                 // Ensure parameters are within bounds
                 for (int i = 0; i < pFit.Length; i++)
@@ -59,13 +115,14 @@ namespace BaselineMode.WPF.Services
                     pFit[i] = Math.Max(lb[i], Math.Min(ub[i], pFit[i]));
                 }
 
-                // Generate fitted curve
-                double[] fitCurve = new double[centers.Length];
-                for (int i = 0; i < centers.Length; i++)
+                // Generate fitted curve on the SAME binCenters as input
+                double[] fitCurve = new double[binCenters.Length];
+                tauL[0] = pFit[3]; etaL[0] = pFit[5];
+                tauR[0] = pFit[4]; etaR[0] = pFit[6];
+                for (int i = 0; i < binCenters.Length; i++)
                 {
-                    fitCurve[i] = HyperEmgDouble(centers[i], pFit[0], pFit[1], pFit[2],
-                                                 new[] { pFit[3] }, new[] { pFit[5] },
-                                                 new[] { pFit[4] }, new[] { pFit[6] });
+                    fitCurve[i] = HyperEmgDouble(binCenters[i], pFit[0], pFit[1], pFit[2],
+                                                 tauL, etaL, tauR, etaR);
                     if (!double.IsFinite(fitCurve[i]))
                         fitCurve[i] = 0.0;
                 }
@@ -80,55 +137,97 @@ namespace BaselineMode.WPF.Services
         }
 
         /// <summary>
-        /// Fit curve using gradient descent optimization
+        /// Fit curve using adaptive gradient descent optimization
         /// </summary>
         private double[] FitCurveGradientDescent(Func<double[], double> objective, double[] p0, 
                                                 double[] lb, double[] ub, double[] centers, double[] counts)
         {
             double[] p = (double[])p0.Clone();
-            double learningRate = 0.01;
-            int maxIterations = 200;
-            double tolerance = 1e-6;
+            int maxIterations = 500;
+            double tolerance = 1e-8;
+
+            // Adaptive step size per parameter (scaled to parameter magnitude)
+            double[] stepSize = new double[p.Length];
+            for (int j = 0; j < p.Length; j++)
+            {
+                stepSize[j] = Math.Max(Math.Abs(p[j]) * 0.001, 1e-6);
+            }
+
+            double bestError = objective(p);
+            double[] bestP = (double[])p.Clone();
 
             for (int iter = 0; iter < maxIterations; iter++)
             {
-                double currentError = objective(p);
+                double currentError = bestError;
 
-                // Numerical gradient calculation
+                // Numerical gradient with adaptive delta
                 double[] gradient = new double[p.Length];
-                double delta = 1e-7;
 
                 for (int j = 0; j < p.Length; j++)
                 {
+                    double delta = Math.Max(Math.Abs(p[j]) * 1e-5, 1e-8);
+
                     double[] pPlus = (double[])p.Clone();
-                    pPlus[j] += delta;
+                    double[] pMinus = (double[])p.Clone();
+                    pPlus[j] = Math.Min(p[j] + delta, ub[j]);
+                    pMinus[j] = Math.Max(p[j] - delta, lb[j]);
 
+                    // Central difference for better accuracy
                     double errorPlus = objective(pPlus);
-                    gradient[j] = (errorPlus - currentError) / delta;
+                    double errorMinus = objective(pMinus);
+                    gradient[j] = (errorPlus - errorMinus) / (pPlus[j] - pMinus[j]);
                 }
 
-                // Update parameters
-                bool updated = false;
-                for (int j = 0; j < p.Length; j++)
+                // Line search: try step, halve if error increases
+                bool anyImproved = false;
+                for (int attempt = 0; attempt < 10; attempt++)
                 {
-                    double newP = p[j] - learningRate * gradient[j];
-                    newP = Math.Max(lb[j], Math.Min(ub[j], newP));
+                    double[] pNew = new double[p.Length];
+                    for (int j = 0; j < p.Length; j++)
+                    {
+                        double step = stepSize[j] / (1.0 + attempt);
+                        pNew[j] = p[j] - step * Math.Sign(gradient[j]);
+                        pNew[j] = Math.Max(lb[j], Math.Min(ub[j], pNew[j]));
+                    }
 
-                    if (Math.Abs(newP - p[j]) > tolerance * Math.Abs(p[j]) + tolerance)
-                        updated = true;
+                    double newError = objective(pNew);
+                    if (newError < bestError)
+                    {
+                        bestError = newError;
+                        Array.Copy(pNew, bestP, p.Length);
+                        Array.Copy(pNew, p, p.Length);
 
-                    p[j] = newP;
+                        // Increase step size slightly
+                        for (int j = 0; j < p.Length; j++)
+                            stepSize[j] *= 1.1;
+
+                        anyImproved = true;
+                        break;
+                    }
                 }
 
-                if (!updated) break;
+                if (!anyImproved)
+                {
+                    // Shrink step sizes
+                    for (int j = 0; j < p.Length; j++)
+                        stepSize[j] *= 0.5;
 
-                // Check convergence
-                double newError = objective(p);
-                if (Math.Abs(newError - currentError) < tolerance)
+                    // Check if step sizes are too small
+                    bool allTiny = true;
+                    for (int j = 0; j < p.Length; j++)
+                    {
+                        if (stepSize[j] > tolerance * (Math.Abs(p[j]) + tolerance))
+                        { allTiny = false; break; }
+                    }
+                    if (allTiny) break;
+                }
+
+                // Convergence check
+                if (currentError > 0 && Math.Abs(bestError - currentError) / currentError < tolerance)
                     break;
             }
 
-            return p;
+            return bestP;
         }
 
         /// <summary>
@@ -154,7 +253,8 @@ namespace BaselineMode.WPF.Services
                 double z = (sigma2 / (2 * tau2)) - (mu - x) / tau;
                 z = Math.Min(z, MAX_EXP_ARG);
 
-                double arg = (sigma2 / tau - (mu - x)) / (SQRT_2 * sigma);
+                // erfc argument for left tail: (sigma/tau - (mu-x)/sigma) / √2
+                double arg = (sigma / tau - (mu - x) / sigma) / SQRT_2;
                 double erfc_val = Erfc(arg);
 
                 y += eta * (1.0 / (2.0 * tau)) * Math.Exp(z) * erfc_val;
@@ -170,10 +270,11 @@ namespace BaselineMode.WPF.Services
 
                 double sigma2 = sigma * sigma;
                 double tau2 = tau * tau;
-                double z = (sigma2 / (2 * tau2)) + (x - mu) / tau;
+                double z = (sigma2 / (2 * tau2)) - (x - mu) / tau;
                 z = Math.Min(z, MAX_EXP_ARG);
 
-                double arg = (sigma2 / tau + (x - mu)) / (SQRT_2 * sigma);
+                // erfc argument for right tail: (sigma/tau - (x-mu)/sigma) / √2
+                double arg = (sigma / tau - (x - mu) / sigma) / SQRT_2;
                 double erfc_val = Erfc(arg);
 
                 y += eta * (1.0 / (2.0 * tau)) * Math.Exp(z) * erfc_val;

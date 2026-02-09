@@ -71,106 +71,30 @@ namespace BaselineMode.WPF.Views.models
         {
             if (ProcessedData == null || !ProcessedData.Any()) return;
 
-            Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
-            {
-                1 => (d) => d.L2,
-                2 => (d) => d.L6,
-                3 => (d) => d.L7,
-                _ => (d) => d.L1
-            };
+            var layerSelector = GetLayerSelector();
 
             for (int i = 0; i < 16; i++)
             {
                 int chIndex = i;
-                var rawData = ProcessedData.Select(d => layerSelector(d)[chIndex]).ToArray();
+                var rawData = ExtractChannelData(layerSelector, chIndex);
 
-                if (rawData.Length > 0)
+                if (rawData.Length == 0) continue;
+
+                // Baseline subtraction (modifies rawData in-place)
+                bool subtracted = ApplyBaselineSubtraction(rawData, chIndex, out _);
+
+                // Thresholding
+                var filteredData = ApplyThresholding(rawData);
+
+                if (filteredData.Length > 5)
                 {
-                    double[] processedData;
-                    double meanToSubtract = 0;
-
-                    // ตรวจสอบว่าต้องลบ baseline หรือไม่
-                    bool shouldSubtract = (SelectedBaselineMode == 1 || SelectedBaselineMode == 3);
-
-                    if (shouldSubtract)
-                    {
-                        // คำนวณ mean
-                        double currentMean = rawData.Average();
-
-                        if (SelectedMode == 0)
-                        {
-                            // Load mean from file
-                            meanToSubtract = LoadMeanFromFile(chIndex);
-                            if (meanToSubtract == 0)
-                                meanToSubtract = currentMean;
-                        }
-                        else
-                        {
-                            meanToSubtract = currentMean;
-                        }
-
-                        processedData = rawData.Select(x => x - meanToSubtract).ToArray();
-                    }
-                    else
-                    {
-                        // ไม่ลบ baseline - ใช้ข้อมูลดิบ
-                        processedData = rawData.ToArray();
-                    }
-
-                    // Apply thresholding
-                    var filteredData = ApplyThresholding(processedData);
-
-                    if (filteredData.Length > 5)
-                    {
-                        // *** FIX: คำนวณ histogram range ให้ถูกต้อง ***
-                        double minVal, maxVal;
-
-                        if (shouldSubtract)
-                        {
-                            // หลังลบ baseline อาจมีค่าติดลบ - ใช้ค่าจริง
-                            minVal = filteredData.Min();
-                            maxVal = filteredData.Max();
-
-                            // ขยาย range เล็กน้อย
-                            double range = maxVal - minVal;
-                            minVal -= range * 0.05;
-                            maxVal += range * 0.05;
-                        }
-                        else
-                        {
-                            // ก่อนลบ baseline - ใช้ ADC range ปกติ
-                            minVal = 0;
-                            maxVal = 16383;
-                        }
-
-                        // สร้าง histogram
-                        var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
-                            filteredData,
-                            min: minVal,
-                            max: maxVal,
-                            binCount: 16384);
-
-                        // คำนวณ bin centers แบบเดียวกับ WinForms
-                        double[] binCenters = new double[binEdges.Length - 1];
-                        for (int k = 0; k < binCenters.Length; k++)
-                        {
-                            binCenters[k] = (binEdges[k] + binEdges[k + 1]) / 2.0;
-                        }
-
-                        // Voltage conversion (ถ้าเลือก)
-                        if (SelectedXAxisIndex == 1 && !shouldSubtract)
-                        {
-                            // แปลงเป็น Voltage เฉพาะตอนไม่ลบ baseline
-                            binCenters = binCenters.Select(v => ((v / 16383.0) * 5) * 1000).ToArray();
-                        }
-
-                        ProcessChannelData(chIndex, filteredData, counts, binCenters);
-                    }
-                    else
-                    {
-                        Channels[chIndex].StatsText = "No Signal";
-                        Channels[chIndex].Counts = new double[0];
-                    }
+                    var (counts, binCenters) = BuildHistogram(filteredData, subtracted);
+                    ProcessChannelData(chIndex, filteredData, counts, binCenters);
+                }
+                else
+                {
+                    Channels[chIndex].StatsText = "No Signal";
+                    Channels[chIndex].Counts = Array.Empty<double>();
                 }
             }
 
@@ -189,14 +113,19 @@ namespace BaselineMode.WPF.Views.models
                 {
                     FittingResult result;
 
-                    if (SelectedFitMethod == 1)
+                    if (SelectedFitMethod == 2)
                     {
-                        // Hyper-EMG
+                        // Hyper-EMG Double-Sided (left + right tails)
+                        result = _mathService.HyperEMGDoubleSidedFit(binCenters, counts);
+                    }
+                    else if (SelectedFitMethod == 1)
+                    {
+                        // Hyper-EMG Single tail
                         result = _mathService.HyperEMGFit(binCenters, counts);
                     }
                     else
                     {
-                        // Gaussian - ใช้ weighted method ใหม่
+                        // Gaussian
                         result = _mathService.GaussianFit(binCenters, counts);
                     }
 
@@ -294,37 +223,6 @@ namespace BaselineMode.WPF.Views.models
         }
 
 
-        // Helper function - Interpolate fit curve to match bin centers
-        private double[] InterpolateFitCurve(double[] fitBins, double[] fitCurve, double[] targetBins)
-        {
-            if (fitBins.Length != fitCurve.Length || fitBins.Length == 0)
-                return fitCurve;
-
-            double[] result = new double[targetBins.Length];
-
-            for (int i = 0; i < targetBins.Length; i++)
-            {
-                double target = targetBins[i];
-
-                // Find nearest fit bin
-                int nearestIdx = 0;
-                double minDist = Math.Abs(fitBins[0] - target);
-
-                for (int j = 1; j < fitBins.Length; j++)
-                {
-                    double dist = Math.Abs(fitBins[j] - target);
-                    if (dist < minDist)
-                    {
-                        minDist = dist;
-                        nearestIdx = j;
-                    }
-                }
-
-                result[i] = fitCurve[nearestIdx];
-            }
-
-            return result;
-        }
         [RelayCommand]
         private void NextPage()
         {
@@ -377,13 +275,7 @@ namespace BaselineMode.WPF.Views.models
                 for (int i = 1; i <= 16; i++)
                     table.Columns.Add($"Ch {i}", typeof(double));
 
-                Func<BaselineData, double[]> selector = SelectedLayerIndex switch
-                {
-                    1 => (d) => d.L2,
-                    2 => (d) => d.L6,
-                    3 => (d) => d.L7,
-                    _ => (d) => d.L1
-                };
+                Func<BaselineData, double[]> selector = GetLayerSelector();
 
                 // Apply Pagination
                 int skip = (CurrentPage - 1) * PageSize;
