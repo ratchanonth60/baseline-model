@@ -1,7 +1,7 @@
 using System.Windows;
 using BaselineMode.WPF.Presentation.ViewModels;
 
-namespace BaselineMode.WPF.Views
+namespace BaselineMode.WPF.Views.Baseline
 {
     public partial class ChannelDetailWindow : Window
     {

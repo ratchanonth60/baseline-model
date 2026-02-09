@@ -3,7 +3,7 @@ using BaselineMode.WPF.Presentation.ViewModels;
 using ScottPlot;
 using BaselineMode.WPF.Core.Models;
 
-namespace BaselineMode.WPF.Views
+namespace BaselineMode.WPF.Views.Baseline
 {
     public partial class MainWindow : Window
     {

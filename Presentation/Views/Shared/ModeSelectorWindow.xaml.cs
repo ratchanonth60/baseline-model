@@ -1,8 +1,9 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using BaselineMode.WPF.Views.Observation;
+using BaselineMode.WPF.Views.Baseline;
 
-namespace BaselineMode.WPF.Views
+namespace BaselineMode.WPF.Views.Shared
 {
     public partial class ModeSelectorWindow : Window
     {

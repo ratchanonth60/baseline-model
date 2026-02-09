@@ -1,844 +1,523 @@
 <!DOCTYPE html>
-<html lang="th">
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Baseline Mode - WPF Layout Demo</title>
+    <title>DSSD Analysis Suite - Refined Ribbon</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Custom Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        window: '#1e1e1e',     // VS Code-like Dark
+                        ribbonBg: '#2b2d31',   // Slightly lighter for toolbar
+                        panel: '#252526',      // Sidebars/Panels
+                        activeTab: '#2b2d31',  // Match ribbonBg
+                        inactiveTab: '#1e1e1e',
+                        border: '#3e3e42',     // Subtle borders
+                        primary: '#007acc',    // VS Code Blue
+                        accent: '#4ec9b0',     // Teal
+                        textMain: '#cccccc',
+                        textMuted: '#858585'
+                    },
+                    fontFamily: {
+                        sans: ['Segoe UI', 'Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'ribbon': '0 2px 5px rgba(0,0,0,0.2)',
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #1e1e1e; }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 5px; border: 2px solid #1e1e1e; }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+
+        /* Ribbon Styles */
+        .ribbon-container {
+            background-color: #2b2d31;
+            border-bottom: 1px solid #3e3e42;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+        .ribbon-tab {
+            padding: 6px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #cccccc;
+            border-top: 1px solid transparent;
+            border-left: 1px solid transparent;
+            border-right: 1px solid transparent;
+            transition: all 0.1s;
         }
-
-        .demo-container {
-            max-width: 1600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Header */
-        .header {
-            background: linear-gradient(135deg, #2563EB 0%, #1E40AF 100%);
-            padding: 24px 32px;
+        
+        .ribbon-tab:hover:not(.active) {
+            background-color: #35373b;
             color: white;
         }
 
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .header .version {
-            font-size: 12px;
-            opacity: 0.9;
-        }
-
-        .header .datetime {
-            font-size: 14px;
+        .ribbon-tab.active {
+            background-color: #2b2d31; /* Same as ribbon body */
+            color: white;
+            border-left: 1px solid #3e3e42;
+            border-right: 1px solid #3e3e42;
+            border-top: 2px solid #007acc; /* Active indicator */
             font-weight: 500;
+            position: relative;
+            z-index: 10;
+            margin-bottom: -1px; /* Cover bottom border */
         }
 
-        /* Main Layout */
-        .main-layout {
-            display: grid;
-            grid-template-columns: 380px 1fr;
-            gap: 24px;
-            padding: 32px;
-            background: #F8FAFC;
-            min-height: calc(100vh - 140px);
+        /* Ribbon Toolbar */
+        .ribbon-toolbar {
+            height: 90px;
+            display: flex;
+            padding: 4px 8px;
+            gap: 4px;
         }
 
-        /* Left Panel */
-        .left-panel {
+        .ribbon-group {
             display: flex;
             flex-direction: column;
-            gap: 16px;
-            overflow-y: auto;
-            max-height: calc(100vh - 200px);
-        }
-
-        .left-panel::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        .left-panel::-webkit-scrollbar-thumb {
-            background: #CBD5E1;
-            border-radius: 3px;
-        }
-
-        /* Card */
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            transform: translateY(-2px);
-        }
-
-        .card-header {
-            font-size: 18px;
-            font-weight: 700;
-            color: #1E293B;
-            margin-bottom: 16px;
-            display: flex;
             align-items: center;
-            gap: 8px;
+            padding: 0 8px;
+            border-right: 1px solid #3e3e42;
+            height: 100%;
+            position: relative;
         }
+        
+        .ribbon-group:last-child { border-right: none; }
 
-        .card-header .icon {
-            font-size: 20px;
-        }
-
-        /* Form Elements */
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: #64748B;
-            margin-bottom: 6px;
-        }
-
-        .form-input,
-        .form-select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-
-        .form-input:focus,
-        .form-select:focus {
-            outline: none;
-            border-color: #2563EB;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%;
+        .ribbon-group-content {
+            flex: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-        }
-
-        .btn:active {
-            transform: scale(0.98);
-        }
-
-        .btn-primary {
-            background: #2563EB;
-            color: white;
-            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
-        }
-
-        .btn-primary:hover {
-            background: #1E40AF;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: #2563EB;
-            border: 2px solid #2563EB;
-        }
-
-        .btn-secondary:hover {
-            background: #2563EB;
-            color: white;
-        }
-
-        .btn-success {
-            background: #10B981;
-            color: white;
-            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
-        }
-
-        .btn-success:hover {
-            background: #059669;
-        }
-
-        .btn-danger {
-            background: #EF4444;
-            color: white;
-            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-        }
-
-        .btn-danger:hover {
-            background: #DC2626;
-        }
-
-        /* Progress Bar */
-        .progress-container {
-            margin: 16px 0;
-        }
-
-        .progress-bar {
+            gap: 4px;
             width: 100%;
-            height: 8px;
-            background: #F1F5F9;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 8px;
         }
 
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #10B981, #059669);
-            transition: width 0.3s ease;
-            border-radius: 4px;
+        .ribbon-label {
+            font-size: 11px;
+            color: #858585;
+            margin-top: 2px;
+            margin-bottom: 2px;
         }
 
-        .progress-text {
-            text-align: center;
-            font-size: 14px;
-            font-weight: 600;
-            color: #10B981;
+        /* Buttons */
+        .btn-large {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 56px;
+            border-radius: 3px;
+            color: #cccccc;
+            gap: 4px;
         }
+        .btn-large:hover { background-color: #3e3e42; color: white; }
+        .btn-large i { font-size: 20px; }
+        .btn-large span { font-size: 11px; }
 
-        /* Status Info Grid */
-        .status-grid {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 12px 16px;
-            margin-top: 16px;
+        .btn-small-row {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
-
-        .status-label {
-            font-size: 13px;
-            color: #64748B;
-            font-weight: 500;
-        }
-
-        .status-value {
-            font-size: 14px;
-            color: #1E293B;
-            font-weight: 600;
-        }
-
-        /* Checkbox */
-        .checkbox-group {
+        .btn-small {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-            cursor: pointer;
+            gap: 6px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #cccccc;
+            text-align: left;
+            width: 100%;
         }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-        }
-
-        .checkbox-group label {
-            font-size: 14px;
-            color: #1E293B;
-            cursor: pointer;
-        }
-
-        /* Right Panel */
-        .right-panel {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            background: #F8FAFC;
-            border-bottom: 2px solid #E2E8F0;
-        }
-
-        .tab {
-            padding: 16px 24px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #64748B;
-            cursor: pointer;
-            border-bottom: 3px solid transparent;
-            transition: all 0.2s;
-        }
-
-        .tab:hover {
-            color: #2563EB;
-            background: rgba(37, 99, 235, 0.05);
-        }
-
-        .tab.active {
-            color: #2563EB;
-            border-bottom-color: #2563EB;
-            background: white;
-        }
-
-        /* Tab Content */
-        .tab-content {
-            display: none;
-            padding: 24px;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Histogram Grid */
-        .histogram-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-        }
-
-        .histogram-card {
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-radius: 8px;
-            padding: 12px;
-            height: 220px;
+        .btn-small:hover { background-color: #3e3e42; color: white; }
+        
+        /* Chart Card */
+        .chart-card {
+            background-color: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 8px;
             display: flex;
             flex-direction: column;
         }
-
-        .histogram-title {
-            font-size: 12px;
-            font-weight: 600;
-            color: #1E293B;
-            margin-bottom: 8px;
-        }
-
-        .histogram-chart {
-            flex: 1;
-            background: white;
-            border-radius: 4px;
+        .chart-header {
             display: flex;
-            align-items: flex-end;
-            padding: 8px;
-            gap: 2px;
-        }
-
-        .histogram-bar {
-            flex: 1;
-            background: linear-gradient(180deg, #2563EB, #1E40AF);
-            border-radius: 2px 2px 0 0;
-            animation: growUp 0.5s ease;
-        }
-
-        @keyframes growUp {
-            from {
-                height: 0;
-            }
-        }
-
-        .histogram-stats {
-            font-size: 10px;
-            color: #64748B;
-            margin-top: 4px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2px;
-        }
-
-        /* Data Table */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .data-table th {
-            background: #F8FAFC;
-            padding: 12px;
-            text-align: left;
-            font-size: 13px;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 11px;
             font-weight: 600;
-            color: #64748B;
-            border-bottom: 2px solid #E2E8F0;
+            color: #cccccc;
         }
 
-        .data-table td {
-            padding: 12px;
-            font-size: 13px;
-            color: #1E293B;
-            border-bottom: 1px solid #F1F5F9;
-        }
-
-        .data-table tr:hover {
-            background: #F8FAFC;
-        }
-
-        /* Header Info */
-        .header-info {
-            font-family: 'Consolas', monospace;
-            font-size: 12px;
-            color: #1E293B;
-            background: #F8FAFC;
-            padding: 16px;
-            border-radius: 8px;
-            line-height: 1.8;
-        }
-
-        /* Status Badge */
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .status-badge.success {
-            background: #D1FAE5;
-            color: #059669;
-        }
-
-        .status-badge.info {
-            background: #DBEAFE;
-            color: #2563EB;
-        }
-
-        .status-badge.warning {
-            background: #FEF3C7;
-            color: #D97706;
-        }
-
-        /* Responsive */
-        @media (max-width: 1200px) {
-            .main-layout {
-                grid-template-columns: 1fr;
-            }
-
-            .histogram-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        /* Animation */
-        .fade-in {
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* Inputs */
+        .ribbon-input {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            color: white;
+            font-size: 11px;
+            padding: 2px 4px;
+            border-radius: 2px;
         }
     </style>
 </head>
+<body class="bg-window text-textMain h-screen flex flex-col overflow-hidden select-none">
 
-<body>
-    <div class="demo-container">
-        <!-- Header -->
-        <div class="header">
-            <div class="header-content">
-                <div>
-                    <h1>Baseline Mode for Charged Particle Detector</h1>
-                    <div class="version">Version 2025.05.17</div>
+    <!-- 1. Window Title (VS Code Style) -->
+    <div class="h-8 bg-[#1e1e1e] flex items-center justify-between px-3 text-[12px] border-b border-[#3e3e42]">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-chart-simple text-primary"></i>
+            <span>DSSD Analysis Suite</span>
+        </div>
+        <div class="flex gap-2 text-textMuted">
+            <span>Workspace: Default</span>
+        </div>
+    </div>
+
+    <!-- 2. Ribbon Area -->
+    <div class="ribbon-container shadow-ribbon z-20">
+        <!-- Tab Strip -->
+        <div class="flex px-2 bg-[#1e1e1e] pt-1">
+            <div onclick="switchTab('baseline')" id="tab-baseline" class="ribbon-tab active">Baseline</div>
+            <div onclick="switchTab('observation')" id="tab-observation" class="ribbon-tab">Observation</div>
+            <div onclick="switchTab('settings')" id="tab-settings" class="ribbon-tab">Settings</div>
+        </div>
+
+        <!-- Toolbars -->
+        <div class="relative">
+            <!-- TOOLBAR: BASELINE -->
+            <div id="toolbar-baseline" class="ribbon-toolbar">
+                <!-- Group 1: File -->
+                <div class="ribbon-group min-w-[120px]">
+                    <div class="ribbon-group-content">
+                        <button onclick="document.getElementById('fileInput').click()" class="btn-large">
+                            <i class="fa-regular fa-folder-open text-yellow-500"></i>
+                            <span>Open</span>
+                        </button>
+                        <div class="btn-small-row">
+                             <button class="btn-small"><i class="fa-solid fa-file-export text-blue-400"></i> Export</button>
+                             <button class="btn-small"><i class="fa-solid fa-print text-textMuted"></i> Report</button>
+                        </div>
+                    </div>
+                    <span class="ribbon-label">File</span>
                 </div>
-                <div class="datetime" id="datetime"></div>
+
+                <!-- Group 2: Parameters -->
+                <div class="ribbon-group">
+                    <div class="ribbon-group-content items-start justify-center flex-col px-2 gap-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] w-12 text-right">Delay:</span>
+                            <input type="number" value="0" class="ribbon-input w-16">
+                            <span class="text-[10px] text-textMuted">μs</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[11px] w-12 text-right">Thresh:</span>
+                            <input type="number" value="1.5" class="ribbon-input w-16">
+                            <span class="text-[10px] text-textMuted">mV</span>
+                        </div>
+                    </div>
+                    <span class="ribbon-label">Parameters</span>
+                </div>
+
+                <!-- Group 3: Fitting -->
+                <div class="ribbon-group">
+                    <div class="ribbon-group-content flex-col items-start justify-center px-2 gap-1">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked class="accent-primary">
+                            <span class="text-[11px]">Gaussian Fit</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" class="accent-accent">
+                            <span class="text-[11px]">HEMG Single</span>
+                        </label>
+                    </div>
+                    <span class="ribbon-label">Fitting</span>
+                </div>
+
+                <!-- Group 4: Analysis -->
+                <div class="ribbon-group">
+                    <div class="ribbon-group-content">
+                        <button onclick="startAnalysis()" id="btn-start" class="btn-large">
+                            <i class="fa-solid fa-play text-green-500"></i>
+                            <span>Start</span>
+                        </button>
+                        <button class="btn-large">
+                            <i class="fa-solid fa-stop text-red-500"></i>
+                            <span>Stop</span>
+                        </button>
+                         <button onclick="showHeatmap()" class="btn-large">
+                            <i class="fa-solid fa-border-all text-accent"></i>
+                            <span>Map</span>
+                        </button>
+                    </div>
+                    <span class="ribbon-label">Action</span>
+                </div>
+            </div>
+
+            <!-- TOOLBAR: OBSERVATION -->
+            <div id="toolbar-observation" class="ribbon-toolbar hidden">
+                <div class="ribbon-group">
+                    <div class="ribbon-group-content">
+                        <button onclick="startAnalysis()" class="btn-large">
+                            <i class="fa-solid fa-satellite-dish text-green-400"></i>
+                            <span>Live</span>
+                        </button>
+                        <div class="flex flex-col justify-center px-2">
+                            <div class="text-[10px] text-textMuted">STATUS</div>
+                            <div class="text-sm font-bold text-green-400">ACTIVE</div>
+                        </div>
+                    </div>
+                    <span class="ribbon-label">Monitor</span>
+                </div>
+                <div class="ribbon-group">
+                     <div class="ribbon-group-content flex-col justify-center px-2">
+                         <div class="flex items-center gap-2">
+                             <span class="text-[11px]">DSSD Layer:</span>
+                             <select class="ribbon-input"><option>L1</option><option>L2</option></select>
+                         </div>
+                     </div>
+                     <span class="ribbon-label">View</span>
+                </div>
+            </div>
+
+            <!-- TOOLBAR: SETTINGS -->
+            <div id="toolbar-settings" class="ribbon-toolbar hidden">
+                <div class="ribbon-group">
+                    <div class="ribbon-group-content">
+                        <button class="btn-large">
+                            <i class="fa-solid fa-swatchbook text-accent"></i>
+                            <span>Theme</span>
+                        </button>
+                    </div>
+                    <span class="ribbon-label">Appearance</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom border of ribbon -->
+        <div class="h-[1px] bg-[#1e1e1e]"></div>
+    </div>
+
+    <!-- 3. Main Content -->
+    <main class="flex-1 bg-window relative overflow-hidden flex">
+        
+        <!-- BASELINE VIEW -->
+        <div id="view-baseline" class="flex-1 flex flex-col h-full">
+            <!-- Workspace Toolbar -->
+            <div class="h-8 bg-[#252526] border-b border-[#3e3e42] flex items-center px-4 gap-4">
+                <button class="text-[11px] font-semibold text-white border-b-2 border-primary h-full">Histogram Grid</button>
+                <button class="text-[11px] font-semibold text-textMuted hover:text-white h-full transition-colors">Data Table</button>
+                <div class="flex-1"></div>
+                <span class="text-[10px] text-textMuted" id="file-info">No file loaded</span>
+            </div>
+
+            <!-- Scrollable Grid -->
+            <div class="flex-1 overflow-y-auto p-4 custom-scrollbar">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="charts-grid">
+                    <!-- JS Injected Charts -->
+                </div>
             </div>
         </div>
 
-        <!-- Main Layout -->
-        <div class="main-layout">
-            <!-- Left Panel -->
-            <div class="left-panel">
-                <!-- File Selection Card -->
-                <div class="card fade-in">
-                    <div class="card-header">
-                        <span class="icon">📁</span>
-                        File Selection
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-primary" onclick="selectFile()">
-                            <span>📂</span>
-                            Select File(s)
-                        </button>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-secondary" onclick="processData()">
-                            <span>⚙️</span>
-                            Process Data
-                        </button>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Output Filename</label>
-                        <input type="text" class="form-input" placeholder="output_file.xlsx" id="outputFile">
-                    </div>
-                    <div id="fileStatus"></div>
-                </div>
+        <!-- OBSERVATION VIEW -->
+        <div id="view-observation" class="flex-1 flex flex-col h-full hidden p-3 gap-3">
+             <div class="flex-1 bg-[#252526] border border-[#3e3e42] rounded p-3 relative">
+                 <div class="absolute top-3 left-3 z-10 bg-black/50 px-2 py-1 rounded text-xs text-white border border-white/20">Pulse Height X</div>
+                 <canvas id="obsChartX"></canvas>
+             </div>
+             <div class="flex-1 bg-[#252526] border border-[#3e3e42] rounded p-3 relative">
+                 <div class="absolute top-3 left-3 z-10 bg-black/50 px-2 py-1 rounded text-xs text-white border border-white/20">Pulse Height Y</div>
+                 <canvas id="obsChartY"></canvas>
+             </div>
+        </div>
 
-                <!-- Test Configuration Card -->
-                <div class="card fade-in" style="animation-delay: 0.1s">
-                    <div class="card-header">
-                        <span class="icon">⚙️</span>
-                        Test Configuration
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <div class="form-group">
-                            <label class="form-label">Delay Time (μs)</label>
-                            <input type="number" class="form-input" value="0.00" step="0.01">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Threshold</label>
-                            <input type="number" class="form-input" value="0.00" step="0.01">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-secondary" onclick="checkHeader()">
-                            <span>✓</span>
-                            Check Header
-                        </button>
-                    </div>
-                    <div id="headerStatus"></div>
-                </div>
+        <!-- SETTINGS VIEW -->
+        <div id="view-settings" class="flex-1 hidden items-center justify-center">
+            <div class="text-textMuted">Settings Panel Placeholder</div>
+        </div>
 
-                <!-- Processing Control Card -->
-                <div class="card fade-in" style="animation-delay: 0.2s">
-                    <div class="card-header">
-                        <span class="icon">▶️</span>
-                        Processing Control
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-success" onclick="startProcessing()">
-                            <span>▶️</span>
-                            Start Processing
-                        </button>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-danger" onclick="stopProcessing()">
-                            <span>⏹️</span>
-                            Stop
-                        </button>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-secondary" onclick="resetAll()">
-                            <span>🔄</span>
-                            Reset
-                        </button>
-                    </div>
+        <input type="file" id="fileInput" class="hidden" onchange="document.getElementById('file-info').innerText = this.files[0].name">
+    </main>
 
-                    <div class="progress-container">
-                        <label class="form-label">Progress</label>
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                        </div>
-                        <div class="progress-text" id="progressText">0%</div>
-                    </div>
-
-                    <div class="status-grid">
-                        <span class="status-label">Start Time:</span>
-                        <span class="status-value" id="startTime">—</span>
-
-                        <span class="status-label">Stop Time:</span>
-                        <span class="status-value" id="stopTime">—</span>
-
-                        <span class="status-label">Duration:</span>
-                        <span class="status-value" id="duration">—</span>
-
-                        <span class="status-label">Data Counts:</span>
-                        <span class="status-value" id="dataCount">—</span>
-                    </div>
-                </div>
-
-                <!-- Analysis Settings Card -->
-                <div class="card fade-in" style="animation-delay: 0.3s">
-                    <div class="card-header">
-                        <span class="icon">📊</span>
-                        Analysis Settings
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">DSSD Layer</label>
-                        <select class="form-select">
-                            <option>DSSD L1</option>
-                            <option>DSSD L2</option>
-                            <option>DSSD L6</option>
-                            <option>DSSD L7</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Display Mode</label>
-                        <select class="form-select">
-                            <option>Before baseline subtraction</option>
-                            <option>After baseline subtraction</option>
-                            <option>Before baseline subtraction, log scale</option>
-                            <option>After baseline subtraction, log scale</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">X-Axis</label>
-                        <select class="form-select">
-                            <option>ADC Channel (0-16384)</option>
-                            <option>Voltage (mV)</option>
-                            <option>Energy (MeV)</option>
-                        </select>
-                    </div>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="adaptiveThresh">
-                        <label for="adaptiveThresh">Adaptive Thresholding</label>
-                    </div>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="curveFit">
-                        <label for="curveFit">Curve Fitting</label>
-                    </div>
-                    <div class="form-group">
-                        <button class="btn btn-secondary">
-                            <span>💾</span>
-                            Save Baseline
-                        </button>
-                    </div>
-                </div>
+    <!-- 4. Status Bar -->
+    <footer class="h-6 bg-[#007acc] text-white flex items-center justify-between px-3 text-[11px] select-none z-50">
+        <div class="flex items-center gap-4">
+            <span id="status-text"><i class="fa-solid fa-check-circle mr-1"></i>Ready</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="w-32 h-2 bg-black/20 rounded-full overflow-hidden">
+                <div id="progress-bar" class="h-full bg-white/80 w-0"></div>
             </div>
+            <span id="clock">00:00:00</span>
+        </div>
+    </footer>
 
-            <!-- Right Panel -->
-            <div class="right-panel">
-                <!-- Tabs -->
-                <div class="tabs">
-                    <div class="tab active" onclick="switchTab(0)">📈 Histogram View</div>
-                    <div class="tab" onclick="switchTab(1)">📋 Data View</div>
-                    <div class="tab" onclick="switchTab(2)">📄 Header Information</div>
-                </div>
-
-                <!-- Tab Content -->
-                <div class="tab-content active" id="tab0">
-                    <div class="histogram-grid" id="histogramGrid">
-                        <!-- Histograms will be generated here -->
-                    </div>
-                </div>
-
-                <div class="tab-content" id="tab1">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Packet No.</th>
-                                <th>Sampling No.</th>
-                                <th>L1 CH1</th>
-                                <th>L1 CH2</th>
-                                <th>L1 CH3</th>
-                                <th>L1 CH4</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>1</td>
-                                <td>1</td>
-                                <td>8192</td>
-                                <td>8156</td>
-                                <td>8201</td>
-                                <td>8178</td>
-                                <td><span class="status-badge success">Valid</span></td>
-                            </tr>
-                            <tr>
-                                <td>1</td>
-                                <td>2</td>
-                                <td>8195</td>
-                                <td>8160</td>
-                                <td>8198</td>
-                                <td>8182</td>
-                                <td><span class="status-badge success">Valid</span></td>
-                            </tr>
-                            <tr>
-                                <td>2</td>
-                                <td>1</td>
-                                <td>8189</td>
-                                <td>8154</td>
-                                <td>8203</td>
-                                <td>8176</td>
-                                <td><span class="status-badge success">Valid</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="tab-content" id="tab2">
-                    <div class="header-info">
-                        Packet Synchronization Code: E2 25<br>
-                        Package Identification: 00 01<br>
-                        Packet Sequence: 00 00<br>
-                        Packet data length: 08 0E<br>
-                        Timestamp: 2025-Jan-26 14:23:45.123<br>
-                        Data Type: 00 01<br>
-                        Check Sum: A3 2F<br>
-                        Checksum matches!<br>
-                        <br>
-                        Test condition:<br>
-                        Delay Time: 0.00<br>
-                        Threshold: 0.00
-                    </div>
-                </div>
+    <!-- Heatmap Modal -->
+    <div id="heatmap-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm opacity-0 transition-opacity duration-200">
+        <div class="bg-[#252526] border border-[#3e3e42] w-[500px] shadow-2xl rounded-lg overflow-hidden transform scale-95 transition-transform" id="heatmap-content">
+            <div class="bg-[#1e1e1e] p-2 flex justify-between items-center border-b border-[#3e3e42]">
+                <span class="text-xs font-bold pl-2">Coincidence Heatmap</span>
+                <button onclick="hideHeatmap()" class="w-6 h-6 hover:bg-[#3e3e42] rounded flex items-center justify-center"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="p-4">
+                <div id="heatmap-grid" class="grid grid-cols-8 gap-[1px] bg-[#3e3e42] border border-[#3e3e42]"></div>
             </div>
         </div>
     </div>
 
+    <!-- Logic -->
     <script>
-        // Update datetime
-        function updateDateTime() {
-            const now = new Date();
-            const formatted = now.toISOString().replace('T', ' ').substring(0, 19);
-            document.getElementById('datetime').textContent = formatted;
+        // --- Navigation ---
+        function switchTab(mode) {
+            document.querySelectorAll('.ribbon-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.ribbon-toolbar').forEach(t => t.classList.add('hidden'));
+            
+            document.getElementById(`tab-${mode}`).classList.add('active');
+            document.getElementById(`toolbar-${mode}`).classList.remove('hidden');
+
+            document.getElementById('view-baseline').classList.add('hidden');
+            document.getElementById('view-observation').classList.add('hidden');
+            document.getElementById('view-settings').classList.add('hidden');
+            
+            document.getElementById(`view-${mode}`).classList.remove('hidden');
+
+            // Resize charts
+            if (mode === 'observation') {
+                setTimeout(() => { obsChartX.resize(); obsChartY.resize(); }, 10);
+            }
         }
-        updateDateTime();
-        setInterval(updateDateTime, 1000);
 
-        // Generate sample histograms
-        function generateHistograms() {
-            const grid = document.getElementById('histogramGrid');
-            const channels = ['X Direction 1', 'X Direction 2', 'X Direction 3', 'X Direction 4',
-                'X Direction 5', 'X Direction 6', 'X Direction 7', 'X Direction 8',
-                'Z Direction 1', 'Z Direction 2', 'Z Direction 3', 'Z Direction 4',
-                'Z Direction 5', 'Z Direction 6', 'Z Direction 7', 'Z Direction 8'];
-
-            grid.innerHTML = '';
-            channels.forEach((channel, idx) => {
-                const card = document.createElement('div');
-                card.className = 'histogram-card fade-in';
-                card.style.animationDelay = `${idx * 0.05}s`;
-
-                const bars = [];
-                for (let i = 0; i < 20; i++) {
-                    const height = Math.random() * 100;
-                    bars.push(`<div class="histogram-bar" style="height: ${height}%"></div>`);
-                }
-
-                const mean = (8150 + Math.random() * 100).toFixed(1);
-                const sigma = (15 + Math.random() * 10).toFixed(1);
-
-                card.innerHTML = `
-                    <div class="histogram-title">${channel}</div>
-                    <div class="histogram-chart">${bars.join('')}</div>
-                    <div class="histogram-stats">
-                        <span>Mean: ${mean}</span>
-                        <span>σ: ${sigma}</span>
+        // --- Init Charts ---
+        const chartInstances = [];
+        setTimeout(() => {
+            const grid = document.getElementById('charts-grid');
+            for(let i=1; i<=8; i++) {
+                const div = document.createElement('div');
+                div.className = 'chart-card h-40';
+                div.innerHTML = `
+                    <div class="chart-header">
+                        <span>CH ${i}</span>
+                        <span class="text-[#007acc]" id="stats-${i}">-</span>
                     </div>
+                    <div class="flex-1 relative"><canvas id="chart-${i}"></canvas></div>
                 `;
-                grid.appendChild(card);
-            });
+                grid.appendChild(div);
+                
+                const ctx = div.querySelector('canvas').getContext('2d');
+                chartInstances.push(new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), backgroundColor: '#007acc', borderRadius: 1 }] },
+                    options: { 
+                        responsive: true, maintainAspectRatio: false, 
+                        plugins: { legend: { display: false } },
+                        scales: { x: { display: false }, y: { display: false, grid: { color: '#333' } } }
+                    }
+                }));
+            }
+        }, 100);
+
+        // --- Live Charts ---
+        let obsChartX, obsChartY;
+        window.onload = () => {
+             const commonOptions = {
+                 responsive: true, maintainAspectRatio: false,
+                 plugins: { legend: { display: false } },
+                 scales: { x: { display: false }, y: { grid: { color: '#333' } } },
+                 animation: false,
+                 elements: { point: { radius: 0 } }
+             };
+             
+             obsChartX = new Chart(document.getElementById('obsChartX'), {
+                 type: 'line',
+                 data: { labels: Array(50).fill(''), datasets: [{ data: Array(50).fill(0), borderColor: '#007acc', borderWidth: 1 }] },
+                 options: commonOptions
+             });
+             
+             obsChartY = new Chart(document.getElementById('obsChartY'), {
+                 type: 'line',
+                 data: { labels: Array(50).fill(''), datasets: [{ data: Array(50).fill(0), borderColor: '#4ec9b0', borderWidth: 1 }] },
+                 options: commonOptions
+             });
         }
 
-        generateHistograms();
-
-        // Tab switching
-        function switchTab(index) {
-            const tabs = document.querySelectorAll('.tab');
-            const contents = document.querySelectorAll('.tab-content');
-
-            tabs.forEach((tab, i) => {
-                if (i === index) {
-                    tab.classList.add('active');
-                    contents[i].classList.add('active');
-                } else {
-                    tab.classList.remove('active');
-                    contents[i].classList.remove('active');
-                }
-            });
-        }
-
-        // Button actions
-        function selectFile() {
-            const status = document.getElementById('fileStatus');
-            status.innerHTML = '<span class="status-badge info">2 files selected</span>';
-            document.getElementById('outputFile').value = 'baseline_data_2025.xlsx';
-        }
-
-        function processData() {
-            const status = document.getElementById('fileStatus');
-            status.innerHTML = '<span class="status-badge success">✓ Data processed successfully</span>';
-        }
-
-        function checkHeader() {
-            const status = document.getElementById('headerStatus');
-            status.innerHTML = '<span class="status-badge success">✓ Header is correct!</span>';
-        }
-
-        let progress = 0;
-        let processing = false;
-
-        function startProcessing() {
-            if (processing) return;
-            processing = true;
-            progress = 0;
-
-            document.getElementById('startTime').textContent = new Date().toLocaleTimeString();
-            document.getElementById('dataCount').textContent = '0 / 1500';
-
+        // --- Fake Analysis ---
+        let running = false;
+        function startAnalysis() {
+            if (running) return;
+            running = true;
+            document.getElementById('status-text').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> Processing...';
+            
+            let p = 0;
             const interval = setInterval(() => {
-                progress += 2;
-                document.getElementById('progressFill').style.width = progress + '%';
-                document.getElementById('progressText').textContent = progress + '%';
-                document.getElementById('dataCount').textContent = Math.floor(progress * 15) + ' / 1500';
+                p += 2;
+                document.getElementById('progress-bar').style.width = p + '%';
+                
+                // Update Baseline Charts
+                chartInstances.forEach(c => {
+                    if(Math.random() > 0.8) {
+                        const d = c.data.datasets[0].data;
+                        d[Math.floor(Math.random()*20)] += 5;
+                        c.update('none');
+                    }
+                });
 
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    processing = false;
-                    document.getElementById('stopTime').textContent = new Date().toLocaleTimeString();
-                    document.getElementById('duration').textContent = '45.3 seconds';
-                    generateHistograms();
+                // Update Obs Charts
+                if (obsChartX) {
+                    const d = obsChartX.data.datasets[0].data;
+                    d.shift(); d.push(Math.random() * 100);
+                    obsChartX.update('none');
                 }
-            }, 100);
+
+                if(p >= 100) {
+                    clearInterval(interval);
+                    running = false;
+                    document.getElementById('status-text').innerHTML = '<i class="fa-solid fa-check mr-1"></i> Done';
+                    document.getElementById('progress-bar').style.width = '0%';
+                }
+            }, 50);
         }
 
-        function stopProcessing() {
-            processing = false;
-            document.getElementById('progressText').textContent = 'Stopped by User';
+        // --- Heatmap ---
+        function showHeatmap() {
+            const modal = document.getElementById('heatmap-modal');
+            const grid = document.getElementById('heatmap-grid');
+            grid.innerHTML = '';
+            for(let i=0; i<64; i++) {
+                const d = document.createElement('div');
+                const v = Math.random();
+                d.style.backgroundColor = `rgba(0, 122, 204, ${v})`;
+                d.className = 'w-full h-12 hover:border border-white cursor-crosshair';
+                d.title = `Val: ${(v*100).toFixed(0)}`;
+                grid.appendChild(d);
+            }
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); modal.querySelector('div').classList.remove('scale-95'); }, 10);
+        }
+        function hideHeatmap() {
+             const modal = document.getElementById('heatmap-modal');
+             modal.classList.add('opacity-0');
+             modal.querySelector('div').classList.add('scale-95');
+             setTimeout(() => modal.classList.add('hidden'), 200);
         }
 
-        function resetAll() {
-            progress = 0;
-            processing = false;
-            document.getElementById('progressFill').style.width = '0%';
-            document.getElementById('progressText').textContent = '0%';
-            document.getElementById('startTime').textContent = '—';
-            document.getElementById('stopTime').textContent = '—';
-            document.getElementById('duration').textContent = '—';
-            document.getElementById('dataCount').textContent = '—';
-            document.getElementById('fileStatus').innerHTML = '';
-            document.getElementById('headerStatus').innerHTML = '';
-            document.getElementById('outputFile').value = '';
-        }
+        setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString(), 1000);
     </script>
 </body>
-
 </html>

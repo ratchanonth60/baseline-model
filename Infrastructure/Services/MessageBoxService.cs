@@ -1,6 +1,6 @@
 using System;
 using System.Windows;
-using BaselineMode.WPF.Views;
+using BaselineMode.WPF.Views.Shared;
 
 namespace BaselineMode.WPF.Infrastructure.Services
 {

@@ -416,7 +416,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         private void ShowChannelDetail(ChannelViewModel channel)
         {
             if (channel == null) return;
-            var window = new BaselineMode.WPF.Views.ChannelDetailWindow();
+            var window = new BaselineMode.WPF.Views.Baseline.ChannelDetailWindow();
             window.DataContext = channel;
             window.Show();
         }
@@ -442,7 +442,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         var vm = new HeatmapViewModel(matrix);
-                        var window = new BaselineMode.WPF.Views.HeatmapWindow();
+                        var window = new BaselineMode.WPF.Views.Baseline.HeatmapWindow();
                         window.DataContext = vm;
                         window.Show();
                     });
