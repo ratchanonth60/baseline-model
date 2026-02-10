@@ -23,6 +23,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             UpdateDisplayTable();
             InitializeChannels();
             StatusMessage = "Reset complete.";
+            StatusColor = System.Windows.Media.Brushes.Gray;
             ProgressValue = 0;
             CurrentPage = 1;
             RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(new List<BaselineData>()));
@@ -33,6 +34,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         {
             _cts?.Cancel();
             StatusMessage = "Stopping...";
+            StatusColor = System.Windows.Media.Brushes.Orange;
         }
 
         [RelayCommand]
@@ -41,17 +43,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             if (!_selectedFiles.Any())
             {
                 StatusMessage = "No files selected for processing.";
+                StatusColor = System.Windows.Media.Brushes.Red;
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(OutputFileName))
             {
                 StatusMessage = "Please provide output filename.";
+                StatusColor = System.Windows.Media.Brushes.Red;
                 return;
             }
 
             IsBusy = true;
             StatusMessage = "Processing raw files to Excel...";
+            StatusColor = System.Windows.Media.Brushes.Orange;
 
             await Task.Run(() =>
             {
@@ -109,6 +114,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
                             StatusMessage = $"Saved {allData.Count} events to {fileName}";
+                            StatusColor = System.Windows.Media.Brushes.LimeGreen;
                             MessageBoxService.Show($"Successfully processed {allData.Count} events to Source folder.", "Process Data", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                         });
                     }
@@ -117,13 +123,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
                             StatusMessage = "No valid data found in selected files.";
+                            StatusColor = System.Windows.Media.Brushes.Red;
                             MessageBoxService.Show("No valid data found in selected files. Please check the input file layout.", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                         });
                     }
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = $"Error: {ex.Message}");
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        StatusMessage = $"Error: {ex.Message}";
+                        StatusColor = System.Windows.Media.Brushes.Red;
+                    });
                 }
             });
 
@@ -290,7 +301,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                                             {
                                                 Curve = res.FitCurve,
                                                 Color = System.Drawing.Color.Red,
-                                                Label = "HEMG(1)"
+                                                Label = "HEMG single"
                                             };
                                         }
                                     }
@@ -305,7 +316,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                                             {
                                                 Curve = res.FitCurve,
                                                 Color = System.Drawing.Color.Magenta,
-                                                Label = "HEMG(2)"
+                                                Label = "HEMG double"
                                             };
                                         }
                                     }

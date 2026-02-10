@@ -381,6 +381,8 @@
                                 <TextBlock Text="DSSD" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
+
+
                     </StackPanel>
 
                     <!-- OBSERVATION Toolbar -->
@@ -573,7 +575,7 @@
                         </Border>
 
                         <!-- Graph Settings Group -->
-                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                        <Border x:Name="GraphSettingsPanel" BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
                             <StackPanel>
                                 <StackPanel VerticalAlignment="Center" Height="68">
                                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
@@ -622,7 +624,79 @@
                                         </Popup>
                                     </StackPanel>
                                 </StackPanel>
-                                <TextBlock Text="Graph" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                <TextBlock Text="Observation Graph" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Baseline Graph Settings Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Fig Bg:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleBaseFigBg" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding GraphFigureColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=ToggleBaseFigBg}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBaseFigBg}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding GraphFigureColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Data Bg:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleBaseDataBg" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding GraphDataColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=ToggleBaseDataBg}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBaseDataBg}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding GraphDataColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Series:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleBaseSeries" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding GraphSeriesColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=ToggleBaseSeries}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBaseSeries}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding GraphSeriesColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+                                    
+                                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Text:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleBaseText" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding GraphTextColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=ToggleBaseText}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBaseText}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding GraphTextColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Baseline Graph" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -894,7 +968,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripX1" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripX1" MinHeight="140" Tag="StripX_1" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="X1" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtX1Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -909,7 +983,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripX2" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripX2" MinHeight="140" Tag="StripX_2" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="X2" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtX2Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -924,7 +998,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripX3" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripX3" MinHeight="140" Tag="StripX_3" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="X3" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtX3Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -939,7 +1013,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripX4" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripX4" MinHeight="140" Tag="StripX_4" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="X4" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtX4Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -954,7 +1028,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripX5" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripX5" MinHeight="140" Tag="StripX_5" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="X5" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtX5Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -969,7 +1043,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripX6" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripX6" MinHeight="140" Tag="StripX_6" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="X6" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtX6Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -984,7 +1058,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripX7" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripX7" MinHeight="140" Tag="StripX_7" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="X7" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtX7Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -999,7 +1073,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripX8" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripX8" MinHeight="140" Tag="StripX_8" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="X8" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtX8Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1029,7 +1103,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripY1" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripY1" MinHeight="140" Tag="StripY_1" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="Y1" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtY1Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1044,7 +1118,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripY2" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripY2" MinHeight="140" Tag="StripY_2" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="Y2" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtY2Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1059,7 +1133,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripY3" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripY3" MinHeight="140" Tag="StripY_3" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="Y3" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtY3Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1074,7 +1148,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripY4" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripY4" MinHeight="140" Tag="StripY_4" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="Y4" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtY4Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1089,7 +1163,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripY5" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripY5" MinHeight="140" Tag="StripY_5" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="Y5" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtY5Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1104,7 +1178,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripY6" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripY6" MinHeight="140" Tag="StripY_6" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="Y6" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtY6Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1119,7 +1193,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripY7" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripY7" MinHeight="140" Tag="StripY_7" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="Y7" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtY7Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1134,7 +1208,7 @@
                                 <Border Style="{StaticResource ChartCard}" Margin="4">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <scott:WpfPlot x:Name="ObsPlotStripY8" MinHeight="140"/>
+                                        <scott:WpfPlot x:Name="ObsPlotStripY8" MinHeight="140" Tag="StripY_8" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                         <StackPanel Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Center" MinWidth="90">
                                             <TextBlock Text="Y8" FontWeight="Bold" Foreground="#26C6DA" FontSize="12"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtY8Peak" Text="-" Foreground="#FF5252" FontSize="9"/></StackPanel>
@@ -1172,7 +1246,7 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <TextBlock Text="BGO High Gain" Foreground="#FF8C00" FontSize="13" FontWeight="SemiBold" Margin="8,4"/>
-                                    <scott:WpfPlot x:Name="ObsPlotBGOHigh" Grid.Row="1"/>
+                                    <scott:WpfPlot x:Name="ObsPlotBGOHigh" Grid.Row="1" Tag="BGO_High" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                     <WrapPanel Grid.Row="2" Margin="8,6,8,4">
                                         <TextBlock Text="Peak:" Foreground="#858585" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                         <TextBlock x:Name="ObsTxtBGOHPeak" Text="-" Foreground="#FF5252" FontSize="10" FontWeight="Bold" Margin="0,0,12,0" VerticalAlignment="Center"/>
@@ -1196,7 +1270,7 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <TextBlock Text="BGO Low Gain" Foreground="#FF8C00" FontSize="13" FontWeight="SemiBold" Margin="8,4"/>
-                                    <scott:WpfPlot x:Name="ObsPlotBGOLow" Grid.Row="1"/>
+                                    <scott:WpfPlot x:Name="ObsPlotBGOLow" Grid.Row="1" Tag="BGO_Low" MouseDoubleClick="ObsPlot_MouseDoubleClick"/>
                                     <WrapPanel Grid.Row="2" Margin="8,6,8,4">
                                         <TextBlock Text="Peak:" Foreground="#858585" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                         <TextBlock x:Name="ObsTxtBGOLPeak" Text="-" Foreground="#FF5252" FontSize="10" FontWeight="Bold" Margin="0,0,12,0" VerticalAlignment="Center"/>
@@ -1234,12 +1308,13 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <materialDesign:PackIcon Kind="CheckCircle" Width="14" Height="14" Foreground="White" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="TxtStatusBar" Text="{Binding StatusMessage}" Foreground="White" FontSize="11" VerticalAlignment="Center"/>
+                    <materialDesign:PackIcon Kind="CheckCircle" Width="14" Height="14" Foreground="{Binding StatusColor}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtStatusBar" Text="{Binding StatusMessage}" Foreground="{Binding StatusColor}" FontSize="11" VerticalAlignment="Center"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <ProgressBar x:Name="StatusProgressBar" Width="120" Height="6" Value="{Binding ProgressValue}"
+                    <ProgressBar x:Name="StatusProgressBar" Width="120" Height="6" Value="{Binding ProgressValue}" 
+                                 IsIndeterminate="{Binding IsBusy}"
                                  Background="#00000033" Foreground="#FFFFFFCC" BorderThickness="0"/>
                 </StackPanel>
 

@@ -14,19 +14,38 @@ namespace BaselineMode.WPF.Views.Observation
             InitializeComponent();
         }
 
+        private double[]? _currentData;
+        private string _currentTitle = string.Empty;
+        private bool _isUpdatingUi;
+
         public ObservationDetailWindow(IFittingService fittingService) : this()
         {
             _fittingService = fittingService;
+            ChkShowFit.Checked += (s, e) => UpdatePlot();
+            ChkShowFit.Unchecked += (s, e) => UpdatePlot();
         }
 
         public void ShowHistogram(double[] data, string title, bool showFit = true)
         {
+            _currentData = data;
+            _currentTitle = title;
             TitleText.Text = title;
-            base.Title = $"Detail View - {title}";
+            Title = $"Detail View - {title}";
+
+            _isUpdatingUi = true;
+            ChkShowFit.IsChecked = showFit;
+            _isUpdatingUi = false;
+
+            UpdatePlot();
+        }
+
+        private void UpdatePlot()
+        {
+            if (_isUpdatingUi) return;
 
             DetailPlot.Plot.Clear();
 
-            if (data == null || data.Length == 0)
+            if (_currentData == null || _currentData.Length == 0)
             {
                 DetailPlot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
                 DetailPlot.Refresh();
@@ -34,7 +53,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
 
             // Filter positive values
-            var filteredData = data.Where(v => v > 0).ToArray();
+            var filteredData = _currentData.Where(v => v > 0).ToArray();
             TxtCounts.Text = filteredData.Length.ToString("N0");
 
             if (filteredData.Length == 0)
@@ -51,10 +70,17 @@ namespace BaselineMode.WPF.Views.Observation
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
             var bar = DetailPlot.Plot.AddBar(hist, binMidpoints);
-            bar.FillColor = System.Drawing.Color.FromArgb(0, 150, 136);
+            bar.FillColor = System.Drawing.Color.FromArgb(255, 0, 150, 136);
 
-            // Try Gaussian fit
-            if (showFit && _fittingService != null)
+            // Reset Stats
+            TxtPeak.Text = "-";
+            TxtMean.Text = "-";
+            TxtRMS.Text = "-";
+            TxtFWHM.Text = "-";
+            TxtResolution.Text = "-";
+
+            // Try Gaussian fit if checked
+            if (ChkShowFit.IsChecked == true && _fittingService != null)
             {
                 try
                 {
@@ -62,7 +88,7 @@ namespace BaselineMode.WPF.Views.Observation
                     if (fitResult?.FitCurve != null)
                     {
                         DetailPlot.Plot.AddScatter(binMidpoints, fitResult.FitCurve,
-                            System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2);
+                            System.Drawing.Color.FromArgb(255, 255, 82, 82), lineWidth: 2);
                         DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak,
                             color: System.Drawing.Color.Yellow, size: 10);
 
@@ -75,10 +101,26 @@ namespace BaselineMode.WPF.Views.Observation
                 }
                 catch { /* Fitting failed */ }
             }
+            // If fit is NOT checked, we still might want to show basic stats depending on user preference, 
+            // but for now let's just show basic stats if fit is off? 
+            // The original code only calculated stats if fitResult was valid. 
+            // Let's at least calculate basic stats (Mean/RMS) from raw data if fit is off?
+            // The user request was about "fit curve", so let's stick to toggling the curve and the fit-derived stats.
+            else
+            {
+                // Calculate basic stats manually if fit is disabled
+                TxtPeak.Text = $"{hist.Max()}";
+                TxtMean.Text = $"{filteredData.Average():F2}";
+
+                double avg = filteredData.Average();
+                double sumSquares = filteredData.Sum(d => Math.Pow(d - avg, 2));
+                double stdDev = Math.Sqrt(sumSquares / filteredData.Length);
+                TxtRMS.Text = $"{stdDev:F2}";
+            }
 
             DetailPlot.Plot.Style(ScottPlot.Style.Gray1);
-            DetailPlot.Plot.Style(figureBackground: System.Drawing.Color.FromArgb(37, 37, 38));
-            DetailPlot.Plot.Style(dataBackground: System.Drawing.Color.FromArgb(40, 40, 40));
+            DetailPlot.Plot.Style(figureBackground: System.Drawing.Color.FromArgb(255, 37, 37, 38));
+            DetailPlot.Plot.Style(dataBackground: System.Drawing.Color.FromArgb(255, 40, 40, 40));
             DetailPlot.Plot.YAxis.Label("Count");
             DetailPlot.Plot.XAxis.Label("ADC Channel");
             DetailPlot.Plot.SetAxisLimits(yMin: 0);

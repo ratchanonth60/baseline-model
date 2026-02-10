@@ -70,7 +70,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         private System.Windows.Media.Color _selectedBGOColor = System.Windows.Media.Colors.Cyan;
 
         partial void OnSelectedGraphBackgroundChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
-        partial void OnSelectedDSSDColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnSelectedDSSDColorChanged(System.Windows.Media.Color value)
+        {
+            RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        }
         partial void OnSelectedBGOColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
 
         [ObservableProperty]

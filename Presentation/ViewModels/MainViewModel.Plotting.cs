@@ -252,7 +252,17 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             chVM.StatsText = $"μ={mu:F2}, σ={sigma:F2}, FWHM={fwhm:F2}, Res={resolution:F2}%";
 
             // Trigger Plot Refresh
-            chVM.RenderPlot();
+            var figBg = ToDrawingColor(GraphFigureColor);
+            var dataBg = ToDrawingColor(GraphDataColor);
+            var foreColor = ToDrawingColor(GraphTextColor);
+            var seriesColor = ToDrawingColor(GraphSeriesColor);
+
+            chVM.RenderPlot(figBg, dataBg, foreColor, seriesColor);
+        }
+
+        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
+        {
+            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }
 
         private (double fwhm, double resolution) CalculateFWHM(double[] binCenters, double[] fitCurve, double mu)
@@ -417,6 +427,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         {
             if (channel == null) return;
             var window = new BaselineMode.WPF.Views.Baseline.ChannelDetailWindow();
+            window.MainVM = this;
             window.DataContext = channel;
             window.Show();
         }

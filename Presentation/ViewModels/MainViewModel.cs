@@ -26,6 +26,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         private string _statusMessage = "Ready";
 
         [ObservableProperty]
+        private System.Windows.Media.Brush _statusColor = System.Windows.Media.Brushes.Gray;
+
+        [ObservableProperty]
         private bool _isBusy;
 
         [ObservableProperty]
@@ -36,6 +39,24 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         [ObservableProperty]
         private string _outputDirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "BaselineModeOutputs");
+
+        // --- Graph Color Configuration ---
+        [ObservableProperty]
+        private System.Windows.Media.Color _graphFigureColor = System.Windows.Media.Color.FromRgb(37, 37, 38);
+
+        [ObservableProperty]
+        private System.Windows.Media.Color _graphDataColor = System.Windows.Media.Color.FromRgb(40, 40, 40);
+
+        [ObservableProperty]
+        private System.Windows.Media.Color _graphSeriesColor = System.Windows.Media.Colors.DodgerBlue;
+
+        [ObservableProperty]
+        private System.Windows.Media.Color _graphTextColor = System.Windows.Media.Colors.White;
+
+        partial void OnGraphFigureColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        partial void OnGraphDataColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        partial void OnGraphSeriesColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        partial void OnGraphTextColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
 
         // --- Added Properties ---
         [ObservableProperty]

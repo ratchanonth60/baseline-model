@@ -23,15 +23,22 @@ namespace BaselineMode.WPF.Views.Baseline
 
         private void WpfPlot_Loaded(object sender, RoutedEventArgs e)
         {
-            if (sender is WpfPlot plot && plot.Tag is ChannelViewModel vm)
+            if (sender is WpfPlot plot && plot.Tag is ChannelViewModel channelVm)
             {
-                vm.PlotControl = plot;
+                channelVm.PlotControl = plot;
                 // Initial Configuration
                 plot.Plot.Style(ScottPlot.Style.Seaborn);
                 plot.Configuration.ScrollWheelZoom = true;
 
                 // Render if data exists
-                vm.RenderPlot();
+                if (DataContext is MainViewModel vm)
+                {
+                    var figBg = ToDrawingColor(vm.GraphFigureColor);
+                    var dataBg = ToDrawingColor(vm.GraphDataColor);
+                    var foreColor = ToDrawingColor(vm.GraphTextColor);
+                    var seriesColor = ToDrawingColor(vm.GraphSeriesColor);
+                    channelVm.RenderPlot(figBg, dataBg, foreColor, seriesColor);
+                }
             }
         }
 
@@ -40,10 +47,20 @@ namespace BaselineMode.WPF.Views.Baseline
             if (DataContext is not MainViewModel vm)
                 return;
 
+            var figBg = ToDrawingColor(vm.GraphFigureColor);
+            var dataBg = ToDrawingColor(vm.GraphDataColor);
+            var foreColor = ToDrawingColor(vm.GraphTextColor);
+            var seriesColor = ToDrawingColor(vm.GraphSeriesColor);
+
             foreach (var channelVM in vm.Channels)
             {
-                channelVM.RenderPlot();
+                channelVM.RenderPlot(figBg, dataBg, foreColor, seriesColor);
             }
+        }
+
+        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
+        {
+            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }
     }
 }

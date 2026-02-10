@@ -54,16 +54,26 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         public WpfPlot? PlotControl { get; set; }
 
-        public void RenderPlot()
+        public void RenderPlot(System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor)
         {
             if (PlotControl != null)
-                RenderTo(PlotControl);
+                RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor);
         }
 
-        public void RenderTo(WpfPlot targetPlot)
+        public void RenderTo(WpfPlot targetPlot, System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor)
         {
             if (targetPlot == null) return;
             targetPlot.Plot.Clear();
+
+            // Apply Configured Style
+            targetPlot.Plot.Style(ScottPlot.Style.Gray1);
+
+            targetPlot.Plot.Style(figureBackground: figBg, dataBackground: dataBg);
+            targetPlot.Plot.XAxis.Label(color: foreColor);
+            targetPlot.Plot.YAxis.Label(color: foreColor);
+            targetPlot.Plot.XAxis.TickLabelStyle(color: foreColor);
+            targetPlot.Plot.YAxis.TickLabelStyle(color: foreColor);
+            targetPlot.Plot.Title(Title, color: foreColor); // Fixed _title usage
 
             if (Counts != null && Counts.Length > 0 && BinCenters != null)
             {
@@ -73,11 +83,11 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                 {
                     var scatter = targetPlot.Plot.AddScatter(BinCenters, Counts);
                     scatter.LineWidth = 2;
-                    scatter.Color = System.Drawing.Color.Black;
+                    scatter.Color = foreColor; // Line matches text/foreground for contrast
                     scatter.MarkerSize = 5;
                     scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
                     scatter.MarkerLineWidth = 0;
-                    scatter.MarkerColor = System.Drawing.Color.DarkRed;
+                    scatter.MarkerColor = seriesColor; // Markers use series color
                     scatter.Label = "Data";
 
                     targetPlot.Plot.YAxis.TickLabelFormat(value => $"10^{value:F0}");
@@ -86,7 +96,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                 else
                 {
                     var bar = targetPlot.Plot.AddBar(values: Counts, positions: BinCenters);
-                    bar.FillColor = System.Drawing.Color.Black;
+                    bar.FillColor = seriesColor;
                     bar.BorderLineWidth = 0;
                     bar.Label = "Data";
 
@@ -109,22 +119,30 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                     }
                 }
 
-                // Stats Annotation (Only for primary/last update or consolidated)
+                // Stats Annotation
                 if (Mu > 0 && !isLogScale)
                 {
                     string statsLabel = $"μ = {Mu:F2}\nσ = {Sigma:F2}\nFWHM = {FWHM:F2}\nRes = {Resolution:F2}%";
                     var annotation = targetPlot.Plot.AddText(statsLabel, 0.02, 0.98);
                     annotation.Font.Size = 10;
-                    annotation.Font.Color = System.Drawing.Color.Blue;
-                    annotation.BackgroundColor = System.Drawing.Color.FromArgb(220, 255, 255, 255);
-                    annotation.BorderColor = System.Drawing.Color.Blue;
+                    // Use series color or cyan for stats? Let's use Cyan as it stands out well.
+                    // Or maybe derive from foreColor? Let's keep Cyan for now as it was good.
+                    annotation.Font.Color = System.Drawing.Color.Cyan;
+                    annotation.BackgroundColor = System.Drawing.Color.FromArgb(200, dataBg.R, dataBg.G, dataBg.B);
+                    annotation.BorderColor = System.Drawing.Color.Cyan;
                     annotation.Alignment = ScottPlot.Alignment.UpperLeft;
                 }
 
                 targetPlot.Plot.XLabel("ADC Channel");
                 targetPlot.Plot.YLabel(isLogScale ? "log scale Count" : "Count");
-                targetPlot.Plot.Legend(true, ScottPlot.Alignment.UpperRight); // Show Legend
+                targetPlot.Plot.Legend(true, ScottPlot.Alignment.UpperRight);
                 targetPlot.Plot.AxisAuto();
+            }
+            else
+            {
+                // Show "No Data"
+                targetPlot.Plot.AddText("No Data", 0, 0, size: 24, color: System.Drawing.Color.Gray);
+                targetPlot.Plot.SetAxisLimits(-1, 1, -1, 1);
             }
 
             targetPlot.Refresh();

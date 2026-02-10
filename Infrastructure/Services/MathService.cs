@@ -144,6 +144,66 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
             return totalWeight < MIN_VALUE ? 0 : Math.Sqrt(sumSquaredDifferences / totalWeight);
         }
+        /// <summary>
+        /// Performs Lorentzian curve fitting with optimized calculations.
+        /// Uses pre-computed constants and vectorized operations.
+        /// </summary>
+        // [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        // public FittingResult LorentzianFit(double[] xData, double[] yData)
+        // {
+        //     if (_disposed)
+        //         throw new ObjectDisposedException(nameof(MathService));
+
+        //     if (xData == null || yData == null || xData.Length == 0)
+        //         return FittingResult.Empty(0);
+
+        //     // Step 1: Find peak
+        //     int peakIdx = 0;
+        //     double maxCount = yData[0];
+        //     for (int i = 1; i < yData.Length; i++)
+        //     {
+        //         if (yData[i] > maxCount)
+        //         {
+        //             maxCount = yData[i];
+        //             peakIdx = i;
+        //         }
+        //     }
+
+        //     if (maxCount <= 0)
+        //         return FittingResult.Empty(xData.Length);
+
+        //     double peakPosition = xData[peakIdx];
+
+        //     // Step 2: Calculate weighted mean and sigma around peak
+        //     double totalWeight = 0;
+        //     double weightedSumX = 0;
+        //     double weightedSumX2 = 0;
+
+        //     // Use data within ±10% of peak height
+        //     double threshold = maxCount * 0.1;
+
+        //     for (int i = 0; i < yData.Length; i++)
+        //     {
+        //         if (yData[i] >= threshold)
+        //         {
+        //             double y = yData[i];
+        //             double x = xData[i];
+        //             double diff = x - peakPosition;
+        //             double weight = y / (1 + diff * diff);
+        //             totalWeight += weight;
+        //             weightedSumX += x * weight;
+        //             weightedSumX2 += x * x * weight;
+        //         }
+        //     }
+
+        //     if (totalWeight <= 0)
+        //         return FittingResult.Empty(xData.Length);
+
+        //     double mean = weightedSumX / totalWeight;
+        //     double sigma = Math.Sqrt(weightedSumX2 / totalWeight - mean * mean);
+
+        //     return new FittingResult(mean, sigma, peakPosition);
+        // }
 
         /// <summary>
         /// Performs Gaussian curve fitting with optimized calculations.

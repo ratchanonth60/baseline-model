@@ -65,6 +65,12 @@ namespace BaselineMode.WPF.Views.Shared
             InitializeObservationPlots();
             SwitchToBaselineMode();
             UpdateToolbarVisibility();
+
+            var graphSettingsPanel = this.FindName("GraphSettingsPanel") as Border;
+            if (graphSettingsPanel != null)
+            {
+                graphSettingsPanel.DataContext = _observationViewModel;
+            }
         }
 
         #region Ribbon Tab & Mode Navigation
@@ -170,16 +176,26 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void UpdatePlot(WpfPlot wpfPlot, ChannelViewModel channelVm)
         {
-            channelVm.RenderTo(wpfPlot);
+            var figBg = ToDrawingColor(_mainViewModel.GraphFigureColor);
+            var dataBg = ToDrawingColor(_mainViewModel.GraphDataColor);
+            var foreColor = ToDrawingColor(_mainViewModel.GraphTextColor);
+            var seriesColor = ToDrawingColor(_mainViewModel.GraphSeriesColor);
+
+            channelVm.RenderTo(wpfPlot, figBg, dataBg, foreColor, seriesColor);
         }
 
         private void OnBaselinePlotUpdate(object? sender, Core.Models.PlotUpdateEventArgs e)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
+                var figBg = ToDrawingColor(_mainViewModel.GraphFigureColor);
+                var dataBg = ToDrawingColor(_mainViewModel.GraphDataColor);
+                var foreColor = ToDrawingColor(_mainViewModel.GraphTextColor);
+                var seriesColor = ToDrawingColor(_mainViewModel.GraphSeriesColor);
+
                 foreach (var channel in _mainViewModel.Channels)
                 {
-                    channel.RenderPlot();
+                    channel.RenderPlot(figBg, dataBg, foreColor, seriesColor);
                 }
             });
         }
@@ -820,28 +836,101 @@ namespace BaselineMode.WPF.Views.Shared
         {
             if (sender is not WpfPlot plot) return;
 
-            string tag = plot.Tag?.ToString() ?? "Unknown";
-            double[]? data = null;
+            string tag = plot.Tag?.ToString() ?? string.Empty;
+            if (string.IsNullOrEmpty(tag)) return;
 
-            // Get appropriate data based on plot tag
-            switch (tag)
+            double[]? data = null;
+            string title = tag;
+
+            // Determine Layer for DSSD
+            // Uses standard names if controls are not accessible, but they should be
+            int dssdLayerIndex = 0;
+            var dssdCombo = this.FindName("ObsCmbDSSDLayer") as ComboBox;
+            if (dssdCombo != null) dssdLayerIndex = dssdCombo.SelectedIndex;
+
+            DetectorLayer dssdLayer = dssdLayerIndex switch
             {
-                case "PulseHeight_X":
-                    data = _observationViewModel.GetDSSDLayerData(DetectorLayer.L1)?.PulseHeightX?.ToArray();
-                    break;
-                case "PulseHeight_Y":
-                    data = _observationViewModel.GetDSSDLayerData(DetectorLayer.L1)?.PulseHeightY?.ToArray();
-                    break;
+                0 => DetectorLayer.L1,
+                1 => DetectorLayer.L2,
+                2 => DetectorLayer.L6,
+                3 => DetectorLayer.L7,
+                _ => DetectorLayer.L1
+            };
+
+            // Determine Layer for BGO
+            int bgoLayerIndex = 0;
+            var bgoCombo = this.FindName("ObsCmbBGOLayer") as ComboBox;
+            if (bgoCombo != null) bgoLayerIndex = bgoCombo.SelectedIndex;
+
+            BGOLayer bgoLayer = bgoLayerIndex switch
+            {
+                0 => BGOLayer.L3,
+                1 => BGOLayer.L4,
+                2 => BGOLayer.L5,
+                _ => BGOLayer.L3
+            };
+
+            bool showFit = false;
+
+            if (tag == "PulseHeight_X")
+            {
+                data = _observationViewModel.GetDSSDLayerData(dssdLayer)?.PulseHeightX?.ToArray();
+                title = $"Pulse Height X ({dssdLayer})";
+                showFit = ObsChkDSSDFit?.IsChecked == true;
+            }
+            else if (tag == "PulseHeight_Y")
+            {
+                data = _observationViewModel.GetDSSDLayerData(dssdLayer)?.PulseHeightY?.ToArray();
+                title = $"Pulse Height Y ({dssdLayer})";
+                showFit = ObsChkDSSDFit?.IsChecked == true;
+            }
+            else if (tag.StartsWith("StripX_"))
+            {
+                if (int.TryParse(tag.Substring(7), out int stripNum))
+                {
+                    var layerData = _observationViewModel.GetDSSDLayerData(dssdLayer);
+                    if (layerData != null && layerData.StripX.ContainsKey(stripNum))
+                    {
+                        data = layerData.StripX[stripNum].Select(x => (double)x).ToArray();
+                        title = $"Strip X{stripNum} ({dssdLayer})";
+                        showFit = ObsChkDSSDFit?.IsChecked == true;
+                    }
+                }
+            }
+            else if (tag.StartsWith("StripY_"))
+            {
+                if (int.TryParse(tag.Substring(7), out int stripNum))
+                {
+                    var layerData = _observationViewModel.GetDSSDLayerData(dssdLayer);
+                    if (layerData != null && layerData.StripY.ContainsKey(stripNum))
+                    {
+                        data = layerData.StripY[stripNum].Select(x => (double)x).ToArray();
+                        title = $"Strip Y{stripNum} ({dssdLayer})";
+                        showFit = ObsChkDSSDFit?.IsChecked == true;
+                    }
+                }
+            }
+            else if (tag == "BGO_High")
+            {
+                data = _observationViewModel.GetBGOLayerData(bgoLayer)?.HighGain?.ToArray();
+                title = $"BGO High Gain ({bgoLayer})";
+                showFit = false; // BGO doesn't have a fit checkbox in main window
+            }
+            else if (tag == "BGO_Low")
+            {
+                data = _observationViewModel.GetBGOLayerData(bgoLayer)?.LowGain?.ToArray();
+                title = $"BGO Low Gain ({bgoLayer})";
+                showFit = false; // BGO doesn't have a fit checkbox in main window
             }
 
             if (data == null || data.Length == 0)
             {
-                MessageBox.Show("No data available for this plot.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"No data available for {title}.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var detailWindow = new ObservationDetailWindow();
-            detailWindow.ShowHistogram(data, tag.Replace("_", " "));
+            var detailWindow = new ObservationDetailWindow(_observationViewModel.FittingService);
+            detailWindow.ShowHistogram(data, title, showFit);
             detailWindow.Show();
         }
         #endregion
