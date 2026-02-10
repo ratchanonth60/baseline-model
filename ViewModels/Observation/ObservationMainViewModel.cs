@@ -14,11 +14,12 @@ using BaselineMode.WPF.Core.Models.Observation;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 {
-    public partial class ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IFileService fileService, IFileHelper fileHelper) : ObservableObject
+    public partial class ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IMathService mathService, IFileService fileService, IFileHelper fileHelper) : ObservableObject
     {
         private readonly IObservationDataProcessor _dataProcessor = dataProcessor;
         private readonly IObservationExcelHelper _excelHelper = excelHelper;
         private readonly IFittingService _fittingService = fittingService;
+        private readonly IMathService _mathService = mathService;
         private readonly IFileService _fileService = fileService;
         private readonly IFileHelper _fileHelper = fileHelper;
 
@@ -26,6 +27,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         public IObservationDataProcessor DataProcessor => _dataProcessor;
         public IObservationExcelHelper ExcelHelper => _excelHelper;
         public IFittingService FittingService => _fittingService;
+        public IMathService MathService => _mathService;
         public IFileHelper FileHelper => _fileHelper;
         public string CombinedOutputFileName { get; set; } = "CombinedData.xlsx";
 

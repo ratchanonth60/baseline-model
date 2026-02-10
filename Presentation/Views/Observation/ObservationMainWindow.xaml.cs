@@ -297,7 +297,7 @@ namespace BaselineMode.WPF.Views.Observation
             string checksum_hex = (total_sum % 65536).ToString("X4");
             string CheckSum_fromData = hexData[254] + hexData[255];
             string checksumStatus = checksum_hex.Equals(CheckSum_fromData, StringComparison.OrdinalIgnoreCase)
-                ? "✓ Checksum matches!" : "✗ Checksum does not match.";
+                ? "Checksum matches!" : "Checksum does not match.";
 
             TxtHeaderData.Text = $"Packet Sync: {hexData[0]} {hexData[1]}\n" +
                                  $"Package ID: {hexData[2]} {hexData[3]}\n" +
@@ -548,8 +548,8 @@ namespace BaselineMode.WPF.Views.Observation
             {
                 var selectedFit = (CmbDSSDFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
                 var fitResult = selectedFit == "Lorentzian"
-                    ? _viewModel.FittingService.LorentzianFit(binMidpoints, hist)
-                    : _viewModel.FittingService.GaussianFit(binMidpoints, hist);
+                    ? _viewModel.MathService.LorentzianFit(binMidpoints, hist)
+                    : _viewModel.MathService.GaussianFit(binMidpoints, hist);
                 if (fitResult != null)
                 {
                     plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2); // #FF5252
@@ -628,8 +628,8 @@ namespace BaselineMode.WPF.Views.Observation
                 {
                     var selectedFit = (CmbDSSDFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
                     var fitResult = selectedFit == "Lorentzian"
-                        ? _viewModel.FittingService.LorentzianFit(binMidpoints, hist)
-                        : _viewModel.FittingService.GaussianFit(binMidpoints, hist);
+                        ? _viewModel.MathService.LorentzianFit(binMidpoints, hist)
+                        : _viewModel.MathService.GaussianFit(binMidpoints, hist);
                     if (fitResult != null && fitResult.FitCurve != null)
                     {
                         plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve,
@@ -697,8 +697,8 @@ namespace BaselineMode.WPF.Views.Observation
             {
                 var selectedBGOFit = (CmbBGOFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
                 var fitResult = selectedBGOFit == "Lorentzian"
-                    ? _viewModel.FittingService.LorentzianFit(binMidpoints, hist)
-                    : _viewModel.FittingService.GaussianFit(binMidpoints, hist);
+                    ? _viewModel.MathService.LorentzianFit(binMidpoints, hist)
+                    : _viewModel.MathService.GaussianFit(binMidpoints, hist);
                 if (fitResult != null)
                 {
                     plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
