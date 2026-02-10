@@ -382,6 +382,22 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- View Group (X-Axis) -->
+                        <Border Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <TextBlock Text="X-Axis:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <ComboBox SelectedIndex="{Binding SelectedXAxisIndex}" Width="80" Style="{StaticResource RibbonCombo}">
+                                            <ComboBoxItem Content="ADC"/>
+                                            <ComboBoxItem Content="Voltage"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="View" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
 
                     </StackPanel>
 
