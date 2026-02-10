@@ -14,13 +14,13 @@ using BaselineMode.WPF.Core.Models.Observation;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 {
-    public partial class ObservationMainViewModel : ObservableObject
+    public partial class ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IFileService fileService, IFileHelper fileHelper) : ObservableObject
     {
-        private readonly IObservationDataProcessor _dataProcessor;
-        private readonly IObservationExcelHelper _excelHelper;
-        private readonly IFittingService _fittingService;
-        private readonly IFileService _fileService;
-        private readonly IFileHelper _fileHelper;
+        private readonly IObservationDataProcessor _dataProcessor = dataProcessor;
+        private readonly IObservationExcelHelper _excelHelper = excelHelper;
+        private readonly IFittingService _fittingService = fittingService;
+        private readonly IFileService _fileService = fileService;
+        private readonly IFileHelper _fileHelper = fileHelper;
 
         // Services exposed as Interfaces
         public IObservationDataProcessor DataProcessor => _dataProcessor;
@@ -28,15 +28,6 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         public IFittingService FittingService => _fittingService;
         public IFileHelper FileHelper => _fileHelper;
         public string CombinedOutputFileName { get; set; } = "CombinedData.xlsx";
-
-        public ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IFileService fileService, IFileHelper fileHelper)
-        {
-            _dataProcessor = dataProcessor;
-            _excelHelper = excelHelper;
-            _fittingService = fittingService;
-            _fileService = fileService;
-            _fileHelper = fileHelper;
-        }
 
         [ObservableProperty]
         private string[]? _inputFileList;
@@ -67,8 +58,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         [RelayCommand]
         private void BrowseOutputDirectory()
         {
-            var dialog = new Microsoft.Win32.OpenFolderDialog();
-            dialog.Title = "Select Output Root Folder";
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Select Output Root Folder"
+            };
             if (dialog.ShowDialog() == true)
             {
                 OutputDirectoryPath = dialog.FolderName;
@@ -77,7 +70,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
         // Graph Settings
         [ObservableProperty]
-        private System.Windows.Media.Color _selectedGraphBackground = System.Windows.Media.Colors.Black;
+        private System.Windows.Media.Color _selectedGraphBackground = System.Windows.Media.Colors.Gray;
 
         [ObservableProperty]
         private System.Windows.Media.Color _selectedDSSDColor = System.Windows.Media.Colors.Orange;
@@ -113,12 +106,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         // --- Data Access Helpers for View ---
         public LayerData? GetDSSDLayerData(DetectorLayer layer)
         {
-            return _dataProcessor.DSSDData.ContainsKey(layer) ? _dataProcessor.DSSDData[layer] : null;
+            return _dataProcessor.DSSDData.TryGetValue(layer, out LayerData? value) ? value : null;
         }
 
         public BGOData? GetBGOLayerData(BGOLayer layer)
         {
-            return _dataProcessor.BGOData.ContainsKey(layer) ? _dataProcessor.BGOData[layer] : null;
+            return _dataProcessor.BGOData.TryGetValue(layer, out BGOData? value) ? value : null;
         }
 
         [RelayCommand]
@@ -215,8 +208,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                 foreach (var fileName in InputFileList!)
                 {
                     var fileContent = File.ReadAllText(fileName);
-                    var cleanedData = Regex.Replace(fileContent, @"\s+", "");
-                    var matches = Regex.Matches(cleanedData, $@"{ObservationConstants.HeaderStart}[0-9A-F]+");
+                    var cleanedData = MyRegex().Replace(fileContent, "");
+                    var matches = MyRegex1().Matches(cleanedData);
 
                     foreach (Match match in matches)
                     {
@@ -273,7 +266,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
             {
                 StatusMessage = "Error!";
                 IsBusy = false;
-                // Log or Show MessageBox via Service
+                System.Diagnostics.Debug.WriteLine(ex.Message);
             }
         }
 
@@ -306,7 +299,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                     StatusMessage = $"{fileNames.Length} file(s) selected.";
                     OutputFileName = Path.GetFileNameWithoutExtension(combinedOutputFilePath);
                     StatusMessage = $"Files combined successfully into {combinedOutputFilePath}";
-                    InputFileList = new string[] { combinedOutputFilePath };
+                    InputFileList = [combinedOutputFilePath];
                 }
                 catch (Exception ex)
                 {
@@ -314,5 +307,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                 }
             }
         }
+
+        [GeneratedRegex(@"\s+")]
+        private static partial Regex MyRegex();
+        [GeneratedRegex("E225[0-9A-F]+")]
+        private static partial Regex MyRegex1();
     }
 }

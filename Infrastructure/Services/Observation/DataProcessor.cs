@@ -23,12 +23,12 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
         public Dictionary<BGOLayer, BGOData> BGOData { get; private set; } = new Dictionary<BGOLayer, BGOData>();
 
         // Kalman Filters (Using Dictionaries for better management if needed, but keeping simple fields for now)
-        private KalmanFilter kalmanL3BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private KalmanFilter kalmanL3BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private KalmanFilter kalmanL4BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private KalmanFilter kalmanL4BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private KalmanFilter kalmanL5BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private KalmanFilter kalmanL5BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL3BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL3BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL4BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL4BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL5BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL5BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
 
         public KalmanFilter KalmanBGOLowGain { get; private set; } = new KalmanFilter(1, 1, 1, 1, 1, 0);
         public KalmanFilter KalmanBGOHighGain { get; private set; } = new KalmanFilter(1, 1, 1, 1, 1, 0);

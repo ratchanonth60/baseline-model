@@ -111,16 +111,78 @@
                             </StackPanel>
                         </materialDesign:Card>
 
-                        <!-- Output Settings Card -->
-                        <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="0" Grid.Column="1">
-                            <StackPanel>
-                                <TextBlock Text="💾 Output Settings" Style="{StaticResource HeaderTextStyle}"/>
-                                <TextBox x:Name="TxtOutputFileName" 
-                                         materialDesign:HintAssist.Hint="Output filename (without extension)"
-                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                                         Margin="0,0,0,8"/>
-                            </StackPanel>
-                        </materialDesign:Card>
+                        <!-- Output and Graph Settings Stack -->
+                        <StackPanel Grid.Row="0" Grid.Column="1">
+                            <!-- Output Settings Card -->
+                            <materialDesign:Card Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="💾 Output Settings" Style="{StaticResource HeaderTextStyle}"/>
+                                    <TextBox x:Name="TxtOutputFileName" 
+                                             materialDesign:HintAssist.Hint="Output filename (without extension)"
+                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                             Margin="0,0,0,8"/>
+                                </StackPanel>
+                            </materialDesign:Card>
+
+                            <!-- Graph Settings Card -->
+                            <materialDesign:Card Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="🎨 Graph Settings" Style="{StaticResource HeaderTextStyle}"/>
+                                    <UniformGrid Columns="3">
+                                        <!-- Background Color -->
+                                        <StackPanel Margin="0,0,8,0">
+                                            <TextBlock Text="Background" FontSize="11" Foreground="Gray" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <ToggleButton x:Name="ToggleBgColor" Height="24" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                                <Rectangle Width="50" Height="20" Stroke="Gray" StrokeThickness="1" RadiusX="2" RadiusY="2">
+                                                    <Rectangle.Fill>
+                                                        <SolidColorBrush Color="{Binding SelectedGraphBackground}" />
+                                                    </Rectangle.Fill>
+                                                </Rectangle>
+                                            </ToggleButton>
+                                            <Popup IsOpen="{Binding ElementName=ToggleBgColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBgColor}" AllowsTransparency="True" PopupAnimation="Fade">
+                                                <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                    <materialDesign:ColorPicker Color="{Binding SelectedGraphBackground, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                                </Border>
+                                            </Popup>
+                                        </StackPanel>
+
+                                        <!-- DSSD Color -->
+                                        <StackPanel Margin="0,0,8,0">
+                                            <TextBlock Text="DSSD Color" FontSize="11" Foreground="Gray" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <ToggleButton x:Name="ToggleDSSDColor" Height="24" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                                <Rectangle Width="50" Height="20" Stroke="Gray" StrokeThickness="1" RadiusX="2" RadiusY="2">
+                                                    <Rectangle.Fill>
+                                                        <SolidColorBrush Color="{Binding SelectedDSSDColor}" />
+                                                    </Rectangle.Fill>
+                                                </Rectangle>
+                                            </ToggleButton>
+                                            <Popup IsOpen="{Binding ElementName=ToggleDSSDColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleDSSDColor}" AllowsTransparency="True" PopupAnimation="Fade">
+                                                <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                    <materialDesign:ColorPicker Color="{Binding SelectedDSSDColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                                </Border>
+                                            </Popup>
+                                        </StackPanel>
+
+                                        <!-- BGO Color -->
+                                        <StackPanel>
+                                            <TextBlock Text="BGO Color" FontSize="11" Foreground="Gray" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <ToggleButton x:Name="ToggleBGOColor" Height="24" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                                <Rectangle Width="50" Height="20" Stroke="Gray" StrokeThickness="1" RadiusX="2" RadiusY="2">
+                                                    <Rectangle.Fill>
+                                                        <SolidColorBrush Color="{Binding SelectedBGOColor}" />
+                                                    </Rectangle.Fill>
+                                                </Rectangle>
+                                            </ToggleButton>
+                                            <Popup IsOpen="{Binding ElementName=ToggleBGOColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBGOColor}" AllowsTransparency="True" PopupAnimation="Fade">
+                                                <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                    <materialDesign:ColorPicker Color="{Binding SelectedBGOColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                                </Border>
+                                            </Popup>
+                                        </StackPanel>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </materialDesign:Card>
+                        </StackPanel>
 
                         <!-- Processing Card -->
                         <materialDesign:Card Style="{StaticResource CardStyle}" Grid.Row="1" Grid.Column="0">
@@ -725,7 +787,7 @@
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Text="BGO High Gain" Style="{StaticResource HeaderTextStyle}"/>
-                                <scottPlot:WpfPlot x:Name="PlotBGOHigh" Grid.Row="1"/>
+                                <scottPlot:WpfPlot x:Name="PlotBGOHigh" Grid.Row="0"/>
                                 <WrapPanel Grid.Row="2" Margin="0,8,0,0">
                                     <TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/>
                                     <TextBlock x:Name="TxtBGOHPeak" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF5252"/>

@@ -30,10 +30,10 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
                 var (mu, sigma) = CalculateWeightedMoments(xData, yData);
                 double peak = yData.Max();
-                double[] p0 = new[] { peak, mu, sigma };
+                double[] p0 = [peak, mu, sigma];
 
                 // Gaussian Model
-                Func<double, double[], double> gaussianModel = (x, p) =>
+                static double gaussianModel(double x, double[] p)
                 {
                     double A = Math.Abs(p[0]);
                     double m = p[1];
@@ -41,7 +41,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     if (s < 1e-9) s = 1e-9;
                     double s2 = 2 * s * s;
                     return A * Math.Exp(-Math.Pow(x - m, 2) / s2);
-                };
+                }
 
                 // Fit using Selected Algorithm
                 double[] pFit = FitCurve(gaussianModel, p0, xData, yData);
@@ -71,16 +71,79 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
         }
 
+        public FittingResult LorentzianFit(double[] xData, double[] yData)
+        {
+            try
+            {
+                if (xData == null || yData == null || xData.Length != yData.Length || xData.Length == 0)
+                    return FittingResult.Empty(0);
+
+                var (mu, sigma) = CalculateWeightedMoments(xData, yData);
+                double peak = yData.Max();
+                double gamma = Math.Max(sigma, 1e-9); // Initial gamma estimate from sigma
+                double[] p0 = [peak, mu, gamma];
+
+                // Lorentzian Model: L(x) = A * gamma^2 / ((x - x0)^2 + gamma^2)
+                static double lorentzianModel(double x, double[] p)
+                {
+                    double A = Math.Abs(p[0]);
+                    double x0 = p[1];
+                    double g = Math.Abs(p[2]);
+                    if (g < 1e-9) g = 1e-9;
+                    return A * g * g / (Math.Pow(x - x0, 2) + g * g);
+                }
+
+                // Fit using Selected Algorithm
+                double[] pFit = FitCurve(lorentzianModel, p0, xData, yData);
+
+                double fitA = Math.Abs(pFit[0]);
+                double fitMu = pFit[1];
+                double fitGamma = Math.Abs(pFit[2]);
+
+                double[] fitCurve = new double[xData.Length];
+                double sumSqErr = 0;
+                for (int i = 0; i < xData.Length; i++)
+                {
+                    double val = fitA * fitGamma * fitGamma / (Math.Pow(xData[i] - fitMu, 2) + fitGamma * fitGamma);
+                    fitCurve[i] = val;
+                    double r = yData[i] - val;
+                    sumSqErr += r * r;
+                }
+                double rms = Math.Sqrt(sumSqErr / xData.Length);
+                double fwhm = 2 * fitGamma;
+                double resolution = Math.Abs(fitMu) > 1e-9 ? (fwhm / fitMu * 100.0) : 0;
+
+                // R-Squared
+                double yMean = yData.Length > 0 ? yData.Average() : 0;
+                double ssTot = yData.Sum(y => Math.Pow(y - yMean, 2));
+                double ssRes = sumSqErr;
+                double rSquared = ssTot > 1e-9 ? 1 - (ssRes / ssTot) : 0;
+
+                var result = new FittingResult(fitCurve, fitMu, fitGamma, fitA, rms)
+                {
+                    FWHM = fwhm,
+                    Resolution = resolution,
+                    R_Squared = rSquared
+                };
+                return result;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Lorentzian Fit Error: {ex.Message}");
+                return FittingResult.Empty(xData?.Length ?? 0);
+            }
+        }
+
         public FittingResult HemgSingleSidedFit(double[] xData, double[] yData)
         {
-            var result = HemgSingleSidedFitHistogram(xData, yData);
-            if (result.parameters == null || result.parameters.Length < 6)
+            var (fitCurve, parameters) = HemgSingleSidedFitHistogram(xData, yData);
+            if (parameters == null || parameters.Length < 6)
                 return FittingResult.Empty(xData?.Length ?? 0);
 
-            var p = result.parameters;
+            var p = parameters;
             var res = new FittingResult
             {
-                FitCurve = result.fitCurve,
+                FitCurve = fitCurve,
                 A = p[0],
                 Mu = p[1],
                 Sigma = p[2],
@@ -97,17 +160,17 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData)
         {
-            var result = HemgDoubleSidedFitHistogram(xData, yData);
-            if (result.parameters == null || result.parameters.Length < 7)
+            var (fitCurve, parameters) = HemgDoubleSidedFitHistogram(xData, yData);
+            if (parameters == null || parameters.Length < 7)
                 return FittingResult.Empty(xData?.Length ?? 0);
 
-            var p = result.parameters;
-            return new FittingResult(result.fitCurve, p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
+            var p = parameters;
+            return new FittingResult(fitCurve, p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
         }
 
         public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] thresholdedData)
         {
-            var (edges, centers, counts) = CreateHistogram(thresholdedData);
+            var (_, centers, counts) = CreateHistogram(thresholdedData);
             return HemgDoubleSidedFitHistogram(centers, counts, thresholdedData);
         }
 
@@ -127,16 +190,16 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 double mu0, sigma0;
                 (mu0, sigma0) = CalculateWeightedMoments(centers, counts);
 
-                double[] p0 = new[] { A0, mu0, sigma0, 0.5, 1.5, 0.5, 0.5 };
+                double[] p0 = [A0, mu0, sigma0, 0.5, 1.5, 0.5, 0.5];
 
                 // Define Model
-                Func<double, double[], double> modelFunc = (xVal, p) =>
+                static double modelFunc(double xVal, double[] p)
                 {
                     // p: A, mu, sigma, tauL, tauR, etaL, etaR
                     return HyperEmgDouble(xVal, Math.Abs(p[0]), p[1], Math.Abs(p[2]),
-                                          new[] { Math.Abs(p[3]) }, new[] { p[5] },
-                                          new[] { Math.Abs(p[4]) }, new[] { p[6] });
-                };
+                                          [Math.Abs(p[3])], [p[5]],
+                                          [Math.Abs(p[4])], [p[6]]);
+                }
 
                 // Fit using Selected Algorithm
                 double[] pFit = FitCurve(modelFunc, p0, centers, normCounts);
@@ -149,8 +212,8 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 for (int i = 0; i < centers.Length; i++)
                 {
                     fitCurve[i] = HyperEmgDouble(centers[i], pFit[0], pFit[1], pFit[2],
-                                                 new[] { pFit[3] }, new[] { pFit[5] },
-                                                 new[] { pFit[4] }, new[] { pFit[6] });
+                                                 [pFit[3]], [pFit[5]],
+                                                 [pFit[4]], [pFit[6]]);
                     if (!double.IsFinite(fitCurve[i])) fitCurve[i] = 0.0;
                 }
 
@@ -165,7 +228,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         public (double[] fitCurve, double[] parameters) HemgSingleSidedFit(double[] input)
         {
-            var (edges, centers, counts) = CreateHistogram(input);
+            var (_, centers, counts) = CreateHistogram(input);
             return HemgSingleSidedFitHistogram(centers, counts, input);
         }
 
@@ -184,14 +247,14 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 double mu0, sigma0;
                 (mu0, sigma0) = CalculateWeightedMoments(centers, counts);
 
-                double[] p0 = new[] { A0, mu0, sigma0, 0.5, 1.5, 0.5 };
+                double[] p0 = [A0, mu0, sigma0, 0.5, 1.5, 0.5];
 
-                Func<double, double[], double> modelFunc = (xVal, p) =>
+                static double modelFunc(double xVal, double[] p)
                 {
                     return HyperEmgLeft(xVal, Math.Abs(p[0]), p[1], Math.Abs(p[2]),
-                                        new[] { Math.Abs(p[3]), Math.Abs(p[4]) },
-                                        new[] { p[5], 1.0 - p[5] });
-                };
+                                        [Math.Abs(p[3]), Math.Abs(p[4])],
+                                        [p[5], 1.0 - p[5]]);
+                }
 
                 // Fit using Selected Algorithm
                 double[] pFit = FitCurve(modelFunc, p0, centers, normCounts);
@@ -202,8 +265,8 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 for (int i = 0; i < centers.Length; i++)
                 {
                     fitCurve[i] = HyperEmgLeft(centers[i], pFit[0], pFit[1], pFit[2],
-                                             new[] { pFit[3], pFit[4] },
-                                             new[] { pFit[5], 1.0 - pFit[5] });
+                                             [pFit[3], pFit[4]],
+                                             [pFit[5], 1.0 - pFit[5]]);
                 }
 
                 return (fitCurve, pFit);
@@ -218,20 +281,16 @@ namespace BaselineMode.WPF.Infrastructure.Services
         // --- Fitting Strategy Dispatcher ---
         private double[] FitCurve(Func<double, double[], double> modelFunc, double[] p0, double[] centers, double[] normCounts)
         {
-            switch (Algorithm)
+            return Algorithm switch
             {
-                case FittingAlgorithm.NelderMead:
-                    return FitCurveNelderMead(modelFunc, p0, centers, normCounts);
-                case FittingAlgorithm.GradientDescentLegacy:
-                    return FitCurveGradientDescentLegacy(modelFunc, p0, centers, normCounts);
-                case FittingAlgorithm.LevenbergMarquardt:
-                default:
-                    return FitCurveLevenbergMarquardtManual(modelFunc, p0, centers, normCounts);
-            }
+                FittingAlgorithm.NelderMead => FitCurveNelderMead(modelFunc, p0, centers, normCounts),
+                FittingAlgorithm.GradientDescentLegacy => FitCurveGradientDescentLegacy(modelFunc, p0, centers, normCounts),
+                _ => FitCurveLevenbergMarquardtManual(modelFunc, p0, centers, normCounts),
+            };
         }
 
         // --- Strategy 1: Manual Levenberg-Marquardt ---
-        private double[] FitCurveLevenbergMarquardtManual(Func<double, double[], double> modelFunc, double[] p0, double[] xData, double[] yData)
+        private static double[] FitCurveLevenbergMarquardtManual(Func<double, double[], double> modelFunc, double[] p0, double[] xData, double[] yData)
         {
             int n = p0.Length;
             int m = xData.Length;
@@ -280,7 +339,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     if (lambda > 1e7) break;
                 }
             }
-            return EnforceConstraints(p.ToArray(), p0.Length);
+            return EnforceConstraints([.. p], p0.Length);
         }
 
         // --- Strategy 2: Nelder-Mead Simplex ---
@@ -293,9 +352,9 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 var yVec = Vector<double>.Build.DenseOfArray(yData);
 
                 // Objective: Sum Squared Error
-                Func<Vector<double>, double> objective = (pVec) =>
+                double objective(Vector<double> pVec)
                 {
-                    double[] p = pVec.ToArray();
+                    double[] p = [.. pVec];
                     double sumSq = 0;
                     for (int i = 0; i < xData.Length; i++)
                     {
@@ -303,7 +362,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                         sumSq += diff * diff;
                     }
                     return sumSq;
-                };
+                }
 
                 // Use Math.NET's NelderMeadSimplex
                 var obj = ObjectiveFunction.Value(objective);
@@ -311,7 +370,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 var initialGuess = Vector<double>.Build.DenseOfArray(p0);
 
                 var result = solver.FindMinimum(obj, initialGuess);
-                return EnforceConstraints(result.MinimizingPoint.ToArray(), p0.Length);
+                return EnforceConstraints([.. result.MinimizingPoint], p0.Length);
             }
             catch (Exception ex)
             {
@@ -322,14 +381,14 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         // --- Strategy 3: Legacy Gradient Descent (Simplified) ---
-        private double[] FitCurveGradientDescentLegacy(Func<double, double[], double> modelFunc, double[] p0, double[] xData, double[] yData)
+        private static double[] FitCurveGradientDescentLegacy(Func<double, double[], double> modelFunc, double[] p0, double[] xData, double[] yData)
         {
             // Fallback to LMA for now until requested full legacy copy
             // But treating it as "Standard Gradient Descent" (which LMA basically encompasses)
             return FitCurveLevenbergMarquardtManual(modelFunc, p0, xData, yData);
         }
 
-        private double[] EnforceConstraints(double[] finalP, int p0Length)
+        private static double[] EnforceConstraints(double[] finalP, int p0Length)
         {
             finalP[0] = Math.Abs(finalP[0]); // A
             finalP[2] = Math.Abs(finalP[2]); // Sigma
@@ -342,21 +401,21 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return finalP;
         }
 
-        private Vector<double> CalcResiduals(Func<double, double[], double> model, Vector<double> p, double[] x, Vector<double> y)
+        private static Vector<double> CalcResiduals(Func<double, double[], double> model, Vector<double> p, double[] x, Vector<double> y)
         {
             var res = new double[x.Length];
-            double[] pArr = p.ToArray();
+            double[] pArr = [.. p];
             for (int i = 0; i < x.Length; i++)
                 res[i] = y[i] - model(x[i], pArr);
             return Vector<double>.Build.Dense(res);
         }
 
-        private Matrix<double> CalcJacobian(Func<double, double[], double> model, Vector<double> p, double[] x)
+        private static Matrix<double> CalcJacobian(Func<double, double[], double> model, Vector<double> p, double[] x)
         {
             int n = p.Count;
             int m = x.Length;
             var J = Matrix<double>.Build.Dense(m, n);
-            double[] pArr = p.ToArray();
+            double[] pArr = [.. p];
             double delta = 1e-6;
 
             var f0 = new double[m];
@@ -378,7 +437,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         // --- Helpers ---
 
-        private (double mean, double sigma) CalculateWeightedMoments(double[] x, double[] w)
+        private static (double mean, double sigma) CalculateWeightedMoments(double[] x, double[] w)
         {
             double maxVal = w.Max();
             int peakIdx = Array.IndexOf(w, maxVal);
@@ -397,7 +456,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return (mean, sigma);
         }
 
-        private (double[] edges, double[] centers, double[] counts) CreateHistogram(double[] data)
+        private static (double[] edges, double[] centers, double[] counts) CreateHistogram(double[] data)
         {
             int numBins = 16384;
             double[] edges = new double[numBins + 1];
@@ -419,7 +478,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return (edges, centers, counts);
         }
 
-        private double HyperEmgDouble(double x, double A, double mu, double sigma,
+        private static double HyperEmgDouble(double x, double A, double mu, double sigma,
                                      double[] tausLeft, double[] etasLeft,
                                      double[] tausRight, double[] etasRight)
         {
@@ -439,7 +498,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return y;
         }
 
-        private double HyperEmgLeft(double x, double A, double mu, double sigma, double[] taus, double[] etas)
+        private static double HyperEmgLeft(double x, double A, double mu, double sigma, double[] taus, double[] etas)
         {
             double y = 0.0;
             for (int i = 0; i < taus.Length; i++)
@@ -452,7 +511,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return y;
         }
 
-        private double HyperComponent(double x, double mu, double sigma, double tau, bool isLeft)
+        private static double HyperComponent(double x, double mu, double sigma, double tau, bool isLeft)
         {
             double sigma2 = sigma * sigma;
             double tau2 = tau * tau;
@@ -471,8 +530,8 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return (1.0 / (2.0 * tau)) * Math.Exp(z) * Erfc(arg);
         }
 
-        private double Erfc(double x) { return 1.0 - Erf(x); }
-        private double Erf(double x)
+        private static double Erfc(double x) { return 1.0 - Erf(x); }
+        private static double Erf(double x)
         {
             const double a1 = 0.254829592;
             const double a2 = -0.284496736;

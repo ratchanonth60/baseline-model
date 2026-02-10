@@ -28,7 +28,7 @@ namespace BaselineMode.WPF.Views.Baseline
                 else
                 {
                     // Fallback to default
-                    vm.RenderTo(DetailPlot, System.Drawing.Color.Gray, System.Drawing.Color.LightGray, System.Drawing.Color.Black, System.Drawing.Color.Blue);
+                    vm.RenderTo(DetailPlot, System.Drawing.Color.Gray, System.Drawing.Color.Gray, System.Drawing.Color.Black, System.Drawing.Color.Blue);
                 }
             }
         }

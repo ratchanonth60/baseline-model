@@ -1,4 +1,5 @@
 <Window x:Class="BaselineMode.WPF.Views.Shared.UnifiedMainWindow"
+        x:Name="MainWindowRoot"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -286,6 +287,9 @@
                                     </CheckBox>
                                     <CheckBox IsChecked="{Binding ShowHemgDoubleFit}" Margin="0,4,0,0">
                                         <TextBlock Text="HEMG Double" Foreground="#CCCCCC" FontSize="11"/>
+                                    </CheckBox>
+                                    <CheckBox IsChecked="{Binding ShowLorentzianFit}" Margin="0,4,0,0">
+                                        <TextBlock Text="Lorentzian" Foreground="#CCCCCC" FontSize="11"/>
                                     </CheckBox>
                                 </StackPanel>
                                 <TextBlock Text="Fitting" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
@@ -597,7 +601,7 @@
                         </Border>
 
                         <!-- Graph Settings Group -->
-                        <Border x:Name="GraphSettingsPanel" DataContext="{Binding ObservationViewModel, RelativeSource={RelativeSource AncestorType=Window}}" BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                        <Border x:Name="GraphSettingsPanel" DataContext="{Binding ObservationViewModel, ElementName=MainWindowRoot}" BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
                             <StackPanel>
                                 <StackPanel VerticalAlignment="Center" Height="68">
                                     <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
@@ -611,7 +615,7 @@
                                         </ToggleButton>
                                         <Popup IsOpen="{Binding ElementName=ToggleBgColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBgColor}" AllowsTransparency="True" PopupAnimation="Fade">
                                             <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
-                                                <materialDesign:ColorPicker Color="{Binding SelectedGraphBackground, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                                <materialDesign:ColorPicker Color="{Binding SelectedGraphBackground, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
                                             </Border>
                                         </Popup>
                                     </StackPanel>
@@ -626,7 +630,7 @@
                                         </ToggleButton>
                                         <Popup IsOpen="{Binding ElementName=ToggleDSSDColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleDSSDColor}" AllowsTransparency="True" PopupAnimation="Fade">
                                             <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
-                                                <materialDesign:ColorPicker Color="{Binding SelectedDSSDColor, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                                <materialDesign:ColorPicker Color="{Binding SelectedDSSDColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
                                             </Border>
                                         </Popup>
                                     </StackPanel>
@@ -641,7 +645,7 @@
                                         </ToggleButton>
                                         <Popup IsOpen="{Binding ElementName=ToggleBGOColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBGOColor}" AllowsTransparency="True" PopupAnimation="Fade">
                                             <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
-                                                <materialDesign:ColorPicker Color="{Binding SelectedBGOColor, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                                <materialDesign:ColorPicker Color="{Binding SelectedBGOColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
                                             </Border>
                                         </Popup>
                                     </StackPanel>

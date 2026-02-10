@@ -61,7 +61,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         private void RefreshIfHasData()
         {
-            if (ProcessedData != null && ProcessedData.Any())
+            if (ProcessedData != null && ProcessedData.Count != 0)
             {
                 RefreshChannelPlots();
             }
@@ -69,7 +69,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         private void RefreshChannelPlots()
         {
-            if (ProcessedData == null || !ProcessedData.Any()) return;
+            if (ProcessedData == null || ProcessedData.Count == 0) return;
 
             Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
             {
@@ -109,12 +109,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                             meanToSubtract = currentMean;
                         }
 
-                        processedData = rawData.Select(x => x - meanToSubtract).ToArray();
+                        processedData = [.. rawData.Select(x => x - meanToSubtract)];
                     }
                     else
                     {
                         // ไม่ลบ baseline - ใช้ข้อมูลดิบ
-                        processedData = rawData.ToArray();
+                        processedData = [.. rawData];
                     }
 
                     // Apply thresholding
@@ -155,12 +155,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                             if (SelectedXAxisIndex == 1)
                             {
                                 // Voltage (mV): 0-16383 -> 0-5000 mV
-                                binCenters = binCenters.Select(v => ((v / 16383.0) * 5.0) * 1000.0).ToArray();
+                                binCenters = [.. binCenters.Select(v => ((v / 16383.0) * 5.0) * 1000.0)];
                             }
                             else if (SelectedXAxisIndex == 2)
                             {
                                 // Energy (MeV): Linear calibration
-                                binCenters = binCenters.Select(v => (v * EnergyCalibrationSlope) + EnergyCalibrationIntercept).ToArray();
+                                binCenters = [.. binCenters.Select(v => (v * EnergyCalibrationSlope) + EnergyCalibrationIntercept)];
                             }
                         }
 
@@ -182,13 +182,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                             var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
                             if (res.FitCurve != null) fitResults["HEMG-D"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Magenta, Label = "HEMG(2)" };
                         }
+                        if (ShowLorentzianFit)
+                        {
+                            var res = _mathService.LorentzianFit(binCenters, counts);
+                            if (res.FitCurve != null) fitResults["Lorentzian"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Cyan, Label = "Lorentzian" };
+                        }
 
                         ProcessChannelData(chIndex, filteredData, counts, binCenters, fitResults);
                     }
                     else
                     {
                         Channels[chIndex].StatsText = "No Signal";
-                        Channels[chIndex].Counts = new double[0];
+                        Channels[chIndex].Counts = [];
                     }
                 }
             }
@@ -218,9 +223,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
             // Refine stats from the "Best" available fit curve
             double[]? bestFitCurve = null;
-            if (fitResults.ContainsKey("HEMG-D")) bestFitCurve = fitResults["HEMG-D"].Curve;
-            else if (fitResults.ContainsKey("HEMG-S")) bestFitCurve = fitResults["HEMG-S"].Curve;
-            else if (fitResults.ContainsKey("Gaussian")) bestFitCurve = fitResults["Gaussian"].Curve;
+            if (fitResults.TryGetValue("HEMG-D", out ChannelViewModel.FitData? value)) bestFitCurve = value.Curve;
+            else if (fitResults.TryGetValue("HEMG-S", out ChannelViewModel.FitData? value1)) bestFitCurve = value1.Curve;
+            else if (fitResults.TryGetValue("Gaussian", out ChannelViewModel.FitData? value2)) bestFitCurve = value2.Curve;
 
             if (bestFitCurve != null && bestFitCurve.Length > 0)
             {
@@ -239,14 +244,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
             if (isLogScale)
             {
-                chVM.Counts = counts.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
+                chVM.Counts = [.. counts.Select(c => c > 0 ? Math.Log10(c) : 0)];
                 // Update fit curves to log scale
                 foreach (var key in fitResults.Keys.ToList())
                 {
                     var fit = fitResults[key];
                     if (fit.Curve != null)
                     {
-                        fit.Curve = fit.Curve.Select(c => c > 0 ? Math.Log10(c) : 0).ToArray();
+                        fit.Curve = [.. fit.Curve.Select(c => c > 0 ? Math.Log10(c) : 0)];
                     }
                 }
             }
@@ -271,12 +276,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             chVM.RenderPlot(figBg, dataBg, foreColor, seriesColor);
         }
 
-        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
+        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
         {
             return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }
 
-        private (double fwhm, double resolution) CalculateFWHM(double[] binCenters, double[] fitCurve, double mu)
+        private static (double fwhm, double resolution) CalculateFWHM(double[] binCenters, double[] fitCurve, double mu)
         {
             if (fitCurve.Length == 0) return (0, 0);
 
@@ -316,7 +321,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
 
         // Helper function - Interpolate fit curve to match bin centers
-        private double[] InterpolateFitCurve(double[] fitBins, double[] fitCurve, double[] targetBins)
+        private static double[] InterpolateFitCurve(double[] fitBins, double[] fitCurve, double[] targetBins)
         {
             if (fitBins.Length != fitCurve.Length || fitBins.Length == 0)
                 return fitCurve;
@@ -368,7 +373,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         private void UpdateDisplayTable()
         {
-            if (ProcessedData == null || !ProcessedData.Any())
+            if (ProcessedData == null || ProcessedData.Count == 0)
             {
                 DisplayDataTable = new System.Data.DataTable();
                 PageInfoText = "No Data";
@@ -437,16 +442,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         private void ShowChannelDetail(ChannelViewModel channel)
         {
             if (channel == null) return;
-            var window = new BaselineMode.WPF.Views.Baseline.ChannelDetailWindow();
-            window.MainVM = this;
-            window.DataContext = channel;
+            var window = new BaselineMode.WPF.Views.Baseline.ChannelDetailWindow
+            {
+                MainVM = this,
+                DataContext = channel
+            };
             window.Show();
         }
 
         [RelayCommand]
         private void ShowHeatmap()
         {
-            if (ProcessedData == null || !ProcessedData.Any())
+            if (ProcessedData == null || ProcessedData.Count == 0)
             {
                 StatusMessage = "No data to plot heatmap.";
                 return;
@@ -464,8 +471,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         var vm = new HeatmapViewModel(matrix);
-                        var window = new BaselineMode.WPF.Views.Baseline.HeatmapWindow();
-                        window.DataContext = vm;
+                        var window = new BaselineMode.WPF.Views.Baseline.HeatmapWindow
+                        {
+                            DataContext = vm
+                        };
                         window.Show();
                     });
                 }

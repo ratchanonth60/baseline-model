@@ -4,7 +4,12 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
 {
     public class KalmanFilter
     {
-        private double A, H, Q, R, P, x;
+        private readonly double A;
+        private readonly double H;
+        private double Q;
+        private double R;
+        private double P;
+        private double x;
 
         public KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
         {

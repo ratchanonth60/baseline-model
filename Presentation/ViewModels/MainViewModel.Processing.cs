@@ -17,16 +17,16 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         [RelayCommand]
         private void Reset()
         {
-            _selectedFiles = new List<string>();
+            _selectedFiles = [];
             InputFilesInfo = "No files selected";
-            ProcessedData = new List<BaselineData>();
+            ProcessedData = [];
             UpdateDisplayTable();
             InitializeChannels();
             StatusMessage = "Reset complete.";
             StatusColor = System.Windows.Media.Brushes.Gray;
             ProgressValue = 0;
             CurrentPage = 1;
-            RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(new List<BaselineData>()));
+            RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs([]));
         }
 
         [RelayCommand]
@@ -40,7 +40,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         [RelayCommand]
         private async Task PreProcessData()
         {
-            if (!_selectedFiles.Any())
+            if (_selectedFiles.Count == 0)
             {
                 StatusMessage = "No files selected for processing.";
                 StatusColor = System.Windows.Media.Brushes.Red;
@@ -92,7 +92,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                         currentFile++;
                     }
 
-                    if (allData.Any())
+                    if (allData.Count != 0)
                     {
                         // Ensure .xlsx extension
                         string fileName = OutputFileName;
@@ -144,7 +144,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         [RelayCommand]
         private async Task ProcessData()
         {
-            if (!_selectedFiles.Any())
+            if (_selectedFiles.Count == 0)
             {
                 StatusMessage = "Please select files first.";
                 return;
@@ -204,7 +204,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                         DataCountsStr = ProcessedData.Count.ToString();
                         UpdateDisplayTable();
                     });
-                    if (!ProcessedData.Any()) return;
+                    if (ProcessedData.Count == 0) return;
                     // OPTIMIZE: Parallelize processing
                     Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
                     {
@@ -215,7 +215,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                     };
 
                     int processedCount = 0;
-                    object processedLock = new object();
+                    object processedLock = new();
                     Parallel.For(0, 16, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = _cts.Token }, i =>
                     {
                         int chIndex = i;
@@ -320,6 +320,21 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                                             };
                                         }
                                     }
+
+                                    // 4. Lorentzian
+                                    if (ShowLorentzianFit)
+                                    {
+                                        var res = _mathService.LorentzianFit(binCenters, counts);
+                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        {
+                                            fitResults["Lorentzian"] = new ChannelViewModel.FitData
+                                            {
+                                                Curve = res.FitCurve,
+                                                Color = System.Drawing.Color.Cyan,
+                                                Label = "Lorentzian"
+                                            };
+                                        }
+                                    }
                                 }
 
                                 // UI Update (Assign Results + Render)
@@ -328,7 +343,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                             }
                             else
                             {
-                                UpdateChannelStatsSafe(chIndex, "No Signal", new double[0]);
+                                UpdateChannelStatsSafe(chIndex, "No Signal", Array.Empty<double>());
                             }
                         }
                         else
@@ -419,7 +434,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             return result;
         }
 
-        private bool HasSufficientData(double[] filteredData, double[] counts)
+        private static bool HasSufficientData(double[] filteredData, double[] counts)
         {
             return filteredData.Length > 5 && counts.Max() > 0;
         }
@@ -491,11 +506,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             bool fitGaussian = ShowGaussianFit;
             bool fitHemgS = ShowHemgSingleFit;
             bool fitHemgD = ShowHemgDoubleFit;
+            bool fitLorentzian = ShowLorentzianFit;
 
-            if (!fitGaussian && !fitHemgS && !fitHemgD)
+            if (!fitGaussian && !fitHemgS && !fitHemgD && !fitLorentzian)
             {
                 // No fits selected, just render data
-                ProcessChannelData(chIndex, filteredData, counts, binCenters, new Dictionary<string, ChannelViewModel.FitData>());
+                ProcessChannelData(chIndex, filteredData, counts, binCenters, []);
                 return;
             }
 
@@ -581,6 +597,31 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                                 };
                                 fitResults["HEMG-D"] = data;
                                 chVM.CacheFit("HEMG-D", data); // Cache it!
+                            }
+                        }
+                    }
+
+                    // Lorentzian
+                    if (fitLorentzian)
+                    {
+                        var cached = chVM.GetCachedFit("Lorentzian");
+                        if (cached != null)
+                        {
+                            fitResults["Lorentzian"] = cached;
+                        }
+                        else
+                        {
+                            var res = _mathService.LorentzianFit(binCenters, counts);
+                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            {
+                                var data = new ChannelViewModel.FitData
+                                {
+                                    Curve = res.FitCurve,
+                                    Color = System.Drawing.Color.Cyan,
+                                    Label = "Lorentzian"
+                                };
+                                fitResults["Lorentzian"] = data;
+                                chVM.CacheFit("Lorentzian", data);
                             }
                         }
                     }

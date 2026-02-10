@@ -36,17 +36,15 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
             }
 
             string fullPath = Path.Combine(saveDirectory, filePath);
-            using (var package = new ExcelPackage())
+            using var package = new ExcelPackage();
+            var worksheet = package.Workbook.Worksheets.Add("Processed Data");
+
+            for (int i = 0; i < data.Count; i++)
             {
-                var worksheet = package.Workbook.Worksheets.Add("Processed Data");
-
-                for (int i = 0; i < data.Count; i++)
-                {
-                    worksheet.Cells[i + 1, 1].Value = data[i];
-                }
-
-                package.SaveAs(new FileInfo(fullPath));
+                worksheet.Cells[i + 1, 1].Value = data[i];
             }
+
+            package.SaveAs(new FileInfo(fullPath));
         }
 
         public string SaveAllResultsToExcel(string folderName, List<Dictionary<string, object>> allResults)

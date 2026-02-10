@@ -56,6 +56,7 @@ namespace BaselineMode.WPF.Views.Shared
                     ObsDateTimeLabel.Text = DateTime.Now.ToString(FORMAT_DATE);
             };
             _obsDateTimeTimer.Start();
+            GraphSettingsPanel.DataContext = observationViewModel;
 
             this.Loaded += UnifiedMainWindow_Loaded;
         }
@@ -219,14 +220,14 @@ namespace BaselineMode.WPF.Views.Shared
 
         private WpfPlot[] GetAllObservationPlots()
         {
-            return new[]
-            {
+            return
+            [
                 ObsPlotDSSDX, ObsPlotDSSDY, ObsPlotBGOHigh, ObsPlotBGOLow,
                 ObsPlotStripX1, ObsPlotStripX2, ObsPlotStripX3, ObsPlotStripX4,
                 ObsPlotStripX5, ObsPlotStripX6, ObsPlotStripX7, ObsPlotStripX8,
                 ObsPlotStripY1, ObsPlotStripY2, ObsPlotStripY3, ObsPlotStripY4,
                 ObsPlotStripY5, ObsPlotStripY6, ObsPlotStripY7, ObsPlotStripY8
-            };
+            ];
         }
 
         private void ObsBtnSelectFiles_Click(object sender, RoutedEventArgs e)
@@ -246,6 +247,20 @@ namespace BaselineMode.WPF.Views.Shared
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
+                // 1. Update Backgrounds & Foreground
+                var bgColor = GetBackgroundColor();
+                var fgColor = GetForegroundColor();
+
+                var allPlots = GetAllObservationPlots();
+                foreach (var plot in allPlots)
+                {
+                    if (plot == null) continue;
+                    // Sync dataBackground with figureBackground for consistent color
+                    plot.Plot.Style(figureBackground: bgColor, dataBackground: bgColor);
+                    plot.Plot.Style(tick: fgColor, grid: System.Drawing.Color.FromArgb(60, fgColor.R, fgColor.G, fgColor.B), titleLabel: fgColor, axisLabel: fgColor);
+                    plot.Refresh();
+                }
+
                 RefreshDSSDPlots();
                 RefreshBGOPlots();
             });
@@ -411,7 +426,7 @@ namespace BaselineMode.WPF.Views.Shared
                 _stopFlag = false;
 
                 bool isFirstData = true;
-                string[] hexData = Array.Empty<string>();
+                string[] hexData = [];
 
                 while (_data <= _totalSteps && !_stopFlag)
                 {
@@ -653,8 +668,8 @@ namespace BaselineMode.WPF.Views.Shared
                 var stripY = new List<int>[8];
                 for (int i = 0; i < 8; i++)
                 {
-                    stripX[i] = layerData.StripX.ContainsKey(i + 1) ? layerData.StripX[i + 1] : new List<int>();
-                    stripY[i] = layerData.StripY.ContainsKey(i + 1) ? layerData.StripY[i + 1] : new List<int>();
+                    stripX[i] = layerData.StripX.ContainsKey(i + 1) ? layerData.StripX[i + 1] : [];
+                    stripY[i] = layerData.StripY.ContainsKey(i + 1) ? layerData.StripY[i + 1] : [];
                 }
 
                 PlotStripHistogram(ObsPlotStripX1, stripX[0]?.Select(x => (double)x).ToArray(), "X1", ObsTxtX1Peak, ObsTxtX1Counts, ObsTxtX1Mean, ObsTxtX1RMS, ObsTxtX1FWHM, ObsTxtX1Res);
@@ -717,14 +732,22 @@ namespace BaselineMode.WPF.Views.Shared
 
         #region Plot Helpers
 
-        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
+        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
         {
+            if (mediaColor.A == 0 && mediaColor.R == 0 && mediaColor.G == 0 && mediaColor.B == 0)
+                return System.Drawing.Color.Orange; // Fallback
+            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
+        }
+
+        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor, System.Drawing.Color fallback)
+        {
+            if (mediaColor.A == 0) return fallback;
             return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }
 
         private System.Drawing.Color GetBackgroundColor()
         {
-            return ToDrawingColor(_observationViewModel.SelectedGraphBackground);
+            return ToDrawingColor(_observationViewModel.SelectedGraphBackground, System.Drawing.Color.Gray);
         }
 
         private System.Drawing.Color GetForegroundColor()
@@ -732,7 +755,7 @@ namespace BaselineMode.WPF.Views.Shared
             var c = _observationViewModel.SelectedGraphBackground;
             // Simple luminance calculation
             double luma = 0.299 * c.R + 0.587 * c.G + 0.114 * c.B;
-            return luma < 128 ? System.Drawing.Color.White : System.Drawing.Color.Black;
+            return luma < 128 ? System.Drawing.Color.White : System.Drawing.Color.Gray;
         }
 
 
@@ -783,7 +806,7 @@ namespace BaselineMode.WPF.Views.Shared
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
-            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor);
+            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
 
             // Calculate basic stats manually first
             if (peakLabel != null) peakLabel.Text = $"{hist.Max()}";
@@ -866,7 +889,7 @@ namespace BaselineMode.WPF.Views.Shared
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
-            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedBGOColor);
+            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
 
             if (peak != null) peak.Text = $"{hist.Max()}";
             if (mean != null) mean.Text = $"{filteredData.Average():F2}";
@@ -902,8 +925,7 @@ namespace BaselineMode.WPF.Views.Shared
             // Determine Layer for DSSD
             // Uses standard names if controls are not accessible, but they should be
             int dssdLayerIndex = 0;
-            var dssdCombo = this.FindName("ObsCmbDSSDLayer") as ComboBox;
-            if (dssdCombo != null) dssdLayerIndex = dssdCombo.SelectedIndex;
+            if (this.FindName("ObsCmbDSSDLayer") is ComboBox dssdCombo) dssdLayerIndex = dssdCombo.SelectedIndex;
 
             DetectorLayer dssdLayer = dssdLayerIndex switch
             {
@@ -916,8 +938,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             // Determine Layer for BGO
             int bgoLayerIndex = 0;
-            var bgoCombo = this.FindName("ObsCmbBGOLayer") as ComboBox;
-            if (bgoCombo != null) bgoLayerIndex = bgoCombo.SelectedIndex;
+            if (this.FindName("ObsCmbBGOLayer") is ComboBox bgoCombo) bgoLayerIndex = bgoCombo.SelectedIndex;
 
             BGOLayer bgoLayer = bgoLayerIndex switch
             {
@@ -943,12 +964,12 @@ namespace BaselineMode.WPF.Views.Shared
             }
             else if (tag.StartsWith("StripX_"))
             {
-                if (int.TryParse(tag.Substring(7), out int stripNum))
+                if (int.TryParse(tag.AsSpan(7), out int stripNum))
                 {
                     var layerData = _observationViewModel.GetDSSDLayerData(dssdLayer);
-                    if (layerData != null && layerData.StripX.ContainsKey(stripNum))
+                    if (layerData != null && layerData.StripX.TryGetValue(stripNum, out List<int>? value))
                     {
-                        data = layerData.StripX[stripNum].Select(x => (double)x).ToArray();
+                        data = [.. value.Select(x => (double)x)];
                         title = $"Strip X{stripNum} ({dssdLayer})";
                         showFit = ObsChkDSSDFit?.IsChecked == true;
                     }
@@ -956,12 +977,12 @@ namespace BaselineMode.WPF.Views.Shared
             }
             else if (tag.StartsWith("StripY_"))
             {
-                if (int.TryParse(tag.Substring(7), out int stripNum))
+                if (int.TryParse(tag.AsSpan(7), out int stripNum))
                 {
                     var layerData = _observationViewModel.GetDSSDLayerData(dssdLayer);
-                    if (layerData != null && layerData.StripY.ContainsKey(stripNum))
+                    if (layerData != null && layerData.StripY.TryGetValue(stripNum, out List<int>? value))
                     {
-                        data = layerData.StripY[stripNum].Select(x => (double)x).ToArray();
+                        data = [.. value.Select(x => (double)x)];
                         title = $"Strip Y{stripNum} ({dssdLayer})";
                         showFit = ObsChkDSSDFit?.IsChecked == true;
                     }
@@ -987,7 +1008,21 @@ namespace BaselineMode.WPF.Views.Shared
             }
 
             var detailWindow = new ObservationDetailWindow(_observationViewModel.FittingService);
-            detailWindow.ShowHistogram(data, title, showFit);
+
+            // Sync Theme
+            var bg = GetBackgroundColor();
+            var fg = GetForegroundColor();
+            detailWindow.SetColorTheme(bg, bg, fg);
+
+            System.Drawing.Color? barColor = null;
+            if (tag.Contains("BGO")) barColor = ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
+            else barColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+
+            // Ensure Opacity
+            if (barColor.HasValue)
+                barColor = System.Drawing.Color.FromArgb(255, barColor.Value);
+
+            detailWindow.ShowHistogram(data, title, showFit, barColor);
             detailWindow.Show();
         }
         #endregion

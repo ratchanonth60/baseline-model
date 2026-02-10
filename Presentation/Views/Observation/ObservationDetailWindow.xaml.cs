@@ -16,6 +16,7 @@ namespace BaselineMode.WPF.Views.Observation
 
         private double[]? _currentData;
         private string _currentTitle = string.Empty;
+        private System.Drawing.Color _dataColor = System.Drawing.Color.FromArgb(255, 0, 150, 136);
         private bool _isUpdatingUi;
 
         public ObservationDetailWindow(IFittingService fittingService) : this()
@@ -25,10 +26,11 @@ namespace BaselineMode.WPF.Views.Observation
             ChkShowFit.Unchecked += (s, e) => UpdatePlot();
         }
 
-        public void ShowHistogram(double[] data, string title, bool showFit = true)
+        public void ShowHistogram(double[] data, string title, bool showFit = true, System.Drawing.Color? color = null)
         {
             _currentData = data;
             _currentTitle = title;
+            if (color.HasValue) _dataColor = color.Value;
             TitleText.Text = title;
             Title = $"Detail View - {title}";
 
@@ -39,11 +41,28 @@ namespace BaselineMode.WPF.Views.Observation
             UpdatePlot();
         }
 
+        private System.Drawing.Color _figureBg = System.Drawing.Color.FromArgb(255, 37, 37, 38);
+        private System.Drawing.Color _dataBg = System.Drawing.Color.FromArgb(255, 37, 37, 38);
+        private System.Drawing.Color _fgColor = System.Drawing.Color.White;
+
+        public void SetColorTheme(System.Drawing.Color figureBg, System.Drawing.Color dataBg, System.Drawing.Color fgColor)
+        {
+            _figureBg = figureBg;
+            _dataBg = dataBg;
+            _fgColor = fgColor;
+        }
+
         private void UpdatePlot()
         {
             if (_isUpdatingUi) return;
 
             DetailPlot.Plot.Clear();
+
+            // Apply Theme
+            DetailPlot.Plot.Style(figureBackground: _figureBg, dataBackground: _dataBg);
+            DetailPlot.Plot.Style(tick: _fgColor, grid: System.Drawing.Color.FromArgb(60, _fgColor.R, _fgColor.G, _fgColor.B), titleLabel: _fgColor, axisLabel: _fgColor);
+            DetailPlot.Plot.XAxis.Label(label: "ADC Channel", color: _fgColor);
+            DetailPlot.Plot.YAxis.Label(label: "Count", color: _fgColor);
 
             if (_currentData == null || _currentData.Length == 0)
             {
@@ -69,8 +88,11 @@ namespace BaselineMode.WPF.Views.Observation
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
+            double binWidth = binEdges[1] - binEdges[0];
             var bar = DetailPlot.Plot.AddBar(hist, binMidpoints);
-            bar.FillColor = System.Drawing.Color.FromArgb(255, 0, 150, 136);
+            bar.BarWidth = binWidth;
+            bar.FillColor = _dataColor;
+            bar.BorderColor = bar.FillColor;
 
             // Reset Stats
             TxtPeak.Text = "-";
@@ -101,11 +123,6 @@ namespace BaselineMode.WPF.Views.Observation
                 }
                 catch { /* Fitting failed */ }
             }
-            // If fit is NOT checked, we still might want to show basic stats depending on user preference, 
-            // but for now let's just show basic stats if fit is off? 
-            // The original code only calculated stats if fitResult was valid. 
-            // Let's at least calculate basic stats (Mean/RMS) from raw data if fit is off?
-            // The user request was about "fit curve", so let's stick to toggling the curve and the fit-derived stats.
             else
             {
                 // Calculate basic stats manually if fit is disabled
@@ -118,11 +135,6 @@ namespace BaselineMode.WPF.Views.Observation
                 TxtRMS.Text = $"{stdDev:F2}";
             }
 
-            DetailPlot.Plot.Style(ScottPlot.Style.Gray1);
-            DetailPlot.Plot.Style(figureBackground: System.Drawing.Color.FromArgb(255, 37, 37, 38));
-            DetailPlot.Plot.Style(dataBackground: System.Drawing.Color.FromArgb(255, 40, 40, 40));
-            DetailPlot.Plot.YAxis.Label("Count");
-            DetailPlot.Plot.XAxis.Label("ADC Channel");
             DetailPlot.Plot.SetAxisLimits(yMin: 0);
             DetailPlot.Refresh();
         }

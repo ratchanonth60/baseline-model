@@ -21,19 +21,14 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         private bool _disposed = false;
 
-        public class KalmanFilter
+        public class KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
         {
-            private double A, H, Q, R, P, x;
-
-            public KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
-            {
-                this.A = A;
-                this.H = H;
-                this.Q = Q;
-                this.R = R;
-                this.P = initial_P;
-                this.x = initial_x;
-            }
+            private readonly double A = A;
+            private readonly double H = H;
+            private double Q = Q;
+            private double R = R;
+            private double P = initial_P;
+            private double x = initial_x;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetR(double R) => this.R = R;
@@ -56,7 +51,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
                 // Measurement update - correction
                 double K = P * H / (H * P * H + R);
-                x = x + K * (input - H * x);
+                x += K * (input - H * x);
                 P = (1 - K * H) * P;
 
                 return x;
@@ -144,66 +139,141 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
             return totalWeight < MIN_VALUE ? 0 : Math.Sqrt(sumSquaredDifferences / totalWeight);
         }
+        public static double CalculateLorentzianValue(double x, double A, double x0, double gamma)
+        {
+            if (gamma == 0)
+                return (x == x0 ? A : 0.0);
+            double numberator = A * gamma * gamma;
+            double denominator = Math.Pow(x - x0, 2) + Math.Pow(gamma, 2);
+            return numberator / denominator;
+        }
+
         /// <summary>
         /// Performs Lorentzian curve fitting with optimized calculations.
         /// Uses pre-computed constants and vectorized operations.
         /// </summary>
-        // [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        // public FittingResult LorentzianFit(double[] xData, double[] yData)
-        // {
-        //     if (_disposed)
-        //         throw new ObjectDisposedException(nameof(MathService));
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        public FittingResult LorentzianFit(double[] xData, double[] yData)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(MathService));
 
-        //     if (xData == null || yData == null || xData.Length == 0)
-        //         return FittingResult.Empty(0);
+            if (xData == null || yData == null || xData.Length == 0)
+                return FittingResult.Empty(0);
 
-        //     // Step 1: Find peak
-        //     int peakIdx = 0;
-        //     double maxCount = yData[0];
-        //     for (int i = 1; i < yData.Length; i++)
-        //     {
-        //         if (yData[i] > maxCount)
-        //         {
-        //             maxCount = yData[i];
-        //             peakIdx = i;
-        //         }
-        //     }
+            // Step 1: Find peak
+            int peakIdx = 0;
+            double maxCount = yData[0];
+            for (int i = 1; i < yData.Length; i++)
+            {
+                if (yData[i] > maxCount)
+                {
+                    maxCount = yData[i];
+                    peakIdx = i;
+                }
+            }
 
-        //     if (maxCount <= 0)
-        //         return FittingResult.Empty(xData.Length);
+            if (maxCount <= 0)
+                return FittingResult.Empty(xData.Length);
 
-        //     double peakPosition = xData[peakIdx];
+            double peakPosition = xData[peakIdx];
 
-        //     // Step 2: Calculate weighted mean and sigma around peak
-        //     double totalWeight = 0;
-        //     double weightedSumX = 0;
-        //     double weightedSumX2 = 0;
+            // Step 2: Estimate gamma (half-width at half-maximum) from the data
+            double halfMax = maxCount / 2.0;
 
-        //     // Use data within ±10% of peak height
-        //     double threshold = maxCount * 0.1;
+            // Search left from peak for half-max crossing
+            double leftX = xData[0];
+            for (int i = peakIdx; i >= 0; i--)
+            {
+                if (yData[i] <= halfMax)
+                {
+                    // Linear interpolation for more accurate crossing point
+                    if (i < peakIdx)
+                    {
+                        double t = (halfMax - yData[i]) / (yData[i + 1] - yData[i]);
+                        leftX = xData[i] + t * (xData[i + 1] - xData[i]);
+                    }
+                    else
+                    {
+                        leftX = xData[i];
+                    }
+                    break;
+                }
+            }
 
-        //     for (int i = 0; i < yData.Length; i++)
-        //     {
-        //         if (yData[i] >= threshold)
-        //         {
-        //             double y = yData[i];
-        //             double x = xData[i];
-        //             double diff = x - peakPosition;
-        //             double weight = y / (1 + diff * diff);
-        //             totalWeight += weight;
-        //             weightedSumX += x * weight;
-        //             weightedSumX2 += x * x * weight;
-        //         }
-        //     }
+            // Search right from peak for half-max crossing
+            double rightX = xData[^1];
+            for (int i = peakIdx; i < xData.Length; i++)
+            {
+                if (yData[i] <= halfMax)
+                {
+                    // Linear interpolation
+                    if (i > peakIdx)
+                    {
+                        double t = (halfMax - yData[i]) / (yData[i - 1] - yData[i]);
+                        rightX = xData[i] + t * (xData[i - 1] - xData[i]);
+                    }
+                    else
+                    {
+                        rightX = xData[i];
+                    }
+                    break;
+                }
+            }
 
-        //     if (totalWeight <= 0)
-        //         return FittingResult.Empty(xData.Length);
+            double fwhm = rightX - leftX;
+            double gamma = Math.Max(fwhm / 2.0, MIN_VALUE); // gamma = HWHM
 
-        //     double mean = weightedSumX / totalWeight;
-        //     double sigma = Math.Sqrt(weightedSumX2 / totalWeight - mean * mean);
+            // Step 3: Refine center (mu) using weighted mean with Lorentzian weighting
+            double totalWeight = 0;
+            double weightedSumX = 0;
+            double threshold = maxCount * 0.1;
 
-        //     return new FittingResult(mean, sigma, peakPosition);
-        // }
+            for (int i = 0; i < yData.Length; i++)
+            {
+                if (yData[i] >= threshold)
+                {
+                    double y = yData[i];
+                    double x = xData[i];
+                    double diff = x - peakPosition;
+                    double weight = y / (1 + (diff * diff) / (gamma * gamma));
+                    totalWeight += weight;
+                    weightedSumX += x * weight;
+                }
+            }
+
+            double mu = totalWeight > 0 ? weightedSumX / totalWeight : peakPosition;
+
+            // Step 4: Generate Lorentzian fit curve
+            // L(x) = A * gamma^2 / ((x - x0)^2 + gamma^2)
+            // At x = x0: L = A, so A = maxCount
+            double A = maxCount;
+            double[] fitCurve = new double[xData.Length];
+
+            for (int i = 0; i < xData.Length; i++)
+            {
+                fitCurve[i] = CalculateLorentzianValue(xData[i], A, mu, gamma);
+            }
+
+            // Step 5: Calculate statistics
+            double sigma = gamma; // For Lorentzian, use gamma as the width parameter
+            double rms = CalculateRMS(xData, fitCurve, mu);
+            double resolution = (Math.Abs(mu) > 1e-9) ? (fwhm / mu * 100.0) : 0;
+
+            // R-Squared
+            double yMean = yData.Average();
+            double ssTot = yData.Sum(y => Math.Pow(y - yMean, 2));
+            double ssRes = yData.Zip(fitCurve, (y, f) => Math.Pow(y - f, 2)).Sum();
+            double rSquared = (ssTot > 1e-9) ? 1 - (ssRes / ssTot) : 0;
+
+            var result = new FittingResult(fitCurve, mu, sigma, maxCount, rms)
+            {
+                FWHM = fwhm,
+                Resolution = resolution,
+                R_Squared = rSquared
+            };
+            return result;
+        }
 
         /// <summary>
         /// Performs Gaussian curve fitting with optimized calculations.
@@ -300,7 +370,11 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         // Helper to forward to internal implementation with optional raw data
-        public FittingResult HyperEMGFit(double[] xData, double[] yData) => HemgSingleSidedFit(xData, yData, null);
+        public FittingResult HyperEMGFit(double[] xData, double[] yData)
+        {
+            return HemgSingleSidedFit(xData, yData, null);
+        }
+
         public FittingResult HyperEMGFit(double[] xData, double[] yData, double[] rawData) => HemgSingleSidedFit(xData, yData, rawData);
 
         // Implementation regarding IFittingService (Standard signature)
@@ -312,18 +386,22 @@ namespace BaselineMode.WPF.Infrastructure.Services
         // ...
 
         // Extended signature with rawData
-        public FittingResult HemgSingleSidedFit(double[] xData, double[] yData, double[] rawData)
+        public FittingResult HemgSingleSidedFit(double[] xData, double[] yData, double[]? rawData)
         {
             if (_disposed)
+            {
                 throw new ObjectDisposedException(nameof(MathService));
+            }
 
             if (xData == null || yData == null || xData.Length == 0)
                 return FittingResult.Empty(0);
 
             try
             {
-                var hemgService = new HemgFittingService();
-                hemgService.Algorithm = this.Algorithm; // Pass selected algorithm
+                var hemgService = new HemgFittingService
+                {
+                    Algorithm = this.Algorithm // Pass selected algorithm
+                };
                 var (fitCurve, p) = hemgService.HemgSingleSidedFitHistogram(xData, yData, rawData);
 
                 if (fitCurve == null || p == null || p.Length < 6)
@@ -351,25 +429,36 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
         }
 
-        public FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData) => HemgDoubleSidedFit(xData, yData, null);
+        public FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData)
+        {
+            return HemgDoubleSidedFit(xData, yData, null);
+        }
+
         public FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData, double[] rawData) => HemgDoubleSidedFit(xData, yData, rawData);
 
         // Implementation regarding IFittingService (Standard signature)
-        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData) => HemgDoubleSidedFit(xData, yData, null);
+        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData)
+        {
+            return HemgDoubleSidedFit(xData, yData, null);
+        }
 
         // Extended signature with rawData
-        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData, double[] rawData)
+        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData, double[]? rawData)
         {
             if (_disposed)
+            {
                 throw new ObjectDisposedException(nameof(MathService));
+            }
 
             if (xData == null || yData == null || xData.Length == 0)
                 return FittingResult.Empty(0);
 
             try
             {
-                var hemgService = new HemgFittingService();
-                hemgService.Algorithm = this.Algorithm; // Pass selected algorithm
+                var hemgService = new HemgFittingService
+                {
+                    Algorithm = this.Algorithm // Pass selected algorithm
+                };
                 var (fitCurve, p) = hemgService.HemgDoubleSidedFitHistogram(xData, yData, rawData);
 
                 if (fitCurve == null || p == null || p.Length < 7)
@@ -416,7 +505,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             result.Resolution = (Math.Abs(result.Mu) > 1e-9) ? (result.FWHM / result.Mu * 100.0) : 0;
         }
 
-        private double CalculateFWHM(double[] x, double[] y, double peak, double mu)
+        private static double CalculateFWHM(double[] x, double[] y, double peak, double mu)
         {
             double halfMax = peak / 2.0;
             int peakIdx = -1;
@@ -464,7 +553,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
-        private double Erfc(double x)
+        private static double Erfc(double x)
         {
             const double p = 0.3275911;
             const double a1 = 0.254829592;
@@ -482,7 +571,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return isNegative ? 2.0 - val : val;
         }
 
-        private double[] SolveLinearSystem(double[][] A, double[] b, int n)
+        private static double[] SolveLinearSystem(double[][] A, double[] b, int n)
         {
             if (n == 3)
                 return SolveLinearSystem3x3(A, b);
@@ -503,10 +592,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     for (int i = k + 1; i < n; i++)
                         if (Math.Abs(M[i][k]) > Math.Abs(M[max][k])) max = i;
 
-                    var temp = M[k];
-                    M[k] = M[max];
-                    M[max] = temp;
-
+                    (M[max], M[k]) = (M[k], M[max]);
                     if (Math.Abs(M[k][k]) < MIN_VALUE)
                         throw new Exception("Singular matrix");
 
@@ -541,7 +627,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private double[] SolveLinearSystem3x3(double[][] A, double[] b)
+        private static double[] SolveLinearSystem3x3(double[][] A, double[] b)
         {
             double det = A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1])
                        - A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0])
@@ -551,20 +637,18 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 throw new Exception("Singular matrix");
 
             double invDet = 1.0 / det;
-            double[] x = new double[3];
-
-            x[0] = (b[0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1])
-                  - A[0][1] * (b[1] * A[2][2] - A[1][2] * b[2])
-                  + A[0][2] * (b[1] * A[2][1] - A[1][1] * b[2])) * invDet;
-
-            x[1] = (A[0][0] * (b[1] * A[2][2] - A[1][2] * b[2])
-                  - b[0] * (A[1][0] * A[2][2] - A[1][2] * A[2][0])
-                  + A[0][2] * (A[1][0] * b[2] - b[1] * A[2][0])) * invDet;
-
-            x[2] = (A[0][0] * (A[1][1] * b[2] - b[1] * A[2][1])
-                  - A[0][1] * (A[1][0] * b[2] - b[1] * A[2][0])
-                  + b[0] * (A[1][0] * A[2][1] - A[1][1] * A[2][0])) * invDet;
-
+            double[] x =
+            [
+                (b[0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1])
+                      - A[0][1] * (b[1] * A[2][2] - A[1][2] * b[2])
+                      + A[0][2] * (b[1] * A[2][1] - A[1][1] * b[2])) * invDet,
+                (A[0][0] * (b[1] * A[2][2] - A[1][2] * b[2])
+                      - b[0] * (A[1][0] * A[2][2] - A[1][2] * A[2][0])
+                      + A[0][2] * (A[1][0] * b[2] - b[1] * A[2][0])) * invDet,
+                (A[0][0] * (A[1][1] * b[2] - b[1] * A[2][1])
+                      - A[0][1] * (A[1][0] * b[2] - b[1] * A[2][0])
+                      + b[0] * (A[1][0] * A[2][1] - A[1][1] * A[2][0])) * invDet,
+            ];
             return x;
         }
 

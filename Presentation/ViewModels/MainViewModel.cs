@@ -87,11 +87,15 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         [ObservableProperty]
         private bool _showHemgDoubleFit = false;
 
+        [ObservableProperty]
+        private bool _showLorentzianFit = false;
+
         // Deprecated: private int _selectedFitMethod = 0; 
 
         partial void OnShowGaussianFitChanged(bool value) => RefreshIfHasData();
         partial void OnShowHemgSingleFitChanged(bool value) => RefreshIfHasData();
         partial void OnShowHemgDoubleFitChanged(bool value) => RefreshIfHasData();
+        partial void OnShowLorentzianFitChanged(bool value) => RefreshIfHasData();
 
         [ObservableProperty]
         private int _selectedXAxisIndex = 0; // 0=ADC, 1=Voltage
@@ -105,10 +109,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         [ObservableProperty]
         private double _energyCalibrationIntercept = 0.0;
 
-        private List<string> _selectedFiles = new List<string>();
+        private List<string> _selectedFiles = [];
         // We will store result as list of objects
         [ObservableProperty]
-        private List<BaselineData> _processedData = new List<BaselineData>();
+        private List<BaselineData> _processedData = [];
 
         // Statistics
         [ObservableProperty]
@@ -123,13 +127,13 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         // A common pattern with ScottPlot 4 is to pass the WpfPlot to the VM or use a service.
         // --- Collections ---
         [ObservableProperty]
-        private ObservableCollection<ChannelViewModel> _channels = new ObservableCollection<ChannelViewModel>();
+        private ObservableCollection<ChannelViewModel> _channels = [];
 
         [ObservableProperty]
-        private ObservableCollection<ChannelViewModel> _channelsX = new ObservableCollection<ChannelViewModel>();
+        private ObservableCollection<ChannelViewModel> _channelsX = [];
 
         [ObservableProperty]
-        private ObservableCollection<ChannelViewModel> _channelsZ = new ObservableCollection<ChannelViewModel>();
+        private ObservableCollection<ChannelViewModel> _channelsZ = [];
 
         public event EventHandler<PlotUpdateEventArgs>? RequestPlotUpdate;
 
@@ -142,8 +146,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
             // Initialize Timer for Clock
             _currentDateTime = DateTime.Now;
-            var timer = new System.Windows.Threading.DispatcherTimer();
-            timer.Interval = TimeSpan.FromSeconds(1);
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
             timer.Tick += (s, e) => CurrentDateTime = DateTime.Now;
             timer.Start();
         }

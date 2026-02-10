@@ -49,17 +49,13 @@ namespace BaselineMode.WPF.Infrastructure.Services
             // Ensure unique filename
             // outputPath = GetUniqueFilePath(outputPath);
 
-            using (var outputStream = File.Create(outputPath))
+            using var outputStream = File.Create(outputPath);
+            foreach (var filePath in filePaths)
             {
-                foreach (var filePath in filePaths)
-                {
-                    using (var inputStream = File.OpenRead(filePath))
-                    {
-                        inputStream.CopyTo(outputStream);
-                    }
-                    // Optional: Add a newline between files if needed
-                    // outputStream.WriteByte((byte)'\n'); 
-                }
+                using var inputStream = File.OpenRead(filePath);
+                inputStream.CopyTo(outputStream);
+                // Optional: Add a newline between files if needed
+                // outputStream.WriteByte((byte)'\n'); 
             }
 
             return outputPath;
@@ -101,17 +97,15 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 fullPath = Path.Combine(saveDirectory, fileName);
             }
 
-            using (var package = new ExcelPackage())
+            using var package = new ExcelPackage();
+            var worksheet = package.Workbook.Worksheets.Add("Processed Data");
+
+            for (int i = 0; i < data.Count; i++)
             {
-                var worksheet = package.Workbook.Worksheets.Add("Processed Data");
-
-                for (int i = 0; i < data.Count; i++)
-                {
-                    worksheet.Cells[i + 1, 1].Value = data[i];
-                }
-
-                package.SaveAs(new FileInfo(fullPath));
+                worksheet.Cells[i + 1, 1].Value = data[i];
             }
+
+            package.SaveAs(new FileInfo(fullPath));
         }
 
         public string SaveResultsToExcel(string folderName, List<Dictionary<string, object>> results)
@@ -246,8 +240,8 @@ namespace BaselineMode.WPF.Infrastructure.Services
             string documentsBase = Path.Combine(GetDocumentsFolder(), AppFolderName);
             string debugBase = AppDomain.CurrentDomain.BaseDirectory;
 
-            return new[]
-            {
+            return
+            [
                 // Documents folder paths (primary)
                 Path.Combine(documentsBase, outputName, $"{outputName}_ParticleData.xlsx"),
                 Path.Combine(documentsBase, SourceFolderName, $"{outputName}.xlsx"),
@@ -259,7 +253,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 Path.Combine(debugBase, outputName, $"{outputName}_ParticleData.xlsx"),
                 Path.Combine(debugBase, ObservationConstants.SourceFolderName, $"{outputName}.xlsx"),
                 Path.Combine(debugBase, $"{outputName}.xlsx")
-            };
+            ];
         }
 
         public string? FindExcelFile(string outputName)

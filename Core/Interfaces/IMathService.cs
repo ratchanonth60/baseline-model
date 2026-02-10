@@ -45,5 +45,10 @@ namespace BaselineMode.WPF.Core.Interfaces
         /// Perform Double-Sided Hyper-EMG curve fitting with raw data for initialization
         /// </summary>
         FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData, double[] rawData);
+
+        /// <summary>
+        /// Perform Lorentzian curve fitting
+        /// </summary>
+        FittingResult LorentzianFit(double[] xData, double[] yData);
     }
 }
