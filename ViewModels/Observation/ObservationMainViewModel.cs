@@ -20,19 +20,22 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         private readonly IObservationExcelHelper _excelHelper;
         private readonly IFittingService _fittingService;
         private readonly IFileService _fileService;
+        private readonly IFileHelper _fileHelper;
 
         // Services exposed as Interfaces
         public IObservationDataProcessor DataProcessor => _dataProcessor;
         public IObservationExcelHelper ExcelHelper => _excelHelper;
         public IFittingService FittingService => _fittingService;
+        public IFileHelper FileHelper => _fileHelper;
         public string CombinedOutputFileName { get; set; } = "CombinedData.xlsx";
 
-        public ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IFileService fileService)
+        public ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IFileService fileService, IFileHelper fileHelper)
         {
             _dataProcessor = dataProcessor;
             _excelHelper = excelHelper;
             _fittingService = fittingService;
             _fileService = fileService;
+            _fileHelper = fileHelper;
         }
 
         [ObservableProperty]
@@ -48,10 +51,27 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         private string? _outputFileName;
 
         [ObservableProperty]
+        private bool _useCustomSavePath = false;
+
+        [ObservableProperty]
         private string _dataCountStr = "-";
 
         [ObservableProperty]
         private string _particleCountStr = "-";
+
+        // Graph Settings
+        [ObservableProperty]
+        private System.Windows.Media.Color _selectedGraphBackground = System.Windows.Media.Colors.Black;
+
+        [ObservableProperty]
+        private System.Windows.Media.Color _selectedDSSDColor = System.Windows.Media.Colors.Orange;
+
+        [ObservableProperty]
+        private System.Windows.Media.Color _selectedBGOColor = System.Windows.Media.Colors.Cyan;
+
+        partial void OnSelectedGraphBackgroundChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnSelectedDSSDColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnSelectedBGOColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
 
         [ObservableProperty]
         private string _startTimeStr = "-";
@@ -142,8 +162,24 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
                 if (filteredSegments.Count > 0)
                 {
-                    _excelHelper.SaveToExcel(filteredSegments, outputExcel);
-                    StatusMessage = $"Successfully processed {InputFileList.Length} file(s). Saved to {outputExcel}";
+                    string? savedPath;
+                    if (UseCustomSavePath)
+                    {
+                        // Show dialog to let user choose save location
+                        savedPath = _fileHelper.SaveToExcelWithDialog(filteredSegments, outputExcel);
+                        if (savedPath == null)
+                        {
+                            StatusMessage = "Save cancelled by user.";
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // Save to default location
+                        _fileHelper.SaveToExcel(filteredSegments, outputExcel);
+                        savedPath = Path.Combine(_fileHelper.GetOutputFolder("Source"), outputExcel);
+                    }
+                    StatusMessage = $"Successfully processed {InputFileList.Length} file(s). Saved to {savedPath}";
                 }
                 else
                 {
@@ -217,30 +253,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
             {
                 try
                 {
-                    string storageDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "CombinedTextFiles");
-                    Directory.CreateDirectory(storageDir);
-
-                    string combinedOutputFilePath = Path.Combine(storageDir, CombinedOutputFileName);
+                    string combinedOutputFilePath = _fileHelper.CombineFiles(fileNames, CombinedOutputFileName);
 
                     StatusMessage = $"{fileNames.Length} file(s) selected.";
                     OutputFileName = Path.GetFileNameWithoutExtension(combinedOutputFilePath);
-
-                    var allContents = new List<string>();
-                    foreach (var file in fileNames)
-                    {
-                        allContents.Add(File.ReadAllText(file));
-                    }
-
-                    if (allContents.Count > 0)
-                    {
-                        File.WriteAllText(combinedOutputFilePath, string.Join("\n", allContents));
-                        StatusMessage = $"Files combined successfully into {combinedOutputFilePath}";
-                        InputFileList = new string[] { combinedOutputFilePath };
-                    }
-                    else
-                    {
-                        StatusMessage = "No valid files could be read.";
-                    }
+                    StatusMessage = $"Files combined successfully into {combinedOutputFilePath}";
+                    InputFileList = new string[] { combinedOutputFilePath };
                 }
                 catch (Exception ex)
                 {

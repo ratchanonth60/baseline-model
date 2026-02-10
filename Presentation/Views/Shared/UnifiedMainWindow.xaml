@@ -398,6 +398,7 @@
                                     <StackPanel VerticalAlignment="Center" Margin="4,0,0,0">
                                         <TextBlock Text="Output:" Foreground="#858585" FontSize="10"/>
                                         <TextBox x:Name="ObsTxtOutputFileName" Style="{StaticResource RibbonInput}" Width="100" Text="output"/>
+                                        <CheckBox x:Name="ObsChkCustomSave" Content="Save As..." FontSize="10" Foreground="#CCCCCC" Margin="0,2,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="File" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
@@ -568,6 +569,60 @@
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="Baseline" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Graph Settings Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Bg Color:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleBgColor" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0" Margin="0,0,0,0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding SelectedGraphBackground}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding ElementName=ToggleBgColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBgColor}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding SelectedGraphBackground, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="DSSD:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleDSSDColor" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0" Margin="0,0,0,0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding SelectedDSSDColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding ElementName=ToggleDSSDColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleDSSDColor}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding SelectedDSSDColor, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="BGO:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleBGOColor" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0" Margin="0,0,0,0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding SelectedBGOColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding ElementName=ToggleBGOColor, Path=IsChecked}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleBGOColor}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding SelectedBGOColor, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Graph" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -779,7 +834,7 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <TextBlock Text="Pulse Height X" Foreground="#4EC9B0" FontSize="13" FontWeight="SemiBold" Margin="8,4"/>
-                                    <scott:WpfPlot x:Name="ObsPlotDSSDX" Grid.Row="1"/>
+                                    <scott:WpfPlot x:Name="ObsPlotDSSDX" Grid.Row="1" MouseDoubleClick="ObsPlot_MouseDoubleClick" Tag="PulseHeight_X"/>
                                     <WrapPanel Grid.Row="2" Margin="8,6,8,4">
                                         <TextBlock Text="Peak:" Foreground="#858585" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                         <TextBlock x:Name="ObsTxtDSSDXPeak" Text="-" Foreground="#FF5252" FontSize="10" FontWeight="Bold" Margin="0,0,12,0" VerticalAlignment="Center"/>
@@ -805,7 +860,7 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
                                     <TextBlock Text="Pulse Height Y" Foreground="#4EC9B0" FontSize="13" FontWeight="SemiBold" Margin="8,4"/>
-                                    <scott:WpfPlot x:Name="ObsPlotDSSDY" Grid.Row="1"/>
+                                    <scott:WpfPlot x:Name="ObsPlotDSSDY" Grid.Row="1" MouseDoubleClick="ObsPlot_MouseDoubleClick" Tag="PulseHeight_Y"/>
                                     <WrapPanel Grid.Row="2" Margin="8,6,8,4">
                                         <TextBlock Text="Peak:" Foreground="#858585" FontSize="10" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                         <TextBlock x:Name="ObsTxtDSSDYPeak" Text="-" Foreground="#FF5252" FontSize="10" FontWeight="Bold" Margin="0,0,12,0" VerticalAlignment="Center"/>

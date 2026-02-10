@@ -14,6 +14,7 @@ using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Interfaces.Observation;
+using BaselineMode.WPF.Views.Observation;
 
 namespace BaselineMode.WPF.Views.Shared
 {
@@ -39,9 +40,9 @@ namespace BaselineMode.WPF.Views.Shared
             InitializeComponent();
             _mainViewModel = mainViewModel;
             _observationViewModel = observationViewModel;
-            
+
             DataContext = mainViewModel;
-            
+
             if (ViewBaseline != null) ViewBaseline.DataContext = mainViewModel;
             if (ViewObservation != null) ViewObservation.DataContext = observationViewModel;
 
@@ -49,7 +50,7 @@ namespace BaselineMode.WPF.Views.Shared
             _observationViewModel.RequestPlotUpdate += OnObservationPlotUpdate;
 
             _obsDateTimeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _obsDateTimeTimer.Tick += (s, e) => 
+            _obsDateTimeTimer.Tick += (s, e) =>
             {
                 if (ObsDateTimeLabel != null)
                     ObsDateTimeLabel.Text = DateTime.Now.ToString(FORMAT_DATE);
@@ -247,11 +248,20 @@ namespace BaselineMode.WPF.Views.Shared
             try
             {
                 _observationViewModel.OutputFileName = ObsTxtOutputFileName.Text;
+                _observationViewModel.UseCustomSavePath = ObsChkCustomSave.IsChecked == true;
+
                 ObsTxtProgress.Text = "Processing...";
                 ObsProgressBar.IsIndeterminate = true;
                 ObsTxtStatus.Text = "BUSY";
                 ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xB3, 0x47));
 
+                // 1. Convert/Save to Excel (with optional dialog)
+                if (_observationViewModel.ConvertFilesToExcelCommand.CanExecute(null))
+                {
+                    await _observationViewModel.ConvertFilesToExcelCommand.ExecuteAsync(null);
+                }
+
+                // 2. Analyze for plotting
                 if (_observationViewModel.AnalyzeFilesCommand.CanExecute(null))
                 {
                     await _observationViewModel.AnalyzeFilesCommand.ExecuteAsync(null);
@@ -267,7 +277,7 @@ namespace BaselineMode.WPF.Views.Shared
                 RefreshDSSDPlots();
                 RefreshBGOPlots();
 
-                UpdateObsStatus("Processing complete");
+                UpdateObsStatus("Processing and saving complete");
             }
             catch (Exception ex)
             {
@@ -281,14 +291,44 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void ObsBtnReadData_Click(object sender, RoutedEventArgs e)
         {
-            string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
-            string fileName = Path.Combine(folderPath, ObsTxtOutputFileName.Text.Trim() + ".xlsx");
+            string outputName = ObsTxtOutputFileName.Text.Trim();
 
-            if (!File.Exists(fileName))
+            // Use FileHelper to find the file (searches Documents/DSSD_Analysis, Debug folder, etc.)
+            string? fileName = _observationViewModel.FileHelper.FindExcelFile(outputName);
+
+            if (fileName == null)
             {
-                MessageBox.Show("The specified file does not exist.\nPath: " + fileName, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
+                var result = MessageBox.Show(
+                    $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
+                    "File Not Found",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    var openFileDialog = new OpenFileDialog
+                    {
+                        Filter = "Excel Files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                        Title = "Select Particle Data File"
+                    };
+
+                    string initialDir = _observationViewModel.FileHelper.GetOutputFolder("");
+                    if (Directory.Exists(initialDir))
+                        openFileDialog.InitialDirectory = initialDir;
+
+                    if (openFileDialog.ShowDialog() == true)
+                    {
+                        fileName = openFileDialog.FileName;
+                    }
+                    else
+                    {
+                        return; // User cancelled
+                    }
+                }
+                else
+                {
+                    return;
+                }
             }
 
             try
@@ -398,14 +438,44 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void ObsBtnHeaderCheck_Click(object sender, RoutedEventArgs e)
         {
-            string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
-            string fileName = Path.Combine(folderPath, ObsTxtOutputFileName.Text.Trim() + ".xlsx");
+            string outputName = ObsTxtOutputFileName.Text.Trim();
 
-            if (!File.Exists(fileName))
+            // Use FileHelper to find the file
+            string? fileName = _observationViewModel.FileHelper.FindExcelFile(outputName);
+
+            if (fileName == null)
             {
-                MessageBox.Show("File not found!\nPath: " + fileName, "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                var result = MessageBox.Show(
+                    $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
+                    "File Not Found",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    var openFileDialog = new OpenFileDialog
+                    {
+                        Filter = "Excel Files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                        Title = "Select Particle Data File"
+                    };
+
+                    string initialDir = _observationViewModel.FileHelper.GetOutputFolder("");
+                    if (Directory.Exists(initialDir))
+                        openFileDialog.InitialDirectory = initialDir;
+
+                    if (openFileDialog.ShowDialog() == true)
+                    {
+                        fileName = openFileDialog.FileName;
+                    }
+                    else
+                    {
+                        return; // User cancelled
+                    }
+                }
+                else
+                {
+                    return;
+                }
             }
 
             try
@@ -469,7 +539,7 @@ namespace BaselineMode.WPF.Views.Shared
         #region Observation - DSSD Plot Handlers
 
         private void ObsCmbDSSDLayer_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshDSSDPlots();
-        
+
         private void ObsTxtDSSDAxisChanged(object sender, TextChangedEventArgs e)
         {
             if (!double.TryParse(ObsTxtDSSDXMin?.Text, out double xMin)) xMin = 0;
@@ -574,15 +644,47 @@ namespace BaselineMode.WPF.Views.Shared
 
         #region Plot Helpers
 
+        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
+        {
+            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
+        }
+
+        private System.Drawing.Color GetBackgroundColor()
+        {
+            return ToDrawingColor(_observationViewModel.SelectedGraphBackground);
+        }
+
+        private System.Drawing.Color GetForegroundColor()
+        {
+            var c = _observationViewModel.SelectedGraphBackground;
+            // Simple luminance calculation
+            double luma = 0.299 * c.R + 0.587 * c.G + 0.114 * c.B;
+            return luma < 128 ? System.Drawing.Color.White : System.Drawing.Color.Black;
+        }
+
+
+
         private void PlotHistogram(WpfPlot? plot, double[]? data, string title,
-            TextBlock peakLabel, TextBlock countsLabel, TextBlock meanLabel,
-            TextBlock rmsLabel, TextBlock fwhmLabel, TextBlock resLabel)
+            TextBlock? peakLabel, TextBlock? countsLabel, TextBlock? meanLabel,
+            TextBlock? rmsLabel, TextBlock? fwhmLabel, TextBlock? resLabel)
         {
             if (plot == null) return;
-            plot.Plot.Clear();
 
-            peakLabel.Text = "-"; countsLabel.Text = "-"; meanLabel.Text = "-";
-            rmsLabel.Text = "-"; fwhmLabel.Text = "-"; resLabel.Text = "-";
+            plot.Plot.Clear();
+            plot.Plot.Style(figureBackground: GetBackgroundColor(), dataBackground: GetBackgroundColor());
+            plot.Plot.XAxis.Label(label: "Pulse Height (Channel)", color: GetForegroundColor());
+            plot.Plot.YAxis.Label(label: "Counts", color: GetForegroundColor());
+            plot.Plot.XAxis.TickLabelStyle(color: GetForegroundColor());
+            plot.Plot.YAxis.TickLabelStyle(color: GetForegroundColor());
+            plot.Plot.Title(title, color: GetForegroundColor());
+
+            // Reset labels first
+            if (peakLabel != null) peakLabel.Text = "-";
+            if (countsLabel != null) countsLabel.Text = "-";
+            if (meanLabel != null) meanLabel.Text = "-";
+            if (rmsLabel != null) rmsLabel.Text = "-";
+            if (fwhmLabel != null) fwhmLabel.Text = "-";
+            if (resLabel != null) resLabel.Text = "-";
 
             if (data == null || data.Length == 0 || data.All(v => v == 0))
             {
@@ -593,7 +695,14 @@ namespace BaselineMode.WPF.Views.Shared
             }
 
             var filteredData = data.Where(v => v > 0).ToArray();
-            countsLabel.Text = filteredData.Length.ToString("N0");
+            if (filteredData.Length == 0)
+            {
+                plot.Plot.AddText("No data > 0", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                plot.Refresh();
+                return;
+            }
+
+            if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0");
 
             var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 4096);
             double[] binMidpoints = new double[hist.Length];
@@ -601,142 +710,18 @@ namespace BaselineMode.WPF.Views.Shared
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
-            bar.FillColor = System.Drawing.Color.FromArgb(0, 150, 136);
+            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor);
 
-            if (ObsChkDSSDFit?.IsChecked == true)
-            {
-                try
-                {
-                    var fitResult = _observationViewModel.FittingService.GaussianFit(binMidpoints, hist);
-                    if (fitResult != null)
-                    {
-                        plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2);
-                        plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+            // Calculate basic stats manually first
+            if (peakLabel != null) peakLabel.Text = $"{hist.Max()}";
+            if (meanLabel != null) meanLabel.Text = $"{filteredData.Average():F2}";
 
-                        peakLabel.Text = $"{fitResult.Peak:F0}";
-                        meanLabel.Text = $"{fitResult.Mu:F2}";
-                        rmsLabel.Text = $"{fitResult.Sigma:F2}";
-                        fwhmLabel.Text = $"{fitResult.FWHM:F2}";
-                        resLabel.Text = $"{fitResult.Resolution:F2}%";
-                    }
-                }
-                catch { /* Fitting failed */ }
-            }
+            double avg = filteredData.Average();
+            double sumSquares = filteredData.Sum(d => Math.Pow(d - avg, 2));
+            double stdDev = Math.Sqrt(sumSquares / filteredData.Length);
+            if (rmsLabel != null) rmsLabel.Text = $"{stdDev:F2}";
 
-            plot.Plot.YAxis.Label("Count");
-            plot.Plot.XAxis.Label(title);
-            plot.Plot.SetAxisLimits(yMin: 0);
-            plot.Refresh();
-        }
-
-        private void PlotStripHistogram(WpfPlot? plot, double[]? data, string title,
-            TextBlock? peakLabel, TextBlock? countsLabel, TextBlock? meanLabel,
-            TextBlock? rmsLabel, TextBlock? fwhmLabel, TextBlock? resLabel)
-        {
-            if (plot == null) return;
-            plot.Plot.Clear();
-
-            if (peakLabel != null) peakLabel.Text = NA;
-            if (countsLabel != null) countsLabel.Text = NA;
-            if (meanLabel != null) meanLabel.Text = NA;
-            if (rmsLabel != null) rmsLabel.Text = NA;
-            if (fwhmLabel != null) fwhmLabel.Text = NA;
-            if (resLabel != null) resLabel.Text = NA;
-
-            if (data == null || data.Length == 0 || data.All(v => v == 0))
-            {
-                plot.Plot.Title(title);
-                plot.Plot.AddText("No data", 0, 0, size: 10, color: System.Drawing.Color.Gray);
-                plot.Refresh();
-                return;
-            }
-
-            double xMin = 0, xMax = 4095;
-            if (double.TryParse(ObsTxtDSSDXMin?.Text, out double min)) xMin = min;
-            if (double.TryParse(ObsTxtDSSDXMax?.Text, out double max)) xMax = max;
-            var filteredData = data.Where(v => v >= xMin && v <= xMax).ToArray();
-
-            if (filteredData.Length == 0)
-            {
-                plot.Plot.Title(title);
-                plot.Plot.AddText("No data in range", 0, 0, size: 10, color: System.Drawing.Color.Gray);
-                plot.Refresh();
-                return;
-            }
-
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 256);
-            double[] binMidpoints = new double[hist.Length];
-            for (int i = 0; i < hist.Length; i++)
-                binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
-
-            var bar = plot.Plot.AddBar(hist, binMidpoints);
-            bar.FillColor = System.Drawing.Color.FromArgb(0, 150, 136);
-            plot.Plot.Title(title);
-
-            if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0");
-
-            if (ObsChkDSSDFit?.IsChecked == true)
-            {
-                try
-                {
-                    var fitResult = _observationViewModel.FittingService.GaussianFit(binMidpoints, hist);
-                    if (fitResult?.FitCurve != null)
-                    {
-                        plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2);
-                        plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 6);
-
-                        if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F0}";
-                        if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
-                        if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
-                        if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
-                        if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
-                    }
-                }
-                catch { /* Fitting failed */ }
-            }
-            else if (filteredData.Length > 0)
-            {
-                double peak = hist.Max();
-                double mean = filteredData.Average();
-                double rms = Math.Sqrt(filteredData.Select(x => x * x).Average() - mean * mean);
-
-                if (peakLabel != null) peakLabel.Text = $"{peak:F0}";
-                if (meanLabel != null) meanLabel.Text = $"{mean:F2}";
-                if (rmsLabel != null) rmsLabel.Text = $"{rms:F2}";
-            }
-
-            plot.Refresh();
-        }
-
-        private void PlotBGOHistogram(WpfPlot? plot, double[]? data, string title,
-            TextBlock peakLabel, TextBlock meanLabel, TextBlock rmsLabel,
-            TextBlock fwhmLabel, TextBlock resLabel)
-        {
-            if (plot == null) return;
-            plot.Plot.Clear();
-
-            peakLabel.Text = "-"; meanLabel.Text = "-"; rmsLabel.Text = "-";
-            fwhmLabel.Text = "-"; resLabel.Text = "-";
-
-            if (data == null || data.Length == 0 || data.All(v => v == 0))
-            {
-                plot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
-                plot.Plot.SetAxisLimits(-1, 1, -1, 1);
-                plot.Refresh();
-                return;
-            }
-
-            data = data.Where(v => v > 0).ToArray();
-            if (data.Length == 0) { plot.Refresh(); return; }
-
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(data, binCount: 4096);
-            double[] binMidpoints = new double[hist.Length];
-            for (int i = 0; i < hist.Length; i++)
-                binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
-
-            var bar = plot.Plot.AddBar(hist, binMidpoints);
-            bar.FillColor = System.Drawing.Color.FromArgb(255, 140, 0);
-
+            // Fitting logic
             if (ObsChkDSSDFit?.IsChecked == true)
             {
                 try
@@ -747,19 +732,81 @@ namespace BaselineMode.WPF.Views.Shared
                         plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
                         plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
 
-                        peakLabel.Text = $"{fitResult.Peak:F2}";
-                        meanLabel.Text = $"{fitResult.Mu:F2}";
-                        rmsLabel.Text = $"{fitResult.Sigma:F2}";
-                        fwhmLabel.Text = $"{fitResult.FWHM:F2}";
-                        resLabel.Text = $"{fitResult.Resolution:F2}%";
+                        if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F0}";
+                        if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
+                        if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
+                        if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
+                        if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
                     }
                 }
                 catch { /* Fitting failed */ }
             }
 
-            plot.Plot.YAxis.Label("Count");
-            plot.Plot.XAxis.Label("ADC Channel");
             plot.Plot.SetAxisLimits(yMin: 0);
+            plot.Refresh();
+        }
+
+        private void PlotStripHistogram(WpfPlot? plot, double[]? data, string title,
+             TextBlock? peak, TextBlock? counts, TextBlock? mean, TextBlock? rms, TextBlock? fwhm, TextBlock? res)
+        {
+            PlotHistogram(plot, data, title, peak, counts, mean, rms, fwhm, res);
+        }
+
+        private void PlotBGOHistogram(WpfPlot? plot, double[]? data, string title,
+             TextBlock? peak, TextBlock? mean, TextBlock? rms, TextBlock? fwhm, TextBlock? res)
+        {
+            if (plot == null) return;
+
+            plot.Plot.Clear();
+            plot.Plot.Style(figureBackground: GetBackgroundColor(), dataBackground: GetBackgroundColor());
+            plot.Plot.XAxis.Label(label: "Channel", color: GetForegroundColor());
+            plot.Plot.YAxis.Label(label: "Counts", color: GetForegroundColor());
+            plot.Plot.XAxis.TickLabelStyle(color: GetForegroundColor());
+            plot.Plot.YAxis.TickLabelStyle(color: GetForegroundColor());
+            plot.Plot.Title(title, color: GetForegroundColor());
+
+            // Reset labels
+            if (peak != null) peak.Text = "-";
+            if (mean != null) mean.Text = "-";
+            if (rms != null) rms.Text = "-";
+            if (fwhm != null) fwhm.Text = "-";
+            if (res != null) res.Text = "-";
+
+            if (data == null || data.Length == 0)
+            {
+                plot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                plot.Refresh();
+                return;
+            }
+
+            var filteredData = data.Where(v => v > 0).ToArray();
+            if (filteredData.Length == 0)
+            {
+                plot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                plot.Refresh();
+                return;
+            }
+
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 1024);
+            double[] binMidpoints = new double[hist.Length];
+            for (int i = 0; i < hist.Length; i++)
+                binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
+
+            var bar = plot.Plot.AddBar(hist, binMidpoints);
+            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedBGOColor);
+
+            if (peak != null) peak.Text = $"{hist.Max()}";
+            if (mean != null) mean.Text = $"{filteredData.Average():F2}";
+
+            double avg = filteredData.Average();
+            double sumSquares = filteredData.Sum(d => Math.Pow(d - avg, 2));
+            double stdDev = Math.Sqrt(sumSquares / filteredData.Length);
+            if (rms != null) rms.Text = $"{stdDev:F2}";
+
+            double fwhmVal = 2.355 * stdDev;
+            if (fwhm != null) fwhm.Text = $"{fwhmVal:F2}";
+            if (res != null) res.Text = $"{(fwhmVal / avg * 100):F2}%";
+
             plot.Refresh();
         }
 
@@ -768,6 +815,35 @@ namespace BaselineMode.WPF.Views.Shared
             TxtStatusBar.Text = message;
         }
 
+
+        private void ObsPlot_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is not WpfPlot plot) return;
+
+            string tag = plot.Tag?.ToString() ?? "Unknown";
+            double[]? data = null;
+
+            // Get appropriate data based on plot tag
+            switch (tag)
+            {
+                case "PulseHeight_X":
+                    data = _observationViewModel.GetDSSDLayerData(DetectorLayer.L1)?.PulseHeightX?.ToArray();
+                    break;
+                case "PulseHeight_Y":
+                    data = _observationViewModel.GetDSSDLayerData(DetectorLayer.L1)?.PulseHeightY?.ToArray();
+                    break;
+            }
+
+            if (data == null || data.Length == 0)
+            {
+                MessageBox.Show("No data available for this plot.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var detailWindow = new ObservationDetailWindow();
+            detailWindow.ShowHistogram(data, tag.Replace("_", " "));
+            detailWindow.Show();
+        }
         #endregion
     }
 }

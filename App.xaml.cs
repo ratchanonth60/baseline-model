@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Interfaces.Observation;
@@ -31,6 +31,7 @@ public partial class App : Application
         services.AddSingleton<IFileService, FileService>();
         services.AddSingleton<IObservationDataProcessor, ObservationDataProcessor>();
         services.AddSingleton<IObservationExcelHelper, ObservationExcelHelper>();
+        services.AddSingleton<IFileHelper, FileHelper>();  // Shared file helper for Baseline and Observation
 
         // ViewModels
         services.AddTransient<MainViewModel>();
