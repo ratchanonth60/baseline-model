@@ -50,14 +50,30 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         [ObservableProperty]
         private string? _outputFileName;
 
-        [ObservableProperty]
-        private bool _useCustomSavePath = false;
+
 
         [ObservableProperty]
         private string _dataCountStr = "-";
 
         [ObservableProperty]
         private string _particleCountStr = "-";
+
+        [ObservableProperty]
+        private string? _lastSavedFilePath;
+
+        [ObservableProperty]
+        private string _outputDirectoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "BaselineModeOutputs");
+
+        [RelayCommand]
+        private void BrowseOutputDirectory()
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog();
+            dialog.Title = "Select Output Root Folder";
+            if (dialog.ShowDialog() == true)
+            {
+                OutputDirectoryPath = dialog.FolderName;
+            }
+        }
 
         // Graph Settings
         [ObservableProperty]
@@ -134,55 +150,22 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                 }
                 var outputExcel = finalOutputName.Trim() + ".xlsx";
 
-                var filteredSegments = new List<string>();
-
-                await Task.Run(() =>
-                {
-                    foreach (var fileName in InputFileList)
-                    {
-                        var fileContent = File.ReadAllText(fileName);
-                        var cleanedData = Regex.Replace(fileContent, @"\s+", "");
-                        var matches = Regex.Matches(cleanedData, $@"{ObservationConstants.HeaderStart}[0-9A-F]+");
-
-                        foreach (Match match in matches)
-                        {
-                            var segment = match.Value;
-                            int segmentLength = segment.Length;
-
-                            for (int i = 0; i < segmentLength; i += ObservationConstants.PacketHexLength)
-                            {
-                                var chunk = segment.Substring(i, Math.Min(ObservationConstants.PacketHexLength, segmentLength - i));
-                                filteredSegments.Add(chunk);
-                            }
-                        }
-                    }
-                });
-
-                if (filteredSegments.Count > 0 && filteredSegments.Last().Length < ObservationConstants.PacketHexLength)
-                {
-                    filteredSegments.RemoveAt(filteredSegments.Count - 1);
-                }
+                var filteredSegments = await FilterSegmentsAsync();
 
                 if (filteredSegments.Count > 0)
                 {
-                    string? savedPath;
-                    if (UseCustomSavePath)
+                    // Save to OutputDirectoryPath + Daily Folder
+                    string dateStr = DateTime.Now.ToString("yyyy-MM-dd");
+                    string fullPath = Path.Combine(OutputDirectoryPath, dateStr);
+                    if (!Directory.Exists(fullPath))
                     {
-                        // Show dialog to let user choose save location
-                        savedPath = _fileHelper.SaveToExcelWithDialog(filteredSegments, outputExcel);
-                        if (savedPath == null)
-                        {
-                            StatusMessage = "Save cancelled by user.";
-                            return;
-                        }
+                        Directory.CreateDirectory(fullPath);
                     }
-                    else
-                    {
-                        // Save to default location
-                        _fileHelper.SaveToExcel(filteredSegments, outputExcel);
-                        savedPath = Path.Combine(_fileHelper.GetOutputFolder("Source"), outputExcel);
-                    }
-                    StatusMessage = $"Successfully processed {InputFileList.Length} file(s). Saved to {savedPath}";
+
+                    string finalPath = Path.Combine(fullPath, outputExcel);
+                    _fileHelper.SaveToExcel(filteredSegments, finalPath);
+                    LastSavedFilePath = finalPath;
+                    StatusMessage = $"Successfully processed {InputFileList.Length} file(s). Saved to {finalPath}";
                 }
                 else
                 {
@@ -193,6 +176,68 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
             {
                 StatusMessage = $"Error: {ex.Message}";
             }
+        }
+
+        /// <summary>
+        /// Export processed data to a user-specified file path (via SaveFileDialog).
+        /// </summary>
+        public async Task ExportToPathAsync(string exportFilePath)
+        {
+            if (InputFileList == null || InputFileList.Length == 0)
+            {
+                StatusMessage = "No files selected for export.";
+                return;
+            }
+
+            var filteredSegments = await FilterSegmentsAsync();
+
+            if (filteredSegments.Count > 0)
+            {
+                _fileHelper.SaveToExcel(filteredSegments, exportFilePath);
+                LastSavedFilePath = exportFilePath;
+                StatusMessage = $"Exported {InputFileList.Length} file(s) to {exportFilePath}";
+            }
+            else
+            {
+                StatusMessage = "No valid segments found in the selected files.";
+            }
+        }
+
+        /// <summary>
+        /// Shared logic: read input files, filter hex segments, and return them.
+        /// </summary>
+        private async Task<List<string>> FilterSegmentsAsync()
+        {
+            var filteredSegments = new List<string>();
+
+            await Task.Run(() =>
+            {
+                foreach (var fileName in InputFileList!)
+                {
+                    var fileContent = File.ReadAllText(fileName);
+                    var cleanedData = Regex.Replace(fileContent, @"\s+", "");
+                    var matches = Regex.Matches(cleanedData, $@"{ObservationConstants.HeaderStart}[0-9A-F]+");
+
+                    foreach (Match match in matches)
+                    {
+                        var segment = match.Value;
+                        int segmentLength = segment.Length;
+
+                        for (int i = 0; i < segmentLength; i += ObservationConstants.PacketHexLength)
+                        {
+                            var chunk = segment.Substring(i, Math.Min(ObservationConstants.PacketHexLength, segmentLength - i));
+                            filteredSegments.Add(chunk);
+                        }
+                    }
+                }
+            });
+
+            if (filteredSegments.Count > 0 && filteredSegments.Last().Length < ObservationConstants.PacketHexLength)
+            {
+                filteredSegments.RemoveAt(filteredSegments.Count - 1);
+            }
+
+            return filteredSegments;
         }
 
         [RelayCommand]

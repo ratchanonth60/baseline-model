@@ -60,17 +60,15 @@ namespace BaselineMode.WPF.Views.Shared
             this.Loaded += UnifiedMainWindow_Loaded;
         }
 
+        public ObservationMainViewModel ObservationViewModel => _observationViewModel;
+
         private void UnifiedMainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             InitializeObservationPlots();
             SwitchToBaselineMode();
             UpdateToolbarVisibility();
 
-            var graphSettingsPanel = this.FindName("GraphSettingsPanel") as Border;
-            if (graphSettingsPanel != null)
-            {
-                graphSettingsPanel.DataContext = _observationViewModel;
-            }
+            // Refactored: GraphSettingsPanel DataContext is now handled via XAML binding to ObservationViewModel
         }
 
         #region Ribbon Tab & Mode Navigation
@@ -253,6 +251,55 @@ namespace BaselineMode.WPF.Views.Shared
             });
         }
 
+        private async void ObsBtnExport_Click(object sender, RoutedEventArgs e)
+        {
+            if (_observationViewModel.InputFileList == null || _observationViewModel.InputFileList.Length == 0)
+            {
+                MessageBox.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                var outputName = ObsTxtOutputFileName.Text?.Trim();
+                if (string.IsNullOrEmpty(outputName)) outputName = "output";
+                var defaultFileName = outputName + ".xlsx";
+
+                var dialog = new Microsoft.Win32.SaveFileDialog
+                {
+                    Filter = "Excel Files (*.xlsx)|*.xlsx",
+                    DefaultExt = ".xlsx",
+                    FileName = defaultFileName,
+                    Title = "Export Observation Data"
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    ObsTxtProgress.Text = "Exporting...";
+                    ObsProgressBar.IsIndeterminate = true;
+                    ObsTxtStatus.Text = "BUSY";
+                    ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xB3, 0x47));
+
+                    _observationViewModel.OutputFileName = outputName;
+
+                    // Run the conversion and save to the user-chosen path
+                    await _observationViewModel.ExportToPathAsync(dialog.FileName);
+
+                    ObsProgressBar.IsIndeterminate = false;
+                    ObsTxtProgress.Text = _observationViewModel.StatusMessage;
+                    ObsTxtStatus.Text = "DONE";
+                    ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
+                }
+            }
+            catch (Exception ex)
+            {
+                ObsProgressBar.IsIndeterminate = false;
+                ObsTxtProgress.Text = $"Export failed: {ex.Message}";
+                ObsTxtStatus.Text = "ERROR";
+                ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0x43, 0x36));
+            }
+        }
+
         private async void ObsBtnProcessData_Click(object sender, RoutedEventArgs e)
         {
             if (_observationViewModel.InputFileList == null || _observationViewModel.InputFileList.Length == 0)
@@ -264,8 +311,6 @@ namespace BaselineMode.WPF.Views.Shared
             try
             {
                 _observationViewModel.OutputFileName = ObsTxtOutputFileName.Text;
-                _observationViewModel.UseCustomSavePath = ObsChkCustomSave.IsChecked == true;
-
                 ObsTxtProgress.Text = "Processing...";
                 ObsProgressBar.IsIndeterminate = true;
                 ObsTxtStatus.Text = "BUSY";
@@ -519,7 +564,7 @@ namespace BaselineMode.WPF.Views.Shared
 
                 if (headerOk)
                 {
-                    ObsTxtProgress.Text = "✓ Header is correct!";
+                    ObsTxtProgress.Text = "Header is correct!";
                     ObsTxtStatus.Text = "HEADER OK";
                     ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
                 }
@@ -534,19 +579,31 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void ObsBtnOpenResults_Click(object sender, RoutedEventArgs e)
         {
-            if (!string.IsNullOrEmpty(_lastSavedFilePath) && File.Exists(_lastSavedFilePath))
+            // Use ViewModel's LastSavedFilePath if available
+            string? lastSaved = _observationViewModel.LastSavedFilePath;
+
+            if (!string.IsNullOrEmpty(lastSaved) && File.Exists(lastSaved))
             {
-                Process.Start(new ProcessStartInfo { FileName = _lastSavedFilePath, UseShellExecute = true });
+                Process.Start(new ProcessStartInfo { FileName = lastSaved, UseShellExecute = true });
             }
             else
             {
-                // Fallback: try opening Source folder
-                string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
-                if (Directory.Exists(folderPath))
-                    Process.Start("explorer.exe", folderPath);
+                // Fallback: try opening the Output Directory from ViewModel
+                string outputDir = _observationViewModel.OutputDirectoryPath;
+                if (Directory.Exists(outputDir))
+                {
+                    Process.Start("explorer.exe", outputDir);
+                }
                 else
-                    MessageBox.Show("No result file found.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                {
+                    // Legacy fallback
+                    string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                    string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
+                    if (Directory.Exists(folderPath))
+                        Process.Start("explorer.exe", folderPath);
+                    else
+                        MessageBox.Show("No result file or output folder found.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
         }
 

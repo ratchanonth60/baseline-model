@@ -99,6 +99,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         [ObservableProperty]
         private int _selectedBaselineMode = 0; // 0=Before, 1=After, 2=Before log, 3=After log
 
+        [ObservableProperty]
+        private double _energyCalibrationSlope = 0.000427; // Placeholder: 7 MeV / 16384 channels
+
+        [ObservableProperty]
+        private double _energyCalibrationIntercept = 0.0;
+
         private List<string> _selectedFiles = new List<string>();
         // We will store result as list of objects
         [ObservableProperty]

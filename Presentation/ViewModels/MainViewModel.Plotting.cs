@@ -150,8 +150,19 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                         for (int k = 0; k < binCenters.Length; k++)
                             binCenters[k] = (binEdges[k] + binEdges[k + 1]) / 2.0;
 
-                        if (SelectedXAxisIndex == 1 && !shouldSubtract)
-                            binCenters = binCenters.Select(v => ((v / 16383.0) * 5) * 1000).ToArray();
+                        if (!shouldSubtract)
+                        {
+                            if (SelectedXAxisIndex == 1)
+                            {
+                                // Voltage (mV): 0-16383 -> 0-5000 mV
+                                binCenters = binCenters.Select(v => ((v / 16383.0) * 5.0) * 1000.0).ToArray();
+                            }
+                            else if (SelectedXAxisIndex == 2)
+                            {
+                                // Energy (MeV): Linear calibration
+                                binCenters = binCenters.Select(v => (v * EnergyCalibrationSlope) + EnergyCalibrationIntercept).ToArray();
+                            }
+                        }
 
                         // Perform Fits Here (UI Thread - Can be slow, but this is for 'Refresh' only)
                         var fitResults = new Dictionary<string, ChannelViewModel.FitData>();

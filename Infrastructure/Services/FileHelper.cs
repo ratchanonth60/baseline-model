@@ -67,22 +67,39 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         public void SaveToExcel(List<string> data, string fileName, string subFolder = "")
         {
-            // Ensure the file name is valid
-            fileName = Path.GetFileName(fileName);
-            if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains))
-            {
-                throw new ArgumentException("Invalid file name. Please use a valid name.");
-            }
+            string fullPath;
 
-            // Ensure .xlsx extension
-            if (!fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            // Check if fileName is already a full path
+            if (Path.IsPathRooted(fileName))
             {
-                fileName += ".xlsx";
+                fullPath = fileName;
+                // Ensure directory exists
+                string? directory = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
             }
+            else
+            {
+                // Legacy behavior: relative path logic
+                // Ensure the file name is valid
+                fileName = Path.GetFileName(fileName);
+                if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains))
+                {
+                    throw new ArgumentException("Invalid file name. Please use a valid name.");
+                }
 
-            string folderName = string.IsNullOrWhiteSpace(subFolder) ? SourceFolderName : subFolder;
-            string saveDirectory = GetOutputFolder(folderName);
-            string fullPath = Path.Combine(saveDirectory, fileName);
+                // Ensure .xlsx extension
+                if (!fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                {
+                    fileName += ".xlsx";
+                }
+
+                string folderName = string.IsNullOrWhiteSpace(subFolder) ? SourceFolderName : subFolder;
+                string saveDirectory = GetOutputFolder(folderName);
+                fullPath = Path.Combine(saveDirectory, fileName);
+            }
 
             using (var package = new ExcelPackage())
             {
@@ -102,14 +119,23 @@ namespace BaselineMode.WPF.Infrastructure.Services
             if (results == null || results.Count == 0)
                 return string.Empty;
 
-            // Use the folder name logic from ObservationExcelHelper but adapt to Documents
-            // Actually, let's keep it simple and consistent:
-            // Documents/DSSD_Analysis/Results/{folderName}/{timestamp}.xlsx
+            string saveDirectory;
+            if (Path.IsPathRooted(folderName))
+            {
+                // If folderName is a full path, use it directly
+                saveDirectory = folderName;
+            }
+            else
+            {
+                // Legacy: use default output folder structure
+                saveDirectory = GetOutputFolder(folderName);
+            }
 
-            // However, the legacy behavior saved directly to a folder named `folderName` in debug dir.
-            // Let's standardize: Documents/DSSD_Analysis/{folderName}/...
+            if (!Directory.Exists(saveDirectory))
+            {
+                Directory.CreateDirectory(saveDirectory);
+            }
 
-            string saveDirectory = GetOutputFolder(folderName);
             string fileName = $"AnalysisResults_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
             string filePath = Path.Combine(saveDirectory, fileName);
 
