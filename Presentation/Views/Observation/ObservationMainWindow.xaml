@@ -323,7 +323,8 @@
                                       Checked="ChkDSSDFit_Changed" Unchecked="ChkDSSDFit_Changed"/>
                             
                             <ComboBox x:Name="CmbDSSDFitMethod" Width="100"
-                                      Style="{StaticResource MaterialDesignOutlinedComboBox}">
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                      SelectionChanged="CmbDSSDFitMethod_SelectionChanged">
                                 <ComboBoxItem Content="Gaussian" IsSelected="True"/>
                                 <ComboBoxItem Content="Lorentzian"/>
                             </ComboBox>

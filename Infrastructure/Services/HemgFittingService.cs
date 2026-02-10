@@ -62,7 +62,22 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 }
                 double rms = Math.Sqrt(sumSqErr / xData.Length);
 
-                return new FittingResult(fitCurve, fitMu, fitSigma, fitA, rms);
+                // FWHM for Gaussian: 2 * sqrt(2 * ln(2)) * sigma ≈ 2.3548 * sigma
+                double fwhm = 2.0 * Math.Sqrt(2.0 * Math.Log(2.0)) * fitSigma;
+                double resolution = Math.Abs(fitMu) > 1e-9 ? (fwhm / fitMu * 100.0) : 0;
+
+                // R-Squared
+                double yMean = yData.Length > 0 ? yData.Average() : 0;
+                double ssTot = yData.Sum(y => Math.Pow(y - yMean, 2));
+                double rSquared = ssTot > 1e-9 ? 1 - (sumSqErr / ssTot) : 0;
+
+                var result = new FittingResult(fitCurve, fitMu, fitSigma, fitA, rms)
+                {
+                    FWHM = fwhm,
+                    Resolution = resolution,
+                    R_Squared = rSquared
+                };
+                return result;
             }
             catch (Exception ex)
             {
@@ -442,9 +457,30 @@ namespace BaselineMode.WPF.Infrastructure.Services
             double maxVal = w.Max();
             int peakIdx = Array.IndexOf(w, maxVal);
             if (peakIdx < 0) return (0, 1);
-            int window = 200;
-            int start = Math.Max(0, peakIdx - window);
-            int end = Math.Min(x.Length - 1, peakIdx + window);
+
+            // Use half-maximum to determine peak region instead of fixed window
+            double halfMax = maxVal / 2.0;
+
+            // Find left boundary where signal drops below half-max
+            int start = peakIdx;
+            for (int i = peakIdx - 1; i >= 0; i--)
+            {
+                if (w[i] < halfMax) { start = i; break; }
+                if (i == 0) start = 0;
+            }
+
+            // Find right boundary where signal drops below half-max
+            int end = peakIdx;
+            for (int i = peakIdx + 1; i < x.Length; i++)
+            {
+                if (w[i] < halfMax) { end = i; break; }
+                if (i == x.Length - 1) end = x.Length - 1;
+            }
+
+            // Ensure minimum window of ±5 bins around peak
+            start = Math.Min(start, Math.Max(0, peakIdx - 5));
+            end = Math.Max(end, Math.Min(x.Length - 1, peakIdx + 5));
+
             double sumW = 0, sumWX = 0;
             for (int i = start; i <= end; i++) { sumW += w[i]; sumWX += w[i] * x[i]; }
             if (sumW <= 1e-9) return (0, 1);

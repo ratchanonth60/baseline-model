@@ -340,6 +340,11 @@ namespace BaselineMode.WPF.Views.Observation
             RefreshDSSDPlots();
         }
 
+        private void CmbDSSDFitMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RefreshDSSDPlots();
+        }
+
         private void RefreshDSSDPlots()
         {
             if (_viewModel?.DataProcessor == null) return;
