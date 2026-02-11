@@ -13,6 +13,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         }
 
         [ObservableProperty]
+        private string _channelName = "Channel";
+
+        [ObservableProperty]
         private string _title = "Channel";
 
         [ObservableProperty]

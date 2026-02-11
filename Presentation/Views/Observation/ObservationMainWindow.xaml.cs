@@ -122,7 +122,7 @@ namespace BaselineMode.WPF.Views.Observation
         private void BtnReadData_Click(object sender, RoutedEventArgs e)
         {
             string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
+            string folderPath = Path.Combine(projectDirectory, AppConstants.SourceFolderName);
             string fileName = Path.Combine(folderPath, TxtOutputFileName.Text.Trim() + ".xlsx");
 
             if (!File.Exists(fileName))
@@ -153,8 +153,8 @@ namespace BaselineMode.WPF.Views.Observation
 
                 while (_data <= _totalSteps && !_stopFlag)
                 {
-                    string hexString = rawData.Rows[_data - 1][0].ToString();
-                    hexData = _viewModel.DataProcessor.SplitHexData(hexString);
+                    string? hexString = rawData.Rows[_data - 1][0].ToString();
+                    hexData = _viewModel.DataProcessor.SplitHexData(hexString ?? string.Empty);
 
                     ProgressBar.Value = _data;
                     TxtProgress.Text = $"Processing... {Math.Round((double)_data / _totalSteps * 100)}%";
@@ -174,7 +174,7 @@ namespace BaselineMode.WPF.Views.Observation
 
                 if (_totalSteps > 0)
                 {
-                    var lastHexData = _viewModel.DataProcessor.SplitHexData(rawData.Rows[_totalSteps - 1][0].ToString());
+                    var lastHexData = _viewModel.DataProcessor.SplitHexData(rawData.Rows[_totalSteps - 1][0].ToString() ?? string.Empty);
                     TxtStopTime.Text = _viewModel.DataProcessor.GetDateTimeFromHexData(lastHexData).ToString(FORMAT_DATE);
                 }
 
@@ -230,7 +230,7 @@ namespace BaselineMode.WPF.Views.Observation
         private void BtnHeaderCheck_Click(object sender, RoutedEventArgs e)
         {
             string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
+            string folderPath = Path.Combine(projectDirectory, AppConstants.SourceFolderName);
             string fileName = Path.Combine(folderPath, TxtOutputFileName.Text.Trim() + ".xlsx");
 
             if (!File.Exists(fileName))
@@ -251,8 +251,8 @@ namespace BaselineMode.WPF.Views.Observation
 
                 for (int i = 1; i <= totalSteps; i++)
                 {
-                    string hexString = rawData.Rows[i - 1][0].ToString();
-                    if (!hexString.StartsWith(ObservationConstants.HeaderStart))
+                    string? hexString = rawData.Rows[i - 1][0].ToString();
+                    if (!(hexString?.StartsWith(AppConstants.HeaderStart) ?? false))
                     {
                         TxtHeaderStatus.Text = $"Header is INCORRECT at row {i}";
                         headerOk = false;
@@ -283,7 +283,7 @@ namespace BaselineMode.WPF.Views.Observation
 
         private void ProcessHeader(string[] hexData)
         {
-            if (hexData == null || hexData.Length < ObservationConstants.PacketLength) return;
+            if (hexData == null || hexData.Length < AppConstants.PacketLength) return;
 
             string[] timecodeHex = [.. hexData.Skip(8).Take(6)];
             byte[] timecodeDec = [.. timecodeHex.Select(h => Convert.ToByte(h, 16))];
@@ -321,7 +321,7 @@ namespace BaselineMode.WPF.Views.Observation
         private void TxtDSSDAxisChanged(object sender, TextChangedEventArgs e)
         {
             if (!double.TryParse(TxtDSSDXMin?.Text, out double xMin)) xMin = 0;
-            if (!double.TryParse(TxtDSSDXMax?.Text, out double xMax)) xMax = ObservationConstants.ChartXMaxDSSD;
+            if (!double.TryParse(TxtDSSDXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxDSSD;
 
             if (PlotDSSDX != null)
             {
@@ -353,11 +353,11 @@ namespace BaselineMode.WPF.Views.Observation
             var (xList, yList, xStrips, yStrips) = GetLayerData(layerIndex);
 
             // Plot main X histogram
-            PlotHistogram(PlotDSSDX, xList?.ToArray(), "Pulse Height (X)",
+            PlotHistogram(PlotDSSDX, xList?.ToArray() ?? [], "Pulse Height (X)",
                 TxtDSSDXPeak, TxtDSSDXCounts, TxtDSSDXMean, TxtDSSDXRMS, TxtDSSDXFWHM, TxtDSSDXRes);
 
             // Plot main Y histogram  
-            PlotHistogram(PlotDSSDY, yList?.ToArray(), "Pulse Height (Y)",
+            PlotHistogram(PlotDSSDY, yList?.ToArray() ?? [], "Pulse Height (Y)",
                 TxtDSSDYPeak, TxtDSSDYCounts, TxtDSSDYMean, TxtDSSDYRMS, TxtDSSDYFWHM, TxtDSSDYRes);
 
             // Plot strip histograms with stats
@@ -410,7 +410,7 @@ namespace BaselineMode.WPF.Views.Observation
                 _ => DetectorLayer.L1
             };
 
-            if (!dp.DSSDData.TryGetValue(layerKey, out LayerData? layerData)) return (null, null, null, null);
+            if (!dp.DSSDData.TryGetValue(layerKey, out LayerData? layerData)) return ([], [], [], []);
 
             // Map Dictionary<int, List<int>> to List<int>[] expected by User's Reverted Loop
             var stripX = new List<int>[8];
@@ -436,7 +436,7 @@ namespace BaselineMode.WPF.Views.Observation
         private void TxtBGOAxisChanged(object sender, TextChangedEventArgs e)
         {
             if (!double.TryParse(TxtBGOXMin?.Text, out double xMin)) xMin = 0;
-            if (!double.TryParse(TxtBGOXMax?.Text, out double xMax)) xMax = ObservationConstants.ChartXMaxBGO;
+            if (!double.TryParse(TxtBGOXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxBGO;
 
             if (PlotBGOHigh != null)
             {

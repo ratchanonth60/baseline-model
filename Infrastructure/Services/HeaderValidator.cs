@@ -33,7 +33,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     if (string.IsNullOrEmpty(line)) continue;
 
                     // User requested strict check: "No trim, just check if it starts with E225 for every row"
-                    if (!line.StartsWith("E225"))
+                    if (!line.StartsWith(AppConstants.HeaderStart))
                     {
                         return new HeaderValidationResult
                         {

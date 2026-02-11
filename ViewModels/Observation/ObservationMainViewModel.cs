@@ -11,10 +11,12 @@ using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Core.Models.Observation;
+using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Presentation.ViewModels;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 {
-    public partial class ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IMathService mathService, IFileService fileService, IFileHelper fileHelper) : ObservableObject
+    public partial class ObservationMainViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IMathService mathService, IFileService fileService, IFileHelper fileHelper) : SharedViewModelBase
     {
         private readonly IObservationDataProcessor _dataProcessor = dataProcessor;
         private readonly IObservationExcelHelper _excelHelper = excelHelper;
@@ -32,18 +34,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         public string CombinedOutputFileName { get; set; } = "CombinedData.xlsx";
 
         [ObservableProperty]
-        private string[]? _inputFileList;
-
-        [ObservableProperty]
-        private string _statusMessage = "Ready";
-
-        [ObservableProperty]
-        private int _progressValue;
-
-        [ObservableProperty]
         private string? _outputFileName;
-
-
 
         [ObservableProperty]
         private string _dataCountStr = "-";
@@ -117,12 +108,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         }
 
         [RelayCommand]
-        private void Reset()
+        public override void Reset()
         {
+            base.Reset();
             _dataProcessor.ClearData();
-            InputFileList = null;
-            StatusMessage = "Ready";
-            ProgressValue = 0;
             OutputFileName = string.Empty;
         }
 
@@ -210,24 +199,24 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                 foreach (var fileName in InputFileList!)
                 {
                     var fileContent = File.ReadAllText(fileName);
-                    var cleanedData = MyRegex().Replace(fileContent, "");
-                    var matches = MyRegex1().Matches(cleanedData);
+                    var cleanedData = BaselineMode.WPF.Core.Models.RegexPatterns.Whitespace().Replace(fileContent, "");
+                    var matches = BaselineMode.WPF.Core.Models.RegexPatterns.E225Header().Matches(cleanedData);
 
                     foreach (Match match in matches)
                     {
                         var segment = match.Value;
                         int segmentLength = segment.Length;
 
-                        for (int i = 0; i < segmentLength; i += ObservationConstants.PacketHexLength)
+                        for (int i = 0; i < segmentLength; i += AppConstants.PacketHexLength)
                         {
-                            var chunk = segment.Substring(i, Math.Min(ObservationConstants.PacketHexLength, segmentLength - i));
+                            var chunk = segment.Substring(i, Math.Min(AppConstants.PacketHexLength, segmentLength - i));
                             filteredSegments.Add(chunk);
                         }
                     }
                 }
             });
 
-            if (filteredSegments.Count > 0 && filteredSegments.Last().Length < ObservationConstants.PacketHexLength)
+            if (filteredSegments.Count > 0 && filteredSegments.Last().Length < AppConstants.PacketHexLength)
             {
                 filteredSegments.RemoveAt(filteredSegments.Count - 1);
             }
@@ -272,9 +261,6 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
             }
         }
 
-        [ObservableProperty]
-        private bool _isBusy;
-
         public event EventHandler? RequestPlotUpdate;
 
         public void LoadFiles(string[] fileNames)
@@ -309,10 +295,5 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                 }
             }
         }
-
-        [GeneratedRegex(@"\s+")]
-        private static partial Regex MyRegex();
-        [GeneratedRegex("E225[0-9A-F]+")]
-        private static partial Regex MyRegex1();
     }
 }

@@ -13,6 +13,7 @@ using BaselineMode.WPF.Core.Interfaces;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScottPlot;
+using BaselineMode.WPF.Core.Interfaces.Observation;
 
 namespace BaselineMode.WPF.Presentation.ViewModels
 {
@@ -21,6 +22,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         private readonly IFileService _fileService;
         private readonly IMathService _mathService;
         private bool _disposed = false;
+
+        [ObservableProperty]
+        private CalibrationViewModel _calibrationVM;
 
         [ObservableProperty]
         private string _statusMessage = "Ready";
@@ -137,10 +141,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         public event EventHandler<PlotUpdateEventArgs>? RequestPlotUpdate;
 
-        public MainViewModel(IFileService fileService, IMathService mathService)
+        public MainViewModel(IFileService fileService, IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor)
         {
             _fileService = fileService;
             _mathService = mathService;
+
+            // Initialize CalibrationVM with dependencies
+            _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor);
+
             // Initialize 16 channels
             InitializeChannels();
 

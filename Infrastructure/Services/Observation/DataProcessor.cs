@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 
@@ -104,7 +105,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
                 if (string.IsNullOrWhiteSpace(line)) continue;
 
                 var hexData = SplitHexData(line.Trim());
-                if (hexData.Length >= ObservationConstants.HeaderOffset + ObservationConstants.ParticleDataLength)
+                if (hexData.Length >= AppConstants.HeaderOffset + AppConstants.ParticleDataLength)
                 {
                     ProcessParticles(hexData);
                 }
@@ -184,13 +185,13 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
 
         public void ProcessParticles(string[] hexData)
         {
-            for (int i = 0; i < ObservationConstants.ParticlesPerLine; i++)
+            for (int i = 0; i < AppConstants.ParticlesPerLine; i++)
             {
-                var particleData = hexData.Skip(ObservationConstants.HeaderOffset + ObservationConstants.ParticleDataLength * i)
-                                          .Take(ObservationConstants.ParticleDataLength).ToArray();
+                var particleData = hexData.Skip(AppConstants.HeaderOffset + AppConstants.ParticleDataLength * i)
+                                          .Take(AppConstants.ParticleDataLength).ToArray();
 
-                // Robustness fix using ObservationConstants
-                if (particleData.Length < ObservationConstants.ParticleDataLength) break;
+                // Robustness fix using AppConstants
+                if (particleData.Length < AppConstants.ParticleDataLength) break;
 
                 var processedData = ProcessParticleData(particleData, i);
                 StorageDataList.Add(processedData);
@@ -331,6 +332,24 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
             return Enumerable.Range(0, hexString.Length / n)
                              .Select(i => hexString.Substring(i * n, n))
                              .ToArray();
+        }
+        public bool ValidateHeader(string[] hexData)
+        {
+            if (hexData.Length < 256) return false;
+
+            try
+            {
+                int totalSum = hexData.Skip(8).Take(246).Select(h => Convert.ToInt32(h, 16)).Sum();
+                int lastTwoBytes = totalSum % 65536;
+                string calculatedChecksum = lastTwoBytes.ToString("X4");
+                string dataChecksum = hexData[254] + hexData[255];
+
+                return calculatedChecksum.Equals(dataChecksum, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

@@ -129,7 +129,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             while (searchIndex < bufferStr.Length)
             {
                 // หา header "E225"
-                int headerIndex = bufferStr.IndexOf("E225", searchIndex, StringComparison.OrdinalIgnoreCase);
+                int headerIndex = bufferStr.IndexOf(AppConstants.HeaderStart, searchIndex, StringComparison.OrdinalIgnoreCase);
 
                 if (headerIndex == -1)
                 {

@@ -6,6 +6,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:vm="clr-namespace:BaselineMode.WPF.Presentation.ViewModels"
+        xmlns:viewsCalib="clr-namespace:BaselineMode.WPF.Presentation.Views.Calibration"
         xmlns:scott="clr-namespace:ScottPlot;assembly=ScottPlot.WPF"
         mc:Ignorable="d"
         Title="DSSD Analysis Suite"
@@ -217,6 +218,8 @@
                                  IsChecked="True" Checked="TabBaseline_Checked"/>
                     <RadioButton x:Name="TabObservation" Content="Observation" Style="{StaticResource RibbonTabStyle}"
                                  Checked="TabObservation_Checked"/>
+                    <RadioButton x:Name="TabCalibration" Content="Calibration" Style="{StaticResource RibbonTabStyle}"
+                                 Checked="TabCalibration_Checked"/>
                     <RadioButton x:Name="TabSettings" Content="Settings" Style="{StaticResource RibbonTabStyle}"
                                  Checked="TabSettings_Checked"/>
                 </StackPanel>
@@ -554,6 +557,100 @@
                                 <ProgressBar x:Name="ObsProgressBar" Value="0" Maximum="100" Height="4" Width="100" 
                                              Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"/>
                                 <TextBlock x:Name="ObsTxtProgress" Text="Ready" Foreground="#858585" FontSize="10" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- CALIBRATION Toolbar -->
+                    <StackPanel x:Name="ToolbarCalibration" Orientation="Horizontal" Margin="8,4" Visibility="Collapsed">
+                        <!-- File Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Style="{StaticResource RibbonBtnLarge}" Command="{Binding CalibrationVM.SelectFilesCommand}" ToolTip="Select Files">
+                                        <StackPanel>
+                                            <materialDesign:PackIcon Kind="FileMultiple" Width="20" Height="20" Foreground="#E8A838" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Open" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <StackPanel VerticalAlignment="Center" Margin="4,0,0,0">
+                                        <TextBlock Text="Output Name:" Foreground="#858585" FontSize="10"/>
+                                        <TextBox Text="{Binding CalibrationVM.OutputFileName, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource RibbonInput}" Width="100"/>
+                                        <TextBlock Text="{Binding CalibrationVM.InputFilesInfo}" Foreground="#858585" FontSize="9" Margin="0,2,0,0" MaxWidth="100" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="File" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Settings Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Layer:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <ComboBox SelectedIndex="{Binding CalibrationVM.SelectedLayerIndex}" Width="60" Style="{StaticResource RibbonCombo}">
+                                            <ComboBoxItem Content="L1"/>
+                                            <ComboBoxItem Content="L2"/>
+                                            <ComboBoxItem Content="L6"/>
+                                            <ComboBoxItem Content="L7"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="X-Axis:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <ComboBox SelectedIndex="{Binding CalibrationVM.SelectedXAxisIndex}" Width="80" Style="{StaticResource RibbonCombo}">
+                                            <ComboBoxItem Content="ADC"/>
+                                            <ComboBoxItem Content="Voltage"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Settings" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Actions Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Style="{StaticResource RibbonBtnLarge}" Command="{Binding CalibrationVM.ProcessDataCommand}" ToolTip="Extract Raw Data">
+                                        <StackPanel>
+                                            <materialDesign:PackIcon Kind="FileExport" Width="20" Height="20" Foreground="#4CAF50" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Process" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource RibbonBtnLarge}" Command="{Binding CalibrationVM.ReadDataCommand}" ToolTip="Read &amp; Plot">
+                                        <StackPanel>
+                                            <materialDesign:PackIcon Kind="ChartBox" Width="20" Height="20" Foreground="#4EC9B0" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Plot" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource RibbonBtnLarge}" Command="{Binding CalibrationVM.StopCommand}" ToolTip="Stop Operation">
+                                        <StackPanel>
+                                            <materialDesign:PackIcon Kind="Stop" Width="20" Height="20" Foreground="#F44336" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Stop" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Style="{StaticResource RibbonBtnLarge}" Command="{Binding CalibrationVM.ResetCommand}" ToolTip="Reset All">
+                                        <StackPanel>
+                                            <materialDesign:PackIcon Kind="Refresh" Width="20" Height="20" Foreground="#FF9800" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Reset" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="Actions" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Status Group -->
+                        <Border Padding="12,0">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="STATUS" Foreground="#858585" FontSize="10"/>
+                                <TextBlock Text="{Binding CalibrationVM.StatusMessage}" Foreground="#4EC9B0" FontSize="11" FontWeight="SemiBold" 
+                                           MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Value="{Binding CalibrationVM.ProgressValue}" Maximum="100" Height="4" Width="100" 
+                                             Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"
+                                             IsIndeterminate="{Binding CalibrationVM.IsBusy}"/>
+                                <TextBlock Text="{Binding CalibrationVM.HeaderCheckStatus}" Foreground="#FFD740" FontSize="10" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -1326,6 +1423,11 @@
                         </Grid>
                     </TabItem>
                 </TabControl>
+            </Grid>
+
+            <!-- CALIBRATION View -->
+            <Grid x:Name="ViewCalibration" Visibility="Collapsed">
+                 <viewsCalib:CalibrationView DataContext="{Binding CalibrationVM}"/>
             </Grid>
 
             <!-- SETTINGS View -->

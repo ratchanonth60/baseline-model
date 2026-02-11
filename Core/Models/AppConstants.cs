@@ -1,6 +1,6 @@
-namespace BaselineMode.WPF.Core.Models.Observation
+namespace BaselineMode.WPF.Core.Models
 {
-    public static class ObservationConstants
+    public static class AppConstants
     {
         // File & Folder Names
         public const string SourceFolderName = "Source";

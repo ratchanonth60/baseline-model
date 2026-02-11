@@ -18,5 +18,9 @@ namespace BaselineMode.WPF.Core.Interfaces.Observation
         Dictionary<DetectorLayer, LayerData> DSSDData { get; }
         Dictionary<BGOLayer, BGOData> BGOData { get; }
         List<Dictionary<string, object>> AllResults { get; }
+        /// <summary>
+        /// Validates the checksum of a hex data packet.
+        /// </summary>
+        bool ValidateHeader(string[] hexData);
     }
 }

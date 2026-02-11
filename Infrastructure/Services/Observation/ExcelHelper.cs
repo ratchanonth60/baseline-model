@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using OfficeOpenXml;
+using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Core.Models.Observation;
 
 using BaselineMode.WPF.Core.Interfaces.Observation;
@@ -27,7 +28,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
 
             // Get the Debug/Source folder dynamically
             string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string saveDirectory = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
+            string saveDirectory = Path.Combine(projectDirectory, AppConstants.SourceFolderName);
 
             // Ensure the directory exists
             if (!Directory.Exists(saveDirectory))

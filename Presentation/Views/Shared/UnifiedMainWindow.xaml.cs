@@ -12,6 +12,7 @@ using ScottPlot;
 using BaselineMode.WPF.Presentation.ViewModels;
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Infrastructure.Services.Observation;
+using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Views.Observation;
@@ -87,6 +88,12 @@ namespace BaselineMode.WPF.Views.Shared
             SwitchToObservationMode();
             UpdateToolbarVisibility();
         }
+        private void TabCalibration_Checked(object sender, RoutedEventArgs e)
+        {
+            if (!this.IsLoaded) return;
+            SwitchToCalibrationMode();
+            UpdateToolbarVisibility();
+        }
 
         private void TabSettings_Checked(object sender, RoutedEventArgs e)
         {
@@ -97,9 +104,10 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void UpdateToolbarVisibility()
         {
-            if (ToolbarBaseline == null || ToolbarObservation == null || ToolbarSettings == null) return;
+            if (ToolbarBaseline == null || ToolbarObservation == null || ToolbarCalibration == null || ToolbarSettings == null) return;
             ToolbarBaseline.Visibility = TabBaseline?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             ToolbarObservation.Visibility = TabObservation?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            ToolbarCalibration.Visibility = TabCalibration?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             ToolbarSettings.Visibility = TabSettings?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -141,6 +149,7 @@ namespace BaselineMode.WPF.Views.Shared
             if (ViewBaseline == null || ViewObservation == null || ViewSettings == null) return;
             ViewBaseline.Visibility = Visibility.Visible;
             ViewObservation.Visibility = Visibility.Collapsed;
+            ViewCalibration.Visibility = Visibility.Collapsed;
             ViewSettings.Visibility = Visibility.Collapsed;
         }
 
@@ -149,6 +158,16 @@ namespace BaselineMode.WPF.Views.Shared
             if (ViewBaseline == null || ViewObservation == null || ViewSettings == null) return;
             ViewBaseline.Visibility = Visibility.Collapsed;
             ViewObservation.Visibility = Visibility.Visible;
+            ViewCalibration.Visibility = Visibility.Collapsed;
+            ViewSettings.Visibility = Visibility.Collapsed;
+        }
+
+        private void SwitchToCalibrationMode()
+        {
+            if (ViewBaseline == null || ViewObservation == null || ViewSettings == null) return;
+            ViewBaseline.Visibility = Visibility.Collapsed;
+            ViewObservation.Visibility = Visibility.Collapsed;
+            ViewCalibration.Visibility = Visibility.Visible;
             ViewSettings.Visibility = Visibility.Collapsed;
         }
 
@@ -157,6 +176,7 @@ namespace BaselineMode.WPF.Views.Shared
             if (ViewBaseline == null || ViewObservation == null || ViewSettings == null) return;
             ViewBaseline.Visibility = Visibility.Collapsed;
             ViewObservation.Visibility = Visibility.Collapsed;
+            ViewCalibration.Visibility = Visibility.Collapsed;
             ViewSettings.Visibility = Visibility.Visible;
         }
 
@@ -567,7 +587,7 @@ namespace BaselineMode.WPF.Views.Shared
                 for (int i = 1; i <= totalSteps; i++)
                 {
                     string? hexString = rawData.Rows[i - 1][0].ToString();
-                    if (hexString == null || !hexString.StartsWith(ObservationConstants.HeaderStart))
+                    if (hexString == null || !hexString.StartsWith(AppConstants.HeaderStart))
                     {
                         ObsTxtProgress.Text = $"Header INCORRECT at row {i}";
                         ObsTxtStatus.Text = "HEADER ERR";
@@ -613,7 +633,7 @@ namespace BaselineMode.WPF.Views.Shared
                 {
                     // Legacy fallback
                     string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                    string folderPath = Path.Combine(projectDirectory, ObservationConstants.SourceFolderName);
+                    string folderPath = Path.Combine(projectDirectory, AppConstants.SourceFolderName);
                     if (Directory.Exists(folderPath))
                         Process.Start("explorer.exe", folderPath);
                     else
@@ -631,7 +651,7 @@ namespace BaselineMode.WPF.Views.Shared
         private void ObsTxtDSSDAxisChanged(object sender, TextChangedEventArgs e)
         {
             if (!double.TryParse(ObsTxtDSSDXMin?.Text, out double xMin)) xMin = 0;
-            if (!double.TryParse(ObsTxtDSSDXMax?.Text, out double xMax)) xMax = ObservationConstants.ChartXMaxDSSD;
+            if (!double.TryParse(ObsTxtDSSDXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxDSSD;
 
             if (ObsPlotDSSDX != null) { ObsPlotDSSDX.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); ObsPlotDSSDX.Refresh(); }
             if (ObsPlotDSSDY != null) { ObsPlotDSSDY.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); ObsPlotDSSDY.Refresh(); }
@@ -701,7 +721,7 @@ namespace BaselineMode.WPF.Views.Shared
         private void ObsTxtBGOAxisChanged(object sender, TextChangedEventArgs e)
         {
             if (!double.TryParse(ObsTxtBGOXMin?.Text, out double xMin)) xMin = 0;
-            if (!double.TryParse(ObsTxtBGOXMax?.Text, out double xMax)) xMax = ObservationConstants.ChartXMaxBGO;
+            if (!double.TryParse(ObsTxtBGOXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxBGO;
 
             if (ObsPlotBGOHigh != null) { ObsPlotBGOHigh.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); ObsPlotBGOHigh.Refresh(); }
             if (ObsPlotBGOLow != null) { ObsPlotBGOLow.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); ObsPlotBGOLow.Refresh(); }
