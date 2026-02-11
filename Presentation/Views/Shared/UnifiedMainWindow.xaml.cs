@@ -193,10 +193,11 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void SwitchToSettingsMode()
         {
-            if (ViewBaseline == null || ViewObservation == null || ViewSettings == null) return;
+            if (ViewBaseline == null || ViewObservation == null || ViewSettings == null || ViewFlux == null || ViewCalibration == null) return;
             ViewBaseline.Visibility = Visibility.Collapsed;
             ViewObservation.Visibility = Visibility.Collapsed;
             ViewCalibration.Visibility = Visibility.Collapsed;
+            ViewFlux.Visibility = Visibility.Collapsed;
             ViewSettings.Visibility = Visibility.Visible;
         }
 

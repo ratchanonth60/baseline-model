@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Diagnostics;
 using BaselineMode.WPF.Presentation.ViewModels;
 using ScottPlot;
 
@@ -16,6 +17,7 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
         {
             if (sender is WpfPlot plot && plot.DataContext is FluxLayerViewModel vm)
             {
+                Debug.WriteLine($"[FluxView] Plot_Loaded for {vm.LayerName}");
                 vm.PlotControl = plot;
                 plot.Plot.Style(ScottPlot.Style.Gray1);
                 plot.Plot.Title(vm.LayerName);

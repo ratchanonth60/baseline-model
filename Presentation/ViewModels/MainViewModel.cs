@@ -151,6 +151,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
             // Initialize CalibrationVM with dependencies
             _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor);
+            // Initialize FluxVM
+            _fluxVM = new FluxViewModel(fileHelper, dataProcessor);
 
             // Initialize 16 channels
             InitializeChannels();

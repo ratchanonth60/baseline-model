@@ -5,8 +5,8 @@ using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Infrastructure.Services;
 using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Presentation.ViewModels;
-using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Views.Shared;
+using BaselineMode.WPF.Presentation.ViewModels.Observation;
 
 namespace BaselineMode.WPF;
 

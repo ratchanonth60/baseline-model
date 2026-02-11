@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Drawing;
@@ -320,6 +321,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                     var result = reader.AsDataSet();
                     var rawData = result.Tables[0];
                     totalSteps = rawData.Rows.Count;
+                    Debug.WriteLine($"[FluxVM] ReadData totalSteps: {totalSteps}");
 
                     Application.Current.Dispatcher.BeginInvoke(() =>
                         DataCount = totalSteps);
@@ -545,8 +547,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                 var timecodeDec = timecodeHex.Select(h => Convert.ToByte(h, 16)).ToArray();
                 var secondsPart = BitConverter.ToUInt32([.. timecodeDec.Take(4).Reverse()], 0);
                 var millisecondsPart = BitConverter.ToUInt16([.. timecodeDec.Skip(4).Take(2).Reverse()], 0);
-                double totalSeconds = secondsPart + millisecondsPart / 1000.0;
-                return DateTimeOffset.FromUnixTimeSeconds((long)totalSeconds).DateTime;
+                return DateTimeOffset.FromUnixTimeSeconds(secondsPart).AddMilliseconds(millisecondsPart).DateTime;
             }
             catch
             {
@@ -595,6 +596,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         private void CalculateAndPlotFlux()
         {
+            Debug.WriteLine($"[FluxVM] CalculateAndPlotFlux called. SecondsPartList count: {_secondsPartList.Count}");
             if (_secondsPartList.Count == 0) return;
 
             double[] timeSeconds = [.. _secondsPartList];

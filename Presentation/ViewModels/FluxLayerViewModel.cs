@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScottPlot;
+using System.Diagnostics;
 
 namespace BaselineMode.WPF.Presentation.ViewModels
 {
@@ -40,7 +41,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             string? yLabel = null)
         {
             if (PlotControl != null)
+            {
+                Debug.WriteLine($"[FluxLayerVM] RenderPlot called for {LayerName}. XData count: {XData?.Length ?? 0}");
                 RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor, isLogScale, xMax, xLabel, yLabel);
+            }
+            else
+            {
+                Debug.WriteLine($"[FluxLayerVM] RenderPlot called for {LayerName} but PlotControl is NULL");
+            }
         }
 
         /// <summary>
