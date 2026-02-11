@@ -12,7 +12,9 @@ namespace BaselineMode.WPF.Core.Models
         public const int PacketHexLength = PacketLength * 2; // Total hex characters
         public const int HeaderOffset = 16;       // bytes to skip before particle data
         public const int ParticlesPerLine = 5;    // number of particles per data packet
+
         public const int ParticleDataLength = 34; // length of one particle's data in bytes
+        public const int ChannelsPerLayer = 16;   // Number of channels per detector layer
 
         // Chart Settings
         public const int ChartXMin = 0;

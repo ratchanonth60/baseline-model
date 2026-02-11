@@ -11,7 +11,7 @@ using OfficeOpenXml;
 
 namespace BaselineMode.WPF.Infrastructure.Services
 {
-    public class FileService : IFileService
+    public partial class FileService : IFileService
     {
         // Constants
         private const double VOLTAGE_FACTOR = (5.0 / 16383.0) * 1000.0;
@@ -21,7 +21,8 @@ namespace BaselineMode.WPF.Infrastructure.Services
         private const int BUFFER_SIZE = 64; // size for l1l2Dec and l6l7Dec
 
         // Regex อาจจะไม่จำเป็นถ้าเราใช้ Span Parsing (ซึ่งเร็วกว่า) แต่เก็บไว้สำหรับ clean whitespace ได้
-        private static readonly Regex WhitespaceRegex = new Regex(@"\s+", RegexOptions.Compiled);
+        // RegexShared from RegexPatterns
+        private static readonly Regex WhitespaceRegex = RegexPatterns.Whitespace();
 
         private bool _disposed = false;
 
@@ -59,7 +60,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 char[] fileBuffer = new char[131072];
 
                 // Buffer สำหรับสะสม string hex ที่ clean แล้ว (ต้องใหญ่กว่า CHUNK_SIZE)
-                StringBuilder hexAccumulator = new StringBuilder(CHUNK_SIZE * 4);
+                StringBuilder hexAccumulator = new(CHUNK_SIZE * 4);
 
                 int charsRead;
                 long totalBytes = fs.Length;
@@ -199,7 +200,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool IsHexChar(char c)
+        private static bool IsHexChar(char c)
         {
             return (c >= '0' && c <= '9') ||
                    (c >= 'A' && c <= 'F') ||
@@ -215,7 +216,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private bool ParseHexToSpan(ReadOnlySpan<char> hexDataSpan, int startOffset, int byteCount, Span<int> output)
+        private static bool ParseHexToSpan(ReadOnlySpan<char> hexDataSpan, int startOffset, int byteCount, Span<int> output)
         {
             if (startOffset + byteCount * 2 > hexDataSpan.Length) return false;
             for (int i = 0; i < byteCount; i++)
@@ -227,7 +228,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private int HexCharToInt(char c)
+        private static int HexCharToInt(char c)
         {
             if (c >= '0' && c <= '9') return c - '0';
             if (c >= 'A' && c <= 'F') return c - 'A' + 10;
@@ -236,9 +237,9 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ProcessChannels(BaselineData data, Span<int> l1l2Dec, Span<int> l6l7Dec)
+        private static void ProcessChannels(BaselineData data, Span<int> l1l2Dec, Span<int> l6l7Dec)
         {
-            for (int j = 0; j < CHANNELS; j++)
+            for (int j = 0; j < AppConstants.ChannelsPerLayer; j++)
             {
                 int j2 = j * 2;
                 int j2_32 = j2 + 32;
@@ -296,49 +297,47 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 }
             }
 
-            using (var package = new ExcelPackage(new FileInfo(filePath)))
+            using var package = new ExcelPackage(new FileInfo(filePath));
+            var ws = package.Workbook.Worksheets.Add("Processed Data");
+
+            // Build headers efficiently
+            WriteHeaders(ws);
+
+            // Write data in bulk using LoadFromArrays (High Performance)
+            int rowCount = dataList.Count;
+            if (rowCount > 0)
             {
-                var ws = package.Workbook.Worksheets.Add("Processed Data");
+                // Create object array in memory
+                // Columns: 2 (Packet/Sample) + 64 (4 * 16 Channels) = 66
+                int colCount = 2 + (AppConstants.ChannelsPerLayer * 4);
+                object[,] dataArray = new object[rowCount, colCount];
 
-                // Build headers efficiently
-                WriteHeaders(ws);
-
-                // Write data in bulk using LoadFromArrays (High Performance)
-                int rowCount = dataList.Count;
-                if (rowCount > 0)
+                for (int i = 0; i < rowCount; i++)
                 {
-                    // Create object array in memory
-                    // Columns: 2 (Packet/Sample) + 64 (4 * 16 Channels) = 66
-                    int colCount = 2 + (CHANNELS * 4);
-                    object[,] dataArray = new object[rowCount, colCount];
+                    var item = dataList[i];
+                    dataArray[i, 0] = item.SamplingPacketNo;
+                    dataArray[i, 1] = item.SamplingNo;
 
-                    for (int i = 0; i < rowCount; i++)
+                    int c = 2;
+                    for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L1[j];
+                    for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L2[j];
+                    for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L6[j];
+                    for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L7[j];
+
+                    if (progress != null && i % 1000 == 0) // Report progress periodically
                     {
-                        var item = dataList[i];
-                        dataArray[i, 0] = item.SamplingPacketNo;
-                        dataArray[i, 1] = item.SamplingNo;
-
-                        int c = 2;
-                        for (int j = 0; j < CHANNELS; j++) dataArray[i, c++] = item.L1[j];
-                        for (int j = 0; j < CHANNELS; j++) dataArray[i, c++] = item.L2[j];
-                        for (int j = 0; j < CHANNELS; j++) dataArray[i, c++] = item.L6[j];
-                        for (int j = 0; j < CHANNELS; j++) dataArray[i, c++] = item.L7[j];
-
-                        if (progress != null && i % 1000 == 0) // Report progress periodically
-                        {
-                            progress.Report(((double)i / rowCount) * 100);
-                        }
+                        progress.Report(((double)i / rowCount) * 100);
                     }
-
-                    // Write to Excel in one go
-                    ws.Cells[2, 1].LoadFromArrays(ConvertArrayToEnumerable(dataArray));
                 }
 
-                package.Save();
+                // Write to Excel in one go
+                ws.Cells[2, 1].LoadFromArrays(ConvertArrayToEnumerable(dataArray));
             }
+
+            package.Save();
         }
 
-        private IEnumerable<object[]> ConvertArrayToEnumerable(object[,] array)
+        private static IEnumerable<object[]> ConvertArrayToEnumerable(object[,] array)
         {
             int rows = array.GetLength(0);
             int cols = array.GetLength(1);
@@ -362,19 +361,19 @@ namespace BaselineMode.WPF.Infrastructure.Services
             int col = 3;
 
             // Use StringBuilder for better performance with string concatenation
-            for (int i = 1; i <= CHANNELS; i++)
+            for (int i = 1; i <= AppConstants.ChannelsPerLayer; i++)
             {
                 ws.Cells[1, col++].Value = $"L1 CH{i}";
             }
-            for (int i = 1; i <= CHANNELS; i++)
+            for (int i = 1; i <= AppConstants.ChannelsPerLayer; i++)
             {
                 ws.Cells[1, col++].Value = $"L2 CH{i}";
             }
-            for (int i = 1; i <= CHANNELS; i++)
+            for (int i = 1; i <= AppConstants.ChannelsPerLayer; i++)
             {
                 ws.Cells[1, col++].Value = $"L6 CH{i}";
             }
-            for (int i = 1; i <= CHANNELS; i++)
+            for (int i = 1; i <= AppConstants.ChannelsPerLayer; i++)
             {
                 ws.Cells[1, col++].Value = $"L7 CH{i}";
             }
@@ -391,91 +390,89 @@ namespace BaselineMode.WPF.Infrastructure.Services
             if (!File.Exists(filePath))
                 throw new FileNotFoundException("Excel file not found", filePath);
 
-            using (var package = new ExcelPackage(new FileInfo(filePath)))
+            using var package = new ExcelPackage(new FileInfo(filePath));
+            var ws = package.Workbook.Worksheets[0];
+            if (ws.Dimension == null) return [];
+
+            int rowCount = ws.Dimension.Rows;
+            int colCount = ws.Dimension.Columns;
+            int dataRows = rowCount - 1;
+
+            if (dataRows <= 0)
             {
-                var ws = package.Workbook.Worksheets[0];
-                if (ws.Dimension == null) return new List<BaselineData>();
-
-                int rowCount = ws.Dimension.Rows;
-                int colCount = ws.Dimension.Columns;
-                int dataRows = rowCount - 1;
-
-                if (dataRows <= 0)
-                {
-                    MessageBoxService.Show($"Excel file found but appears empty (Rows: {rowCount}).", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-                    return new List<BaselineData>();
-                }
-
-                // Debug Message
-                // MessageBoxService.Show($"Found {dataRows} data rows in Excel.", "Debug", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-
-                // Load all data into memory at once
-                var rawValues = ws.Cells[2, 1, rowCount, colCount].Value as object[,];
-
-                if (rawValues == null)
-                {
-                    MessageBoxService.Show("Unable to read Excel data.", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-                    return new List<BaselineData>();
-                }
-
-                // Pre-allocate with exact capacity
-                var results = new List<BaselineData>(dataRows);
-
-                for (int r = 0; r < dataRows; r++)
-                {
-                    var data = new BaselineData();
-
-                    // Direct array access (High Performance) - with null checks
-                    data.SamplingPacketNo = rawValues[r, 0] != null ? Convert.ToInt32(rawValues[r, 0]) : 0;
-                    data.SamplingNo = rawValues[r, 1] != null ? Convert.ToInt32(rawValues[r, 1]) : 0;
-
-                    int c = 2;
-                    // Optimized: Read all layers in a single loop pass to improve cache locality
-                    // Read L1
-                    for (int i = 0; i < CHANNELS; i++)
-                    {
-                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
-                        data.L1[i] = val;
-                        data.L1_Voltage[i] = val * VOLTAGE_FACTOR;
-                        c++;
-                    }
-
-                    // Read L2
-                    for (int i = 0; i < CHANNELS; i++)
-                    {
-                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
-                        data.L2[i] = val;
-                        data.L2_Voltage[i] = val * VOLTAGE_FACTOR;
-                        c++;
-                    }
-
-                    // Read L6
-                    for (int i = 0; i < CHANNELS; i++)
-                    {
-                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
-                        data.L6[i] = val;
-                        data.L6_Voltage[i] = val * VOLTAGE_FACTOR;
-                        c++;
-                    }
-
-                    // Read L7
-                    for (int i = 0; i < CHANNELS; i++)
-                    {
-                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
-                        data.L7[i] = val;
-                        data.L7_Voltage[i] = val * VOLTAGE_FACTOR;
-                        c++;
-                    }
-
-                    results.Add(data);
-
-                    if (progress != null && (r % 1000 == 0))
-                    {
-                        progress.Report(((double)(r) / dataRows) * 100);
-                    }
-                }
-                return results;
+                MessageBoxService.Show($"Excel file found but appears empty (Rows: {rowCount}).", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return [];
             }
+
+            // Debug Message
+            // MessageBoxService.Show($"Found {dataRows} data rows in Excel.", "Debug", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+
+            // Load all data into memory at once
+
+            if (ws.Cells[2, 1, rowCount, colCount].Value is not object[,] rawValues)
+            {
+                MessageBoxService.Show("Unable to read Excel data.", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return [];
+            }
+
+            // Pre-allocate with exact capacity
+            var results = new List<BaselineData>(dataRows);
+
+            for (int r = 0; r < dataRows; r++)
+            {
+                var data = new BaselineData
+                {
+                    // Direct array access (High Performance) - with null checks
+                    SamplingPacketNo = rawValues[r, 0] != null ? Convert.ToInt32(rawValues[r, 0]) : 0,
+                    SamplingNo = rawValues[r, 1] != null ? Convert.ToInt32(rawValues[r, 1]) : 0
+                };
+
+                int c = 2;
+                // Optimized: Read all layers in a single loop pass to improve cache locality
+                // Read L1
+                for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
+                {
+                    int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
+                    data.L1[i] = val;
+                    data.L1_Voltage[i] = val * VOLTAGE_FACTOR;
+                    c++;
+                }
+
+                // Read L2
+                for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
+                {
+                    int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
+                    data.L2[i] = val;
+                    data.L2_Voltage[i] = val * VOLTAGE_FACTOR;
+                    c++;
+                }
+
+                // Read L6
+                for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
+                {
+                    int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
+                    data.L6[i] = val;
+                    data.L6_Voltage[i] = val * VOLTAGE_FACTOR;
+                    c++;
+                }
+
+                // Read L7
+                for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
+                {
+                    int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
+                    data.L7[i] = val;
+                    data.L7_Voltage[i] = val * VOLTAGE_FACTOR;
+                    c++;
+                }
+
+                results.Add(data);
+
+                if (progress != null && (r % 1000 == 0))
+                {
+                    progress.Report(((double)(r) / dataRows) * 100);
+                }
+            }
+            return results;
         }
 
         protected virtual void Dispose(bool disposing)
