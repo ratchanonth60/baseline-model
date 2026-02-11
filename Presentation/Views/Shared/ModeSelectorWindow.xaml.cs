@@ -2,6 +2,7 @@ using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using BaselineMode.WPF.Views.Observation;
 using BaselineMode.WPF.Views.Baseline;
+using BaselineMode.WPF.Views.Flux;
 
 namespace BaselineMode.WPF.Views.Shared
 {
@@ -32,6 +33,16 @@ namespace BaselineMode.WPF.Views.Shared
             LaunchObservationMode();
         }
 
+        private void FluxMode_Click(object sender, RoutedEventArgs e)
+        {
+            LaunchFluxMode();
+        }
+
+        private void FluxModeCard_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            LaunchFluxMode();
+        }
+
         private void LaunchBaselineMode()
         {
             var mainWindow = new MainWindow();
@@ -46,5 +57,14 @@ namespace BaselineMode.WPF.Views.Shared
             observationWindow.Show();
             this.Close();
         }
+
+        private void LaunchFluxMode()
+        {
+            var app = (App)Application.Current;
+            var fluxWindow = app.ServiceProvider.GetRequiredService<FluxMainWindow>();
+            fluxWindow.Show();
+            this.Close();
+        }
     }
 }
+

@@ -95,6 +95,13 @@ namespace BaselineMode.WPF.Views.Shared
             UpdateToolbarVisibility();
         }
 
+        private void TabFlux_Checked(object sender, RoutedEventArgs e)
+        {
+            if (!this.IsLoaded) return;
+            SwitchToFluxMode();
+            UpdateToolbarVisibility();
+        }
+
         private void TabSettings_Checked(object sender, RoutedEventArgs e)
         {
             if (!this.IsLoaded) return;
@@ -104,10 +111,11 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void UpdateToolbarVisibility()
         {
-            if (ToolbarBaseline == null || ToolbarObservation == null || ToolbarCalibration == null || ToolbarSettings == null) return;
+            if (ToolbarBaseline == null || ToolbarObservation == null || ToolbarCalibration == null || ToolbarFlux == null || ToolbarSettings == null) return;
             ToolbarBaseline.Visibility = TabBaseline?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             ToolbarObservation.Visibility = TabObservation?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             ToolbarCalibration.Visibility = TabCalibration?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            ToolbarFlux.Visibility = TabFlux?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             ToolbarSettings.Visibility = TabSettings?.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -146,28 +154,40 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void SwitchToBaselineMode()
         {
-            if (ViewBaseline == null || ViewObservation == null || ViewSettings == null) return;
+            if (ViewBaseline == null || ViewObservation == null || ViewCalibration == null || ViewFlux == null || ViewSettings == null) return;
             ViewBaseline.Visibility = Visibility.Visible;
             ViewObservation.Visibility = Visibility.Collapsed;
             ViewCalibration.Visibility = Visibility.Collapsed;
+            ViewFlux.Visibility = Visibility.Collapsed;
             ViewSettings.Visibility = Visibility.Collapsed;
         }
 
         private void SwitchToObservationMode()
         {
-            if (ViewBaseline == null || ViewObservation == null || ViewSettings == null) return;
+            if (ViewBaseline == null || ViewObservation == null || ViewCalibration == null || ViewSettings == null) return;
             ViewBaseline.Visibility = Visibility.Collapsed;
             ViewObservation.Visibility = Visibility.Visible;
             ViewCalibration.Visibility = Visibility.Collapsed;
+            ViewFlux.Visibility = Visibility.Collapsed;
             ViewSettings.Visibility = Visibility.Collapsed;
         }
 
         private void SwitchToCalibrationMode()
         {
-            if (ViewBaseline == null || ViewObservation == null || ViewSettings == null) return;
+            if (ViewBaseline == null || ViewObservation == null || ViewCalibration == null || ViewFlux == null || ViewSettings == null) return;
             ViewBaseline.Visibility = Visibility.Collapsed;
             ViewObservation.Visibility = Visibility.Collapsed;
             ViewCalibration.Visibility = Visibility.Visible;
+            ViewFlux.Visibility = Visibility.Collapsed;
+            ViewSettings.Visibility = Visibility.Collapsed;
+        }
+        private void SwitchToFluxMode()
+        {
+            if (ViewBaseline == null || ViewObservation == null || ViewCalibration == null || ViewFlux == null || ViewSettings == null) return;
+            ViewBaseline.Visibility = Visibility.Collapsed;
+            ViewObservation.Visibility = Visibility.Collapsed;
+            ViewCalibration.Visibility = Visibility.Collapsed;
+            ViewFlux.Visibility = Visibility.Visible;
             ViewSettings.Visibility = Visibility.Collapsed;
         }
 

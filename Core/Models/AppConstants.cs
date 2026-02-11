@@ -20,5 +20,6 @@ namespace BaselineMode.WPF.Core.Models
         public const int ChartXMin = 0;
         public const int ChartXMaxDSSD = 16384;
         public const int ChartXMaxBGO = 4095;
+        public const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss";
     }
 }

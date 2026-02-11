@@ -27,6 +27,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         private CalibrationViewModel _calibrationVM;
 
         [ObservableProperty]
+        private FluxViewModel _fluxVM;
+
+        [ObservableProperty]
         private string _statusMessage = "Ready";
 
         [ObservableProperty]

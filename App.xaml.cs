@@ -19,7 +19,7 @@ public partial class App : Application
 
     public App()
     {
-        ServiceCollection services = new ServiceCollection();
+        ServiceCollection services = new();
         ConfigureServices(services);
         ServiceProvider = services.BuildServiceProvider();
     }
@@ -36,10 +36,12 @@ public partial class App : Application
         // ViewModels
         services.AddTransient<MainViewModel>();
         services.AddTransient<ObservationMainViewModel>();
+        services.AddTransient<FluxViewModel>();
 
         // Views
         services.AddTransient<UnifiedMainWindow>();
         services.AddTransient<BaselineMode.WPF.Views.Observation.ObservationMainWindow>();
+        services.AddTransient<BaselineMode.WPF.Views.Flux.FluxMainWindow>();
 
         // Register Fitting Service
         services.AddSingleton<IFittingService, HemgFittingService>();

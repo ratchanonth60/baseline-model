@@ -91,7 +91,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         [ObservableProperty]
         private string _headerCheckStatus = "";
 
-        // ⭐ เพิ่ม flag สำหรับโหมด multi-file
+        //  เพิ่ม flag สำหรับโหมด multi-file
         [ObservableProperty]
         private bool _readMultipleFiles = false;
 
@@ -112,7 +112,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         public IEnumerable<ChannelViewModel> XChannels => Channels.Take(8);
         public IEnumerable<ChannelViewModel> ZChannels => Channels.Skip(8).Take(8);
 
-        // ⭐ SelectFiles สำหรับ ProcessData (txt files)
+        //  SelectFiles สำหรับ ProcessData (txt files)
         [RelayCommand]
         private void SelectFiles()
         {
@@ -131,7 +131,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             }
         }
 
-        // ⭐ SelectExcelFiles สำหรับ ReadData (Excel files)
+        //  SelectExcelFiles สำหรับ ReadData (Excel files)
         [RelayCommand]
         private void SelectExcelFiles()
         {
@@ -240,11 +240,11 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             }
         }
 
-        // ⭐ ปรับปรุง ReadData ให้รองรับทั้ง single และ multi-file
+        //  ปรับปรุง ReadData ให้รองรับทั้ง single และ multi-file
         [RelayCommand]
         private async Task ReadData()
         {
-            List<string> filesToRead = new List<string>();
+            List<string> filesToRead = [];
 
             // กรณีที่ 1: อ่านหลายไฟล์ที่เลือกไว้
             if (ReadMultipleFiles && InputFileList != null && InputFileList.Length > 0)
@@ -280,7 +280,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
             try
             {
-                // ⭐ Step 1: นับจำนวนแถวทั้งหมดจากทุกไฟล์
+                //  Step 1: นับจำนวนแถวทั้งหมดจากทุกไฟล์
                 StatusMessage = $"Counting rows in {filesToRead.Count} file(s)...";
                 int totalRows = 0;
 
@@ -292,33 +292,31 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
                     await Task.Run(() =>
                     {
-                        using (var stream = File.Open(currentFile, FileMode.Open, FileAccess.Read, FileShare.Read))
-                        using (var reader = ExcelReaderFactory.CreateReader(stream))
+                        using var stream = File.Open(currentFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        using var reader = ExcelReaderFactory.CreateReader(stream);
+                        int fileRows = 0;
+                        while (reader.Read())
                         {
-                            int fileRows = 0;
-                            while (reader.Read())
-                            {
-                                if (_cts.Token.IsCancellationRequested) break;
-                                fileRows++;
-                            }
-                            totalRows += fileRows;
-
-                            Application.Current.Dispatcher.BeginInvoke(() =>
-                                StatusMessage = $"Counting... File {fileIndex + 1}/{filesToRead.Count}: {fileRows:N0} rows (Total: {totalRows:N0})");
+                            if (_cts.Token.IsCancellationRequested) break;
+                            fileRows++;
                         }
+                        totalRows += fileRows;
+
+                        Application.Current.Dispatcher.BeginInvoke(() =>
+                            StatusMessage = $"Counting... File {fileIndex + 1}/{filesToRead.Count}: {fileRows:N0} rows (Total: {totalRows:N0})");
                     }, _cts.Token);
                 }
 
                 if (_cts.Token.IsCancellationRequested) return;
 
-                // ⭐ Step 2: สร้าง Lists ด้วย exact capacity
+                //  Step 2: สร้าง Lists ด้วย exact capacity
                 int exactCapacity = totalRows * DATA_POINTS_PER_ROW;
                 ResetDataLists(exactCapacity);
 
                 StatusMessage = $"Found {totalRows:N0} total rows from {filesToRead.Count} file(s). Reading data...";
                 HeaderCheckStatus = "Checking...";
 
-                // ⭐ Step 3: อ่านข้อมูลจริงจากทุกไฟล์
+                //  Step 3: อ่านข้อมูลจริงจากทุกไฟล์
                 int totalRowsRead = 0;
                 bool headerCheckPassed = true;
 
@@ -612,13 +610,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                 if (dataForChannel.Length > 0)
                 {
                     var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
-                        dataForChannel, min: 0, max: xMax, binCount: 500);
+                dataForChannel, binCount: 500);  // ไม่ระบุ min/max
 
                     double[] binCenters = new double[binEdges.Length - 1];
                     for (int k = 0; k < binCenters.Length; k++)
                     {
                         binCenters[k] = (binEdges[k] + binEdges[k + 1]) / 2.0;
                     }
+
 
                     plotResults[ch] = (counts, binCenters, $"Counts: {dataForChannel.Length:N0}", ch);
                 }

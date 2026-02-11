@@ -6,7 +6,7 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         mc:Ignorable="d"
         Title="DSSD Analysis Suite"
-        Height="500" Width="700"
+        Height="500" Width="1050"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Style="{StaticResource MaterialDesignWindow}"
@@ -38,7 +38,9 @@
         <Grid Grid.Row="1" Margin="30">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="30"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="20"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
@@ -151,6 +153,63 @@
                             Height="40"
                             FontSize="14"
                             Click="ObservationMode_Click"
+                            Grid.Row="3"/>
+                </Grid>
+            </materialDesign:Card>
+
+            <!-- Flux Mode Card -->
+            <materialDesign:Card Grid.Column="4" 
+                                 UniformCornerRadius="12"
+                                 materialDesign:ElevationAssist.Elevation="Dp4"
+                                 Cursor="Hand"
+                                 x:Name="FluxModeCard"
+                                 MouseLeftButtonUp="FluxModeCard_Click">
+                <materialDesign:Card.Style>
+                    <Style TargetType="materialDesign:Card">
+                        <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Card.Background}"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FFF3E0"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </materialDesign:Card.Style>
+                <Grid Margin="20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <materialDesign:PackIcon Kind="Flash" 
+                                             Width="64" Height="64" 
+                                             HorizontalAlignment="Center"
+                                             Foreground="#FF9800"
+                                             Grid.Row="0"/>
+                    
+                    <TextBlock Text="Flux Mode" 
+                               FontSize="22" FontWeight="Bold"
+                               HorizontalAlignment="Center"
+                               Margin="0,15,0,10"
+                               Grid.Row="1"/>
+                    
+                    <StackPanel Grid.Row="2" Margin="0,10">
+                        <TextBlock Text="• Particle Flux Density" FontSize="13" Margin="0,3"/>
+                        <TextBlock Text="• 7-Layer Analysis" FontSize="13" Margin="0,3"/>
+                        <TextBlock Text="• Log Scale Visualization" FontSize="13" Margin="0,3"/>
+                        <TextBlock Text="• Time Range Control" FontSize="13" Margin="0,3"/>
+                        <TextBlock Text="• Flux Data Export" FontSize="13" Margin="0,3"/>
+                    </StackPanel>
+
+                    <Button Content="Launch Flux Mode" 
+                            Style="{StaticResource MaterialDesignRaisedButton}"
+                            Background="#FF9800"
+                            materialDesign:ButtonAssist.CornerRadius="20"
+                            HorizontalAlignment="Stretch"
+                            Height="40"
+                            FontSize="14"
+                            Click="FluxMode_Click"
                             Grid.Row="3"/>
                 </Grid>
             </materialDesign:Card>

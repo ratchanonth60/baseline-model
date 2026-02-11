@@ -40,7 +40,7 @@
                 <TextBlock Text="FWHM:" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
                 <TextBlock x:Name="TxtFWHM" Text="-" Foreground="#40C4FF" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
                 <TextBlock x:Name="TxtResolution" Text="-" Foreground="#FF80AB" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                <CheckBox x:Name="ChkShowFit" Content="Show Gaussian Fit" IsChecked="True" Foreground="#4EC9B0" VerticalAlignment="Center"/>
+                <CheckBox x:Name="ChkShowFit" Content="Show Gaussian Fit" IsChecked="False" Foreground="#4EC9B0" VerticalAlignment="Center"/>
             </WrapPanel>
         </Border>
     </Grid>
