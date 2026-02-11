@@ -29,10 +29,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         private bool _isFitting = false;
 
         // Multi-Fit Support: Dictionary of FitName -> FitData
-        public Dictionary<string, FitData> ActiveFits { get; set; } = new Dictionary<string, FitData>();
+        public Dictionary<string, FitData> ActiveFits { get; set; } = [];
 
         // Cache: FitType -> FitData
-        private Dictionary<string, FitData> _fitCache = new Dictionary<string, FitData>();
+        private readonly Dictionary<string, FitData> _fitCache = [];
 
         public void CacheFit(string fitType, FitData data)
         {
@@ -42,7 +42,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         public FitData? GetCachedFit(string fitType)
         {
-            return _fitCache.ContainsKey(fitType) ? _fitCache[fitType] : null;
+            return _fitCache.TryGetValue(fitType, out FitData? value) ? value : null;
         }
 
         [ObservableProperty]
@@ -57,13 +57,13 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
         public WpfPlot? PlotControl { get; set; }
 
-        public void RenderPlot(System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor)
+        public void RenderPlot(System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor, double? xMin = null, double? xMax = null, string? xLabel = null)
         {
             if (PlotControl != null)
-                RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor);
+                RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor, xMin, xMax, xLabel);
         }
 
-        public void RenderTo(WpfPlot targetPlot, System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor)
+        public void RenderTo(WpfPlot targetPlot, System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor, double? xMin = null, double? xMax = null, string? xLabel = null)
         {
             if (targetPlot == null) return;
             targetPlot.Plot.Clear();
@@ -136,10 +136,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                     annotation.Alignment = ScottPlot.Alignment.UpperLeft;
                 }
 
-                targetPlot.Plot.XLabel("ADC Channel");
+                targetPlot.Plot.XLabel(xLabel ?? "ADC Channel");
                 targetPlot.Plot.YLabel(isLogScale ? "log scale Count" : "Count");
                 targetPlot.Plot.Legend(true, ScottPlot.Alignment.UpperRight);
-                targetPlot.Plot.AxisAuto();
+
+                if (xMin.HasValue && xMax.HasValue)
+                {
+                    targetPlot.Plot.SetAxisLimits(xMin: xMin.Value, xMax: xMax.Value);
+                }
+                else
+                {
+                    targetPlot.Plot.AxisAuto();
+                }
             }
             else
             {

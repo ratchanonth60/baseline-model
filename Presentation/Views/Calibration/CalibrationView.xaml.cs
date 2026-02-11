@@ -25,5 +25,19 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
                 plot.Refresh();
             }
         }
+
+        private void Plot_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is WpfPlot plot && plot.DataContext is ChannelViewModel channelVM)
+            {
+                if (this.DataContext is CalibrationViewModel calibVM)
+                {
+                    if (calibVM.OpenZoomWindowCommand.CanExecute(channelVM))
+                    {
+                        calibVM.OpenZoomWindowCommand.Execute(channelVM);
+                    }
+                }
+            }
+        }
     }
 }

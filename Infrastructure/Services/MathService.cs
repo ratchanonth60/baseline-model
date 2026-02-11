@@ -23,12 +23,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         public class KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
         {
-            private readonly double A = A;
-            private readonly double H = H;
-            private double Q = Q;
-            private double R = R;
-            private double P = initial_P;
-            private double x = initial_x;
+            private double A = A, H = H, Q = Q, R = R, P = initial_P, x = initial_x;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetR(double R) => this.R = R;

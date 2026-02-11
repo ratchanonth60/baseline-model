@@ -45,7 +45,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                         };
                     }
 
-                    if (firstHeader == null) firstHeader = line;
+                    firstHeader ??= line;
                 }
 
                 if (lineNumber == 0)

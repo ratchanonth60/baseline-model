@@ -641,6 +641,7 @@
                             </StackPanel>
                         </Border>
 
+                        
                         <!-- Status Group -->
                         <Border Padding="12,0">
                             <StackPanel VerticalAlignment="Center">
@@ -650,7 +651,22 @@
                                 <ProgressBar Value="{Binding CalibrationVM.ProgressValue}" Maximum="100" Height="4" Width="100" 
                                              Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"
                                              IsIndeterminate="{Binding CalibrationVM.IsBusy}"/>
-                                <TextBlock Text="{Binding CalibrationVM.HeaderCheckStatus}" Foreground="#FFD740" FontSize="10" Margin="0,2,0,0"/>
+                                <TextBlock Text="{Binding CalibrationVM.HeaderCheckStatus}" FontSize="10" Margin="0,2,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="#FFD740"/> <!-- Default Yellow -->
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CalibrationVM.HeaderCheckStatus}" Value="Checksum OK">
+                                                    <Setter Property="Foreground" Value="#4CAF50"/> <!-- Green -->
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding CalibrationVM.HeaderCheckStatus}" Value="Checksum Mismatch">
+                                                    <Setter Property="Foreground" Value="#F44336"/> <!-- Red -->
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -820,6 +836,77 @@
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="Baseline Graph" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <!-- CalibrationVM Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Fig Bg:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleCalibFigBg" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding CalibrationVM.GraphFigureColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=ToggleCalibFigBg}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleCalibFigBg}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding CalibrationVM.GraphFigureColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Data Bg:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleCalibDataBg" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding CalibrationVM.GraphDataColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=ToggleCalibDataBg}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleCalibDataBg}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding CalibrationVM.GraphDataColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Series:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleCalibSeries" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding CalibrationVM.GraphSeriesColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=ToggleCalibSeries}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleCalibSeries}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding CalibrationVM.GraphSeriesColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="Text:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ToggleButton x:Name="ToggleCalibText" Width="50" Height="20" BorderBrush="#3E3E42" Background="Transparent" Padding="0">
+                                            <Rectangle Width="40" Height="14" Stroke="#858585" StrokeThickness="1">
+                                                <Rectangle.Fill>
+                                                    <SolidColorBrush Color="{Binding CalibrationVM.GraphTextColor}" />
+                                                </Rectangle.Fill>
+                                            </Rectangle>
+                                        </ToggleButton>
+                                        <Popup IsOpen="{Binding IsChecked, ElementName=ToggleCalibText}" StaysOpen="False" PlacementTarget="{Binding ElementName=ToggleCalibText}" AllowsTransparency="True" PopupAnimation="Fade">
+                                            <Border Background="#252526" BorderBrush="#3E3E42" BorderThickness="1" CornerRadius="3" Padding="8">
+                                                <materialDesign:ColorPicker Color="{Binding CalibrationVM.GraphTextColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="300" Height="200" />
+                                            </Border>
+                                        </Popup>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Calibration Graph" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 

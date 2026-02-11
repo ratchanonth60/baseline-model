@@ -1,0 +1,47 @@
+<Window x:Class="BaselineMode.WPF.Presentation.Views.Calibration.CalibrationDetailWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:scott="clr-namespace:ScottPlot;assembly=ScottPlot.WPF"
+        mc:Ignorable="d"
+        Title="{Binding Title}" 
+        Height="650" Width="900"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <Border Background="#252526" Padding="16,12">
+            <TextBlock x:Name="TitleText" Text="" 
+                       FontSize="18" FontWeight="SemiBold" 
+                       Foreground="#4EC9B0"/>
+        </Border>
+
+        <!-- Plot -->
+        <scott:WpfPlot x:Name="DetailPlot" Grid.Row="1" Margin="12"/>
+
+        <!-- Stats Footer -->
+        <Border Grid.Row="2" Background="#252526" Padding="16,12">
+            <WrapPanel>
+                <TextBlock Text="Peak:" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtPeak" Text="-" Foreground="#FF5252" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Counts:" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtCounts" Text="-" Foreground="#B388FF" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Mean (μ):" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtMean" Text="-" Foreground="#69F0AE" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                <TextBlock Text="RMS (σ):" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtRMS" Text="-" Foreground="#FFD740" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                <TextBlock Text="FWHM:" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtFWHM" Text="-" Foreground="#40C4FF" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TxtResolution" Text="-" Foreground="#FF80AB" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <CheckBox x:Name="ChkShowFit" Content="Show Gaussian Fit" IsChecked="True" Foreground="#4EC9B0" VerticalAlignment="Center"/>
+            </WrapPanel>
+        </Border>
+    </Grid>
+</Window>

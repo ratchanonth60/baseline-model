@@ -12,27 +12,27 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
     public class ObservationDataProcessor : IObservationDataProcessor
     {
         // Global list to store processed data (raw particle objects)
-        public List<object> StorageDataList { get; private set; } = new List<object>();
+        public List<object> StorageDataList { get; private set; } = [];
 
         // Global list to store results for each particle
-        public List<Dictionary<string, object>> AllResults { get; private set; } = new List<Dictionary<string, object>>();
+        public List<Dictionary<string, object>> AllResults { get; private set; } = [];
 
         // DSSD Data Storage
-        public Dictionary<DetectorLayer, LayerData> DSSDData { get; private set; } = new Dictionary<DetectorLayer, LayerData>();
+        public Dictionary<DetectorLayer, LayerData> DSSDData { get; private set; } = [];
 
         // BGO Data Storage
-        public Dictionary<BGOLayer, BGOData> BGOData { get; private set; } = new Dictionary<BGOLayer, BGOData>();
+        public Dictionary<BGOLayer, BGOData> BGOData { get; private set; } = [];
 
         // Kalman Filters (Using Dictionaries for better management if needed, but keeping simple fields for now)
-        private readonly KalmanFilter kalmanL3BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private readonly KalmanFilter kalmanL3BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private readonly KalmanFilter kalmanL4BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private readonly KalmanFilter kalmanL4BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private readonly KalmanFilter kalmanL5BGOH = new KalmanFilter(1, 1, 1, 10, 1, 0);
-        private readonly KalmanFilter kalmanL5BGOL = new KalmanFilter(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL3BGOH = new(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL3BGOL = new(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL4BGOH = new(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL4BGOL = new(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL5BGOH = new(1, 1, 1, 10, 1, 0);
+        private readonly KalmanFilter kalmanL5BGOL = new(1, 1, 1, 10, 1, 0);
 
-        public KalmanFilter KalmanBGOLowGain { get; private set; } = new KalmanFilter(1, 1, 1, 1, 1, 0);
-        public KalmanFilter KalmanBGOHighGain { get; private set; } = new KalmanFilter(1, 1, 1, 1, 1, 0);
+        public KalmanFilter KalmanBGOLowGain { get; private set; } = new(1, 1, 1, 1, 1, 0);
+        public KalmanFilter KalmanBGOHighGain { get; private set; } = new(1, 1, 1, 1, 1, 0);
 
         public ObservationDataProcessor()
         {
@@ -42,13 +42,13 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
         private void InitializeDataStructures()
         {
             // Initialize DSSD Layers
-            foreach (DetectorLayer layer in Enum.GetValues(typeof(DetectorLayer)))
+            foreach (DetectorLayer layer in Enum.GetValues<DetectorLayer>())
             {
                 DSSDData[layer] = new LayerData();
             }
 
             // Initialize BGO Layers
-            foreach (BGOLayer layer in Enum.GetValues(typeof(BGOLayer)))
+            foreach (BGOLayer layer in Enum.GetValues<BGOLayer>())
             {
                 BGOData[layer] = new BGOData();
             }
@@ -143,7 +143,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
             }
 
             sb.AppendLine($"\nRaw Header (first 100 chars):");
-            sb.AppendLine(headerLine.Length > 100 ? headerLine.Substring(0, 100) + "..." : headerLine);
+            sb.AppendLine(headerLine.Length > 100 ? string.Concat(headerLine.AsSpan(0, 100), "...") : headerLine);
 
             return sb.ToString();
         }
@@ -156,7 +156,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
             var result = new Dictionary<string, int[]>();
             int histogramSize = 16384;
 
-            foreach (DetectorLayer layer in Enum.GetValues(typeof(DetectorLayer)))
+            foreach (DetectorLayer layer in Enum.GetValues<DetectorLayer>())
             {
                 // Create histograms for X and Y
                 var histX = new int[histogramSize];
@@ -292,12 +292,12 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
             // detectX=8 -> target=0 (Strip0) Correct.
 
             // Add X Strip
-            if (DSSDData[layer].StripX.ContainsKey(targetStripX))
-                DSSDData[layer].StripX[targetStripX].Add(phX);
+            if (DSSDData[layer].StripX.TryGetValue(targetStripX, out List<int>? value))
+                value.Add(phX);
 
             // Add Y Strip
-            if (DSSDData[layer].StripY.ContainsKey(targetStripY))
-                DSSDData[layer].StripY[targetStripY].Add(phY);
+            if (DSSDData[layer].StripY.TryGetValue(targetStripY, out List<int>? value1))
+                value1.Add(phY);
         }
 
         private void ProcessBGOLayer(int[] data, BGOLayer layer, int hIdx, int lIdx, Dictionary<string, object> result)
@@ -319,8 +319,8 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
         {
             var timecodeHex = hexData.Skip(8).Take(6).ToArray();
             var timecodeDec = timecodeHex.Select(h => Convert.ToByte(h, 16)).ToArray();
-            var secondsPart = BitConverter.ToUInt32(timecodeDec.Take(4).Reverse().ToArray(), 0);
-            var millisecondsPart = BitConverter.ToUInt16(timecodeDec.Skip(4).Take(2).Reverse().ToArray(), 0);
+            var secondsPart = BitConverter.ToUInt32([.. timecodeDec.Take(4).Reverse()], 0);
+            var millisecondsPart = BitConverter.ToUInt16([.. timecodeDec.Skip(4).Take(2).Reverse()], 0);
 
             double totalSeconds = secondsPart + millisecondsPart / 1000.0;
             return DateTimeOffset.FromUnixTimeSeconds((long)totalSeconds).DateTime;
@@ -328,28 +328,31 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
 
         public string[] SplitHexData(string hexString)
         {
+            if (string.IsNullOrEmpty(hexString)) return [];
+
             int n = 2; // Length of each substring
-            return Enumerable.Range(0, hexString.Length / n)
-                             .Select(i => hexString.Substring(i * n, n))
-                             .ToArray();
+            int length = hexString.Length;
+            int count = length / n;
+
+            string[] result = new string[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = hexString.Substring(i * n, n);
+            }
+
+            return result;
         }
         public bool ValidateHeader(string[] hexData)
         {
-            if (hexData.Length < 256) return false;
+            // Legacy Logic Restoration:
+            // Original code checks if the string starts with "E225".
+            // Since we split the hex string into byte pairs, "E2" is index 0 and "25" is index 1.
 
-            try
-            {
-                int totalSum = hexData.Skip(8).Take(246).Select(h => Convert.ToInt32(h, 16)).Sum();
-                int lastTwoBytes = totalSum % 65536;
-                string calculatedChecksum = lastTwoBytes.ToString("X4");
-                string dataChecksum = hexData[254] + hexData[255];
+            if (hexData.Length < 2) return false;
 
-                return calculatedChecksum.Equals(dataChecksum, StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
+            return hexData[0].Equals("E2", StringComparison.OrdinalIgnoreCase) &&
+                   hexData[1].Equals("25", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

@@ -58,7 +58,7 @@ namespace BaselineMode.WPF.Views.Baseline
             }
         }
 
-        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
+        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
         {
             return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }

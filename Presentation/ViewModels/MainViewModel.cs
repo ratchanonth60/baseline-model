@@ -173,7 +173,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
 
         [ObservableProperty]
-        private System.Data.DataTable _displayDataTable = new System.Data.DataTable();
+        private System.Data.DataTable _displayDataTable = new();
 
         [ObservableProperty]
         private int _currentPage = 1;

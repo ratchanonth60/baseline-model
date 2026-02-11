@@ -16,42 +16,50 @@
             <Setter Property="CornerRadius" Value="4"/>
             <Setter Property="Padding" Value="8"/>
         </Style>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+        <!-- Shared ItemTemplate for Plots -->
+        <DataTemplate x:Key="PlotItemTemplate">
+            <Border Style="{StaticResource ChartCard}" Margin="4">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="{Binding ChannelName}" Foreground="#26C6DA" FontSize="12" FontWeight="Bold" Margin="4,2"/>
+                    <scott:WpfPlot Grid.Row="1" MinHeight="180" x:Name="Plot" Loaded="Plot_Loaded" MouseDoubleClick="Plot_MouseDoubleClick"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid Margin="8">
-        <!-- Status Overlay -->
-        <Border Panel.ZIndex="100" Background="#AA000000" Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                <ProgressBar IsIndeterminate="True" Width="200" Height="20" Margin="0,0,0,10"/>
-                <TextBlock Text="{Binding StatusMessage}" Foreground="White" HorizontalAlignment="Center" FontSize="16"/>
-                <TextBlock Text="{Binding ProgressValue, StringFormat={}{0:F1}%}" Foreground="#DDD" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-            </StackPanel>
-        </Border>
+        <TabControl Background="Transparent" BorderThickness="0">
+            <!-- X-Side Tab -->
+            <TabItem Header="X-Side" Foreground="#26C6DA" FontSize="14" FontWeight="SemiBold">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding XChannels}" ItemTemplate="{StaticResource PlotItemTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="2" Columns="4"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </TabItem>
 
-        <!-- Charts Grid (4x4) -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-             <ItemsControl ItemsSource="{Binding Channels}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <UniformGrid Rows="4" Columns="4"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Style="{StaticResource ChartCard}" Margin="4">
-                            <Grid>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="{Binding ChannelName}" Foreground="#26C6DA" FontSize="12" FontWeight="Bold" Margin="4,2"/>
-                                <!-- Plot Loaded event handles passing the plot to the VM/ChannelVM -->
-                                <scott:WpfPlot Grid.Row="1" MinHeight="150" x:Name="Plot" Loaded="Plot_Loaded"/>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </ScrollViewer>
+            <!-- Z-Side Tab -->
+            <TabItem Header="Z-Side" Foreground="#26C6DA" FontSize="14" FontWeight="SemiBold">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding ZChannels}" ItemTemplate="{StaticResource PlotItemTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="2" Columns="4"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
     </Grid>
 </UserControl>

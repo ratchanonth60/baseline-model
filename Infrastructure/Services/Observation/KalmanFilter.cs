@@ -2,24 +2,14 @@ using System;
 
 namespace BaselineMode.WPF.Infrastructure.Services.Observation
 {
-    public class KalmanFilter
+    public class KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
     {
-        private readonly double A;
-        private readonly double H;
-        private double Q;
-        private double R;
-        private double P;
-        private double x;
-
-        public KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
-        {
-            this.A = A;
-            this.H = H;
-            this.Q = Q;
-            this.R = R;
-            this.P = initial_P;
-            this.x = initial_x;
-        }
+        private readonly double A = A;
+        private readonly double H = H;
+        private double Q = Q;
+        private double R = R;
+        private double P = initial_P;
+        private double x = initial_x;
 
         public void SetR(double R)
         {
@@ -49,7 +39,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
 
             // Measurement update - correction
             double K = P * H / (H * P * H + R);
-            x = x + K * (input - H * x);
+            x += K * (input - H * x);
             P = (1 - K * H) * P;
 
             return x;

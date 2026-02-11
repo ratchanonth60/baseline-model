@@ -189,7 +189,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return HemgDoubleSidedFitHistogram(centers, counts, thresholdedData);
         }
 
-        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFitHistogram(double[] centers, double[] counts, double[] rawDataOptional = null)
+        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFitHistogram(double[] centers, double[] counts, double[]? rawDataOptional = null)
         {
             try
             {

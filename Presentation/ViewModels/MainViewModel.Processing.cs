@@ -216,7 +216,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
                     int processedCount = 0;
                     object processedLock = new();
-                    Parallel.For(0, 16, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = _cts.Token }, i =>
+                    _ = Parallel.For(0, 16, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = _cts.Token }, i =>
                     {
                         int chIndex = i;
                         // Optimization: ดึงข้อมูลออกมาเป็น Array เดียวเพื่อลดการเข้าถึง Property ซ้ำๆ
@@ -343,12 +343,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                             }
                             else
                             {
-                                UpdateChannelStatsSafe(chIndex, "No Signal", Array.Empty<double>());
+                                UpdateChannelStatsSafe(chIndex, "No Signal", []);
                             }
                         }
                         else
                         {
-                            UpdateChannelStatsSafe(chIndex, "No Data", Array.Empty<double>());
+                            UpdateChannelStatsSafe(chIndex, "No Data", []);
                         }
 
                         // Update Progress (Thread Safe)
@@ -434,7 +434,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             return result;
         }
 
-        private static bool HasSufficientData(double[] filteredData, double[] counts)
+        private bool HasSufficientData(double[] filteredData, double[] counts)
         {
             return filteredData.Length > 5 && counts.Max() > 0;
         }
