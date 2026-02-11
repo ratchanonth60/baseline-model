@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Presentation.ViewModels;
+using BaselineMode.WPF.Presentation.ViewModels.Flux; // Added for FluxViewModel
 
 namespace BaselineMode.WPF.Views.Flux
 {
@@ -10,7 +11,7 @@ namespace BaselineMode.WPF.Views.Flux
     {
         private readonly DispatcherTimer _timeTimer;
 
-        public FluxMainWindow(FluxViewModel viewModel)
+        public FluxMainWindow(Presentation.ViewModels.FluxViewModel viewModel)
         {
             InitializeComponent();
             DataContext = viewModel;

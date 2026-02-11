@@ -1,5 +1,7 @@
 using System.Windows;
 using BaselineMode.WPF.Presentation.ViewModels;
+using BaselineMode.WPF.Presentation.ViewModels.Baseline;
+using BaselineMode.WPF.Presentation.ViewModels.Shared;
 
 namespace BaselineMode.WPF.Views.Baseline
 {

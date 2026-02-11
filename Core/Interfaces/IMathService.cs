@@ -1,5 +1,6 @@
 using System;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Models.Baseline;
 
 namespace BaselineMode.WPF.Core.Interfaces
 {
@@ -21,34 +22,34 @@ namespace BaselineMode.WPF.Core.Interfaces
         /// <summary>
         /// Perform Gaussian curve fitting
         /// </summary>
-        FittingResult GaussianFit(double[] xData, double[] yData);
+        /// <summary>
+        /// Perform Gaussian curve fitting
+        /// </summary>
+        BaselineMode.WPF.Core.Models.Baseline.FittingResult GaussianFit(double[] xData, double[] yData);
 
         /// <summary>
         /// Perform Hyper-EMG curve fitting
         /// </summary>
-        /// <summary>
-        /// Perform Hyper-EMG curve fitting
-        /// </summary>
-        FittingResult HyperEMGFit(double[] xData, double[] yData);
+        BaselineMode.WPF.Core.Models.Baseline.FittingResult HyperEMGFit(double[] xData, double[] yData);
 
         /// <summary>
         /// Perform Hyper-EMG curve fitting with raw data for initialization
         /// </summary>
-        FittingResult HyperEMGFit(double[] xData, double[] yData, double[] rawData);
+        BaselineMode.WPF.Core.Models.Baseline.FittingResult HyperEMGFit(double[] xData, double[] yData, double[] rawData);
 
         /// <summary>
         /// Perform Double-Sided Hyper-EMG curve fitting
         /// </summary>
-        FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData);
+        BaselineMode.WPF.Core.Models.Baseline.FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData);
 
         /// <summary>
         /// Perform Double-Sided Hyper-EMG curve fitting with raw data for initialization
         /// </summary>
-        FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData, double[] rawData);
+        BaselineMode.WPF.Core.Models.Baseline.FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData, double[] rawData);
 
         /// <summary>
         /// Perform Lorentzian curve fitting
         /// </summary>
-        FittingResult LorentzianFit(double[] xData, double[] yData);
+        BaselineMode.WPF.Core.Models.Baseline.FittingResult LorentzianFit(double[] xData, double[] yData);
     }
 }

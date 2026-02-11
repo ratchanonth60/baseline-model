@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Diagnostics;
 using BaselineMode.WPF.Presentation.ViewModels;
 using ScottPlot;
+using BaselineMode.WPF.Presentation.ViewModels.Flux;
 
 namespace BaselineMode.WPF.Presentation.Views.Flux
 {
@@ -29,7 +30,7 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
         {
             if (sender is WpfPlot plot && plot.DataContext is FluxLayerViewModel layerVM)
             {
-                if (this.DataContext is FluxViewModel fluxVM)
+                if (this.DataContext is ViewModels.Flux.FluxViewModel fluxVM)
                 {
                     var detailWindow = new FluxDetailWindow();
                     detailWindow.ShowFluxData(

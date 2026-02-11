@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Windows;
 using BaselineMode.WPF.Presentation.ViewModels;
+using BaselineMode.WPF.Presentation.ViewModels.Flux; // Added for HeatmapViewModel
 using ScottPlot;
 
 namespace BaselineMode.WPF.Views.Baseline

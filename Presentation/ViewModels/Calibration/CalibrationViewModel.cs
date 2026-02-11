@@ -16,8 +16,10 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ExcelDataReader;
 using Microsoft.Win32;
+using BaselineMode.WPF.Core.Models.Shared;
+using BaselineMode.WPF.Presentation.ViewModels.Shared;
 
-namespace BaselineMode.WPF.Presentation.ViewModels
+namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 {
     public partial class CalibrationViewModel : SharedViewModelBase
     {
@@ -181,8 +183,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                         if (_cts.IsCancellationRequested) break;
 
                         string fileContent = File.ReadAllText(fileName);
-                        string cleanedData = BaselineMode.WPF.Core.Models.RegexPatterns.Whitespace().Replace(fileContent, "");
-                        var matches = BaselineMode.WPF.Core.Models.RegexPatterns.E225Header().Matches(cleanedData);
+                        string cleanedData = RegexPatterns.Whitespace().Replace(fileContent, "");
+                        var matches = RegexPatterns.E225Header().Matches(cleanedData);
 
                         foreach (Match match in matches)
                         {
@@ -355,7 +357,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                                     }
                                 }
 
-                                ProcessCalibration(hexData, totalRowsRead + rowCount);
+                                ProcessCalibration(hexData);
 
                                 if ((DateTime.Now - lastUpdateTime).TotalMilliseconds > 300 || rowCount % 1000 == 0)
                                 {
@@ -416,13 +418,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             }
         }
 
-        private int EstimateRowCount(long fileSizeBytes)
-        {
-            const long BYTES_PER_ROW = 5000;
-            long estimatedRows = (fileSizeBytes / BYTES_PER_ROW) + 1000;
-            int capacity = (int)Math.Min(estimatedRows * DATA_POINTS_PER_ROW, int.MaxValue / 16);
-            return Math.Max(capacity, INITIAL_CAPACITY);
-        }
+
 
         [RelayCommand]
         private void Stop()
@@ -480,7 +476,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                 StatusMessage = $"Lists initialized with capacity: {capacity:N0} per channel");
         }
 
-        private void ProcessCalibration(string[] hexData, int packetIndex)
+        private void ProcessCalibration(string[] hexData)
         {
             if (hexData.Length < 18) return;
             if (_cts?.Token.IsCancellationRequested ?? false) return;

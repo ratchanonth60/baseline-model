@@ -18,12 +18,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ExcelDataReader;
 using Microsoft.Win32;
-using BaselineMode.WPF.Presentation.ViewModels.Shared;
-using BaselineMode.WPF.Presentation.ViewModels.Flux;
+
 using BaselineMode.WPF.Core.Models.Flux;
+using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using BaselineMode.WPF.Core.Models.Shared;
 
-namespace BaselineMode.WPF.Presentation.ViewModels
+namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 {
     public partial class FluxViewModel : SharedViewModelBase
     {
@@ -31,7 +31,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
         private readonly IObservationDataProcessor _dataProcessor;
 
         private const int LAYER_COUNT = 7;
-        private const double DETECTOR_AREA_M2 = 32 * 32 * 1e-6; // 32mm × 32mm → m²
+        private const double DETECTOR_AREA_M2 = 32 * 32 * 1e-6; // 32mm × 32mm → m^2
 
         public IRelayCommand SelectFilesCommand { get; }
         public IAsyncRelayCommand ProcessDataCommand { get; }
@@ -644,8 +644,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels
                 double[] particleCounting = _particleCountingLists[layer].ToArray();
 
                 // Use list to collect valid points to avoid .Where().ToArray() double allocation
-                List<double> xPoints = new(count);
-                List<double> yPoints = new(count);
+                List<double> xPoints = new List<double>(count);
+                List<double> yPoints = new List<double>(count);
                 double maxFlux = 0;
 
                 for (int j = 0; j < count; j++)
@@ -665,8 +665,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels
 
                 if (xPoints.Count > 0)
                 {
-                    Layers[layer].XData = [.. xPoints];
-                    Layers[layer].YData = [.. yPoints];
+                    Layers[layer].XData = xPoints.ToArray();
+                    Layers[layer].YData = yPoints.ToArray();
                     Layers[layer].StatsText = $"Points: {xPoints.Count:N0} | Max: {maxFlux:F2}";
                 }
                 else

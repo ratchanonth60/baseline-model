@@ -13,10 +13,12 @@ using Microsoft.Win32;
 using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Core.Models.Observation; // Keep for other models if any (e.g. data structures)
-using BaselineMode.WPF.Core.Models; // Added for FittingResult
-using BaselineMode.WPF.Core.Interfaces; // Added for IFittingService
-using BaselineMode.WPF.Core.Interfaces.Observation; // Added for IObservationExcelHelper
+using BaselineMode.WPF.Core.Models;
+// FittingResult
+using BaselineMode.WPF.Core.Interfaces; // for IFittingService
+using BaselineMode.WPF.Core.Interfaces.Observation; // for IObservationExcelHelper
 using ScottPlot;
+using BaselineMode.WPF.Core.Models.Shared;
 
 namespace BaselineMode.WPF.Views.Observation
 {
@@ -27,7 +29,7 @@ namespace BaselineMode.WPF.Views.Observation
         private readonly ObservationMainViewModel _viewModel;
         private readonly IObservationExcelHelper _excelHelper;
         private readonly DispatcherTimer _timer;
-        private string _lastSavedFilePath;
+        private string? _lastSavedFilePath;
         private int _totalSteps;
         private int _data = 1;
         private bool _stopFlag;

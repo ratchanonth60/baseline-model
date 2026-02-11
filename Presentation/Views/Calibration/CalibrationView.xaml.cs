@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using BaselineMode.WPF.Presentation.ViewModels;
+using BaselineMode.WPF.Presentation.ViewModels.Calibration;
+using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using ScottPlot;
 
 namespace BaselineMode.WPF.Presentation.Views.Calibration

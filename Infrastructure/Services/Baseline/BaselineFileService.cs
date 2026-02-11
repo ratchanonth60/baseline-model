@@ -6,12 +6,14 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Models.Baseline;
+using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Core.Interfaces;
 using OfficeOpenXml;
 
-namespace BaselineMode.WPF.Infrastructure.Services
+namespace BaselineMode.WPF.Infrastructure.Services.Baseline
 {
-    public partial class FileService : IFileService
+    public class BaselineFileService : IFileService
     {
         // Constants
         private const double VOLTAGE_FACTOR = (5.0 / 16383.0) * 1000.0;
@@ -20,26 +22,24 @@ namespace BaselineMode.WPF.Infrastructure.Services
         private const int CHANNELS = 16;
         private const int BUFFER_SIZE = 64; // size for l1l2Dec and l6l7Dec
 
-        // Regex อาจจะไม่จำเป็นถ้าเราใช้ Span Parsing (ซึ่งเร็วกว่า) แต่เก็บไว้สำหรับ clean whitespace ได้
         // RegexShared from RegexPatterns
         private static readonly Regex WhitespaceRegex = RegexPatterns.Whitespace();
 
         private bool _disposed = false;
 
-        public FileService()
+        public BaselineFileService()
         {
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         }
 
         // ---------------------------------------------------------
-        // 1. Parsing + Processing แบบ Streaming (True Zero-Allocation Logic)
+        // 1. Parsing + Processing Streaming (True Zero-Allocation Logic)
         // ---------------------------------------------------------
 
-        // รวม Parse และ Process ไว้ด้วยกัน หรือรับเป็น IEnumerable เพื่อไม่ต้องรอโหลดเสร็จทั้งไฟล์
         public List<BaselineData> ProcessFileStream(string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(FileService));
+                throw new ObjectDisposedException(nameof(BaselineFileService));
 
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentNullException(nameof(filePath));
@@ -52,21 +52,17 @@ namespace BaselineMode.WPF.Infrastructure.Services
             int estimatedCapacity = (int)Math.Min(fileSize / (CHUNK_SIZE * 2), 100000);
             var results = new List<BaselineData>(estimatedCapacity);
 
-            // ใช้ StreamReader เพื่ออ่านทีละส่วน ไม่โหลดทั้งไฟล์
+            // Use StreamReader
             using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 131072))
             using (var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 131072))
             {
-                // Buffer สำหรับเก็บข้อมูลที่อ่านมา (ให้ใหญ่พอสมควร)
                 char[] fileBuffer = new char[131072];
-
-                // Buffer สำหรับสะสม string hex ที่ clean แล้ว (ต้องใหญ่กว่า CHUNK_SIZE)
                 StringBuilder hexAccumulator = new(CHUNK_SIZE * 4);
 
                 int charsRead;
                 long totalBytes = fs.Length;
                 long processedBytes = 0;
 
-                // Pool สำหรับ ProcessHex (Reused)
                 var arrayPool = System.Buffers.ArrayPool<int>.Shared;
                 int[] l1l2Dec = arrayPool.Rent(BUFFER_SIZE);
                 int[] l6l7Dec = arrayPool.Rent(BUFFER_SIZE);
@@ -77,33 +73,27 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     {
                         processedBytes += charsRead;
 
-                        // ลูปกรอง Whitespace และสะสมตัวอักษร
                         for (int i = 0; i < charsRead; i++)
                         {
                             char c = fileBuffer[i];
-                            // กรองเอาเฉพาะ 0-9, A-F, a-f
                             if (IsHexChar(c))
                             {
                                 hexAccumulator.Append(c);
                             }
                         }
 
-                        // ถ้าสะสมครบ หรือ เกิน CHUNK_SIZE แล้ว ให้ตัดมา Process
                         ProcessAccumulatedHex(hexAccumulator, results, l1l2Dec, l6l7Dec);
 
-                        // Report Progress
                         if (progress != null && results.Count % 1000 == 0)
                         {
                             progress.Report((double)processedBytes / totalBytes * 100);
                         }
                     }
 
-                    // Process ส่วนที่เหลือ (ถ้ามี)
                     ProcessAccumulatedHex(hexAccumulator, results, l1l2Dec, l6l7Dec, force: true);
                 }
                 finally
                 {
-                    // Clear sensitive data before returning to pool
                     Array.Clear(l1l2Dec, 0, l1l2Dec.Length);
                     Array.Clear(l6l7Dec, 0, l6l7Dec.Length);
                     Array.Clear(fileBuffer, 0, fileBuffer.Length);
@@ -111,7 +101,6 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     arrayPool.Return(l1l2Dec);
                     arrayPool.Return(l6l7Dec);
 
-                    // Clear string builder
                     hexAccumulator.Clear();
                 }
             }
@@ -121,58 +110,39 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         private void ProcessAccumulatedHex(StringBuilder sb, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec, bool force = false)
         {
-            // Pattern: E225... (Length = CHUNK_SIZE)
-            // เราจะวนลูปหา E225 แล้วตัดออกมา Process
-
             string bufferStr = sb.ToString();
             int searchIndex = 0;
 
             while (searchIndex < bufferStr.Length)
             {
-                // หา header "E225"
                 int headerIndex = bufferStr.IndexOf(AppConstants.HeaderStart, searchIndex, StringComparison.OrdinalIgnoreCase);
 
                 if (headerIndex == -1)
                 {
-                    // ไม่เจอ Header เลย
-                    // ถ้า force (จบไฟล์) ก็เคลียร์ทิ้ง ถ้ายังไม่จบ เก็บเศษไว้รอรอบหน้า
                     if (force) sb.Clear();
                     else
                     {
-                        // เก็บส่วนท้ายที่อาจจะเป็น Header ไม่ครบไว้ (เช่นเจอ E2..)
-                        // เพื่อความง่าย ตัดทิ้งเหลือ 0 หรือเก็บ 3 ตัวท้าย (กรณี E, 2, 2 อยู่ท้าย)
-                        // แต่ Logic นี้ซับซ้อน เอาแบบง่ายคือ remove ส่วนที่ process แล้วออก
                         sb.Remove(0, searchIndex);
                     }
                     return;
                 }
 
-                // เจอ Header เช็คว่ามีข้อมูลพอไหม
                 if (headerIndex + CHUNK_SIZE <= bufferStr.Length)
                 {
-                    // **Process ตรงนี้เลย ไม่ต้องสร้าง List<string>**
-                    // ใช้ AsSpan เพื่อลด allocation ตอน substring
                     ReadOnlySpan<char> segmentSpan = bufferStr.AsSpan(headerIndex, CHUNK_SIZE);
-
                     ProcessSingleSegment(segmentSpan, results, l1l2Dec, l6l7Dec);
-
-                    // ขยับ index ไปหาตัวถัดไป
                     searchIndex = headerIndex + CHUNK_SIZE;
                 }
                 else
                 {
-                    // เจอ Header แต่ข้อมูลยังไม่ครบ CHUNK_SIZE (รอรอบหน้า)
-                    // ลบส่วนที่ process ไปแล้วออก
                     sb.Remove(0, searchIndex);
                     return;
                 }
             }
 
-            // ลบทั้งหมดถ้า process จบพอดี
             sb.Remove(0, searchIndex);
         }
 
-        // แยก Logic ออกมาทำทีละ Segment
         private void ProcessSingleSegment(ReadOnlySpan<char> segmentSpan, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec)
         {
             int samplingPacket = ExtractSamplingPacket(segmentSpan);
@@ -269,7 +239,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         public void SaveToExcel(List<BaselineData> dataList, string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(FileService));
+                throw new ObjectDisposedException(nameof(BaselineFileService));
 
             if (dataList == null)
                 throw new ArgumentNullException(nameof(dataList));
@@ -277,14 +247,12 @@ namespace BaselineMode.WPF.Infrastructure.Services
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentNullException(nameof(filePath));
 
-            // Ensure directory exists
             var dir = Path.GetDirectoryName(filePath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
             }
 
-            // Delete if exists to overwrite
             if (File.Exists(filePath))
             {
                 try
@@ -293,22 +261,18 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 }
                 catch
                 {
-                    // File might be locked, EPPlus will handle
+                    // File might be locked
                 }
             }
 
             using var package = new ExcelPackage(new FileInfo(filePath));
             var ws = package.Workbook.Worksheets.Add("Processed Data");
 
-            // Build headers efficiently
             WriteHeaders(ws);
 
-            // Write data in bulk using LoadFromArrays (High Performance)
             int rowCount = dataList.Count;
             if (rowCount > 0)
             {
-                // Create object array in memory
-                // Columns: 2 (Packet/Sample) + 64 (4 * 16 Channels) = 66
                 int colCount = 2 + (AppConstants.ChannelsPerLayer * 4);
                 object[,] dataArray = new object[rowCount, colCount];
 
@@ -324,13 +288,12 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L6[j];
                     for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L7[j];
 
-                    if (progress != null && i % 1000 == 0) // Report progress periodically
+                    if (progress != null && i % 1000 == 0)
                     {
                         progress.Report(((double)i / rowCount) * 100);
                     }
                 }
 
-                // Write to Excel in one go
                 ws.Cells[2, 1].LoadFromArrays(ConvertArrayToEnumerable(dataArray));
             }
 
@@ -360,7 +323,6 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
             int col = 3;
 
-            // Use StringBuilder for better performance with string concatenation
             for (int i = 1; i <= AppConstants.ChannelsPerLayer; i++)
             {
                 ws.Cells[1, col++].Value = $"L1 CH{i}";
@@ -382,7 +344,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         public List<BaselineData> ReadExcelFile(string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(FileService));
+                throw new ObjectDisposedException(nameof(BaselineFileService));
 
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentNullException(nameof(filePath));
@@ -404,32 +366,23 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 return [];
             }
 
-            // Debug Message
-            // MessageBoxService.Show($"Found {dataRows} data rows in Excel.", "Debug", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-
-            // Load all data into memory at once
-
             if (ws.Cells[2, 1, rowCount, colCount].Value is not object[,] rawValues)
             {
                 MessageBoxService.Show("Unable to read Excel data.", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                 return [];
             }
 
-            // Pre-allocate with exact capacity
             var results = new List<BaselineData>(dataRows);
 
             for (int r = 0; r < dataRows; r++)
             {
                 var data = new BaselineData
                 {
-                    // Direct array access (High Performance) - with null checks
                     SamplingPacketNo = rawValues[r, 0] != null ? Convert.ToInt32(rawValues[r, 0]) : 0,
                     SamplingNo = rawValues[r, 1] != null ? Convert.ToInt32(rawValues[r, 1]) : 0
                 };
 
                 int c = 2;
-                // Optimized: Read all layers in a single loop pass to improve cache locality
-                // Read L1
                 for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
                 {
                     int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
@@ -437,8 +390,6 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     data.L1_Voltage[i] = val * VOLTAGE_FACTOR;
                     c++;
                 }
-
-                // Read L2
                 for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
                 {
                     int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
@@ -446,8 +397,6 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     data.L2_Voltage[i] = val * VOLTAGE_FACTOR;
                     c++;
                 }
-
-                // Read L6
                 for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
                 {
                     int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
@@ -455,8 +404,6 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     data.L6_Voltage[i] = val * VOLTAGE_FACTOR;
                     c++;
                 }
-
-                // Read L7
                 for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
                 {
                     int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
@@ -481,10 +428,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             {
                 if (disposing)
                 {
-                    // Managed resources cleanup (if any)
-                    // Currently no managed resources to dispose
                     ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-
                 }
                 _disposed = true;
             }
@@ -495,6 +439,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             Dispose(true);
             GC.SuppressFinalize(this);
         }
+
         public string[]? OpenFileDialog(string filter, bool multiselect)
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog

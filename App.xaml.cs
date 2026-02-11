@@ -3,10 +3,14 @@ using Microsoft.Extensions.DependencyInjection;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Infrastructure.Services.Baseline; // Added
 using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Presentation.ViewModels;
-using BaselineMode.WPF.Views.Shared;
+using BaselineMode.WPF.Presentation.ViewModels.Baseline; // Added
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
+using BaselineMode.WPF.Presentation.ViewModels.Flux; // Added
+
+using BaselineMode.WPF.Views.Shared; // Added for UnifiedMainWindow
 
 namespace BaselineMode.WPF;
 
@@ -28,7 +32,7 @@ public partial class App : Application
     {
         // Core Services
         services.AddSingleton<IMathService, MathService>();
-        services.AddSingleton<IFileService, FileService>();
+        services.AddSingleton<IFileService, BaselineFileService>(); // Updated
         services.AddSingleton<IObservationDataProcessor, ObservationDataProcessor>();
         services.AddSingleton<IObservationExcelHelper, ObservationExcelHelper>();
         services.AddSingleton<IFileHelper, FileHelper>();  // Shared file helper for Baseline and Observation
@@ -36,7 +40,7 @@ public partial class App : Application
         // ViewModels
         services.AddTransient<MainViewModel>();
         services.AddTransient<ObservationMainViewModel>();
-        services.AddTransient<FluxViewModel>();
+        services.AddTransient<Presentation.ViewModels.Flux.FluxViewModel>();
 
         // Views
         services.AddTransient<UnifiedMainWindow>();

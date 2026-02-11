@@ -1,8 +1,8 @@
-namespace BaselineMode.WPF.Core.Models
+namespace BaselineMode.WPF.Core.Models.Baseline
 {
     public class FittingResult
     {
-        public double[] FitCurve { get; set; }
+        public double[] FitCurve { get; set; } = [];
         public double Mu { get; set; }
         public double Sigma { get; set; }
         public double Peak { get; set; }

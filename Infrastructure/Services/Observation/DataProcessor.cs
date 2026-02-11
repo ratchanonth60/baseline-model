@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Interfaces.Observation;
+using BaselineMode.WPF.Core.Models.Shared;
 
 namespace BaselineMode.WPF.Infrastructure.Services.Observation
 {

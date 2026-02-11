@@ -6,7 +6,8 @@ using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Core.Models.Observation; // For ObservationConstants if needed
 using OfficeOpenXml;
-using Microsoft.Win32; // For SaveFileDialog
+using Microsoft.Win32;
+using BaselineMode.WPF.Core.Models.Shared; // For SaveFileDialog
 
 namespace BaselineMode.WPF.Infrastructure.Services
 {
@@ -249,7 +250,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 Path.Combine(documentsBase, $"{outputName}.xlsx"),
                 // Legacy Documents folder paths
                 Path.Combine(documentsBase, outputName, $"{outputName}_ParticleData.xlsx"),
-                Path.Combine(documentsBase, AppConstants.SourceFolderName, $"{outputName}.xlsx"), // Added missing path
+                Path.Combine(documentsBase, AppConstants.SourceFolderName, $"{outputName}.xlsx"),
                 // Legacy debug folder paths (for backwards compatibility)
                 Path.Combine(debugBase, outputName, $"{outputName}_ParticleData.xlsx"),
                 Path.Combine(debugBase, AppConstants.SourceFolderName, $"{outputName}.xlsx"),

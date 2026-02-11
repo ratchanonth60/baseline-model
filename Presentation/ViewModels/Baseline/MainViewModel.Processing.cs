@@ -9,8 +9,12 @@ using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Infrastructure.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using BaselineMode.WPF.Core.Models.Baseline;
+using BaselineMode.WPF.Core.Models.Shared;
+using BaselineMode.WPF.Core.Models.Flux;
+using BaselineMode.WPF.Presentation.ViewModels.Shared;
 
-namespace BaselineMode.WPF.Presentation.ViewModels
+namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 {
     public partial class MainViewModel
     {

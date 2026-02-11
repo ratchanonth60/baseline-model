@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace BaselineMode.WPF.Presentation.ViewModels
+namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 {
     public partial class HeatmapViewModel(double[,] data) : ObservableObject
     {

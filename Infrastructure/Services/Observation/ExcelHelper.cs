@@ -7,6 +7,7 @@ using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Core.Models.Observation;
 
 using BaselineMode.WPF.Core.Interfaces.Observation;
+using BaselineMode.WPF.Core.Models.Shared;
 
 namespace BaselineMode.WPF.Infrastructure.Services.Observation
 {
@@ -48,7 +49,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
             package.SaveAs(new FileInfo(fullPath));
         }
 
-        public string SaveAllResultsToExcel(string folderName, List<Dictionary<string, object>> allResults)
+        public string? SaveAllResultsToExcel(string folderName, List<Dictionary<string, object>> allResults)
         {
             if (allResults == null || allResults.Count == 0)
             {

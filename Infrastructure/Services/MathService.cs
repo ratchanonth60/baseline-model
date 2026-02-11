@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Models.Baseline; // Added
 
 namespace BaselineMode.WPF.Infrastructure.Services
 {

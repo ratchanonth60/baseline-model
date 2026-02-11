@@ -68,8 +68,8 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
                 return;
             }
 
-            double[] filteredX = validPairs.Select(p => p.x).ToArray();
-            double[] filteredY = validPairs.Select(p => p.y).ToArray();
+            double[] filteredX = [.. validPairs.Select(p => p.x)];
+            double[] filteredY = [.. validPairs.Select(p => p.y)];
 
             // Stats
             TxtDataPoints.Text = validPairs.Length.ToString("N0");
@@ -80,7 +80,7 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
             double[] plotY;
             if (_isLogScale)
             {
-                plotY = filteredY.Select(y => y > 0 ? Math.Log10(y) : -10).ToArray();
+                plotY = [.. filteredY.Select(y => y > 0 ? Math.Log10(y) : -10)];
                 DetailPlot.Plot.YAxis.TickLabelFormat(value => $"10^{value:F0}");
             }
             else

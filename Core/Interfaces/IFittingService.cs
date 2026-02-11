@@ -1,5 +1,6 @@
 using System;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Models.Baseline; // Added
 
 namespace BaselineMode.WPF.Core.Interfaces
 {

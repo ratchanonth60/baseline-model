@@ -2,7 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using ScottPlot;
 using System.Diagnostics;
 
-namespace BaselineMode.WPF.Presentation.ViewModels
+namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 {
     /// <summary>
     /// ViewModel for a single flux density layer plot (L1–L7).

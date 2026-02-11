@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace BaselineMode.WPF.Core.Models
+namespace BaselineMode.WPF.Core.Models.Shared
 {
     public static partial class RegexPatterns
     {

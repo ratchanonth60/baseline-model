@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Models.Baseline; // Added
 
 namespace BaselineMode.WPF.Core.Interfaces
 {

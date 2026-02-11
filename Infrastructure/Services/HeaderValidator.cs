@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Models.Shared; // Added
 
 namespace BaselineMode.WPF.Infrastructure.Services
 {

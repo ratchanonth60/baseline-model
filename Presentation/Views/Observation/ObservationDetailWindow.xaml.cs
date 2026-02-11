@@ -121,7 +121,9 @@ namespace BaselineMode.WPF.Views.Observation
                         TxtResolution.Text = $"{fitResult.Resolution:F2}%";
                     }
                 }
-                catch { /* Fitting failed */ }
+                catch
+                {
+                }
             }
             else
             {

@@ -2,6 +2,9 @@
 using BaselineMode.WPF.Presentation.ViewModels;
 using ScottPlot;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Presentation.ViewModels.Baseline;
+using BaselineMode.WPF.Presentation.ViewModels.Shared;
+using BaselineMode.WPF.Core.Models.Shared;
 
 namespace BaselineMode.WPF.Views.Baseline
 {

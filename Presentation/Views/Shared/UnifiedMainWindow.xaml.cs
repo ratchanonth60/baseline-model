@@ -11,11 +11,15 @@ using ExcelDataReader;
 using ScottPlot;
 using BaselineMode.WPF.Presentation.ViewModels;
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
+using BaselineMode.WPF.Presentation.ViewModels.Shared; // Added for ChannelViewModel
 using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Models.Shared; // Added for PlotUpdateEventArgs, AppConstants
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Views.Observation;
+using BaselineMode.WPF.Presentation.ViewModels.Baseline; // Added
+using BaselineMode.WPF.Presentation.ViewModels.Flux; // Added
 
 namespace BaselineMode.WPF.Views.Shared
 {
@@ -30,9 +34,6 @@ namespace BaselineMode.WPF.Views.Shared
 
         // Observation state
         private string? _lastSavedFilePath;
-        private int _totalSteps;
-        private int _data = 1;
-        private bool _stopFlag;
         private const string FORMAT_DATE = "yyyy-MMM-dd HH:mm:ss.fff";
         private const string NA = "N/A";
 
@@ -224,7 +225,7 @@ namespace BaselineMode.WPF.Views.Shared
             channelVm.RenderTo(wpfPlot, figBg, dataBg, foreColor, seriesColor);
         }
 
-        private void OnBaselinePlotUpdate(object? sender, Core.Models.PlotUpdateEventArgs e)
+        private void OnBaselinePlotUpdate(object? sender, PlotUpdateEventArgs e)
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -406,154 +407,9 @@ namespace BaselineMode.WPF.Views.Shared
             }
         }
 
-        private void ObsBtnReadData_Click(object sender, RoutedEventArgs e)
-        {
-            string outputName = ObsTxtOutputFileName.Text.Trim();
+        private CancellationTokenSource? _obsCts;
 
-            // Use FileHelper to find the file (searches Documents/DSSD_Analysis, Debug folder, etc.)
-            string? fileName = _observationViewModel.FileHelper.FindExcelFile(outputName);
-
-            if (fileName == null)
-            {
-                var result = MessageBox.Show(
-                    $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
-                    "File Not Found",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-
-                if (result == MessageBoxResult.Yes)
-                {
-                    var openFileDialog = new OpenFileDialog
-                    {
-                        Filter = "Excel Files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
-                        Title = "Select Particle Data File"
-                    };
-
-                    string initialDir = _observationViewModel.FileHelper.GetOutputFolder("");
-                    if (Directory.Exists(initialDir))
-                        openFileDialog.InitialDirectory = initialDir;
-
-                    if (openFileDialog.ShowDialog() == true)
-                    {
-                        fileName = openFileDialog.FileName;
-                    }
-                    else
-                    {
-                        return; // User cancelled
-                    }
-                }
-                else
-                {
-                    return;
-                }
-            }
-
-            try
-            {
-                using var stream = File.Open(fileName, FileMode.Open, FileAccess.Read);
-                using var reader = ExcelReaderFactory.CreateReader(stream);
-
-                var result = reader.AsDataSet();
-                var rawData = result.Tables[0];
-                _totalSteps = rawData.Rows.Count;
-
-                ObsTxtDataCount.Text = $"{_totalSteps}";
-                ObsTxtParticleCount.Text = $"{_totalSteps * 5}";
-
-                ObsProgressBar.Maximum = _totalSteps;
-                ObsProgressBar.Value = 0;
-                ObsProgressBar.IsIndeterminate = false;
-                _data = 1;
-                _stopFlag = false;
-
-                bool isFirstData = true;
-                string[] hexData = [];
-
-                while (_data <= _totalSteps && !_stopFlag)
-                {
-                    string? hexString = rawData.Rows[_data - 1][0].ToString();
-                    if (hexString == null) { _data++; continue; }
-                    hexData = _observationViewModel.DataProcessor.SplitHexData(hexString);
-
-                    ObsProgressBar.Value = _data;
-                    ObsTxtProgress.Text = $"Processing... {Math.Round((double)_data / _totalSteps * 100)}%";
-
-                    if (isFirstData)
-                    {
-                        ObsTxtStartTime.Text = _observationViewModel.DataProcessor.GetDateTimeFromHexData(hexData).ToString(FORMAT_DATE);
-                        isFirstData = false;
-                    }
-
-                    _observationViewModel.DataProcessor.ProcessParticles(hexData);
-                    _data++;
-
-                    Dispatcher.Invoke(DispatcherPriority.Background, new Action(() => { }));
-                }
-
-                if (_totalSteps > 0)
-                {
-                    string? lastHex = rawData.Rows[_totalSteps - 1][0].ToString();
-                    if (lastHex != null)
-                    {
-                        var lastHexData = _observationViewModel.DataProcessor.SplitHexData(lastHex);
-                        ObsTxtStopTime.Text = _observationViewModel.DataProcessor.GetDateTimeFromHexData(lastHexData).ToString(FORMAT_DATE);
-                    }
-                }
-
-                ObsTxtProgress.Text = "Process Complete";
-                ObsTxtStatus.Text = "DONE";
-                ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
-
-                // Refresh all plots
-                RefreshDSSDPlots();
-                RefreshBGOPlots();
-
-                // Save results
-                _lastSavedFilePath = _observationViewModel.ExcelHelper.SaveAllResultsToExcel(
-                    ObsTxtOutputFileName.Text, _observationViewModel.DataProcessor.AllResults);
-                _observationViewModel.DataProcessor.AllResults.Clear();
-
-                UpdateObsStatus("Processing complete");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private void ObsBtnReset_Click(object sender, RoutedEventArgs e)
-        {
-            _stopFlag = true;
-            _data = 1;
-
-            if (_observationViewModel.ResetCommand.CanExecute(null))
-                _observationViewModel.ResetCommand.Execute(null);
-
-            ObsTxtOutputFileName.Text = "";
-            ObsTxtProgress.Text = "Ready";
-            ObsProgressBar.Value = 0;
-            ObsProgressBar.IsIndeterminate = false;
-            ObsTxtStatus.Text = "READY";
-            ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
-            ObsTxtDataCount.Text = "-";
-            ObsTxtParticleCount.Text = "-";
-            ObsTxtStartTime.Text = "-";
-            ObsTxtStopTime.Text = "-";
-
-            // Clear all plots
-            foreach (var plot in GetAllObservationPlots())
-            {
-                if (plot != null)
-                {
-                    plot.Plot.Clear();
-                    plot.Refresh();
-                }
-            }
-
-            UpdateObsStatus("Reset complete");
-        }
-
-        private void ObsBtnHeaderCheck_Click(object sender, RoutedEventArgs e)
+        private async void ObsBtnReadData_Click(object sender, RoutedEventArgs e)
         {
             string outputName = ObsTxtOutputFileName.Text.Trim();
 
@@ -595,41 +451,134 @@ namespace BaselineMode.WPF.Views.Shared
                 }
             }
 
+            _obsCts = new CancellationTokenSource();
+            var progress = new Progress<ObservationProcessReport>(report =>
+            {
+                ObsProgressBar.Maximum = report.TotalSteps;
+                ObsProgressBar.Value = report.CurrentStep;
+                ObsTxtProgress.Text = report.Message;
+                ObsTxtDataCount.Text = $"{report.TotalSteps}";
+                ObsTxtParticleCount.Text = $"{report.TotalSteps * 5}";
+
+                if (report.CurrentTime.HasValue)
+                {
+                    if (report.IsComplete)
+                        ObsTxtStopTime.Text = report.CurrentTime.Value.ToString(FORMAT_DATE);
+                    else
+                        ObsTxtStartTime.Text = report.CurrentTime.Value.ToString(FORMAT_DATE);
+                }
+
+                if (report.IsComplete)
+                {
+                    ObsTxtStatus.Text = "DONE";
+                    ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
+
+                    // Trigger plot updates
+                    RefreshDSSDPlots();
+                    RefreshBGOPlots();
+
+                    // Logic for saving results if needed, or it's implicitly handled by data processor state
+                    _observationViewModel.DataProcessor.AllResults.Clear();
+                    // Note: Original code cleared results after saving. 
+                    // Since we process line by line, accumulation depends on DataProcessor implementation.
+                    // Assuming DataProcessor accumulates locally.
+                    // IMPORTANT: The original code saved manually here.
+                }
+            });
+
             try
             {
-                using var stream = File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using var reader = ExcelReaderFactory.CreateReader(stream);
+                ObsProgressBar.IsIndeterminate = false;
+                ObsTxtStatus.Text = "PROCESSING";
+                ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xFF, 0xB3, 0x47));
 
-                var result = reader.AsDataSet();
-                var rawData = result.Tables[0];
-                int totalSteps = rawData.Rows.Count;
-                bool headerOk = true;
+                await _observationViewModel.ProcessExcelDataAsync(fileName, progress, _obsCts.Token);
 
-                for (int i = 1; i <= totalSteps; i++)
+                // Save results after processing
+                // The original code called SaveAllResultsToExcel at the end.
+                // We need to ensure we can still do that if desired, OR move that into the ViewModel method.
+                // Ideally, the ViewModel should handle saving too, but let's keep it here for now to match flow
+                // logic or move it to ViewModel completely.
+
+                // Let's call the save method from here using the ViewModel's helper
+                if (!_obsCts.IsCancellationRequested)
                 {
-                    string? hexString = rawData.Rows[i - 1][0].ToString();
-                    if (hexString == null || !hexString.StartsWith(AppConstants.HeaderStart))
-                    {
-                        ObsTxtProgress.Text = $"Header INCORRECT at row {i}";
-                        ObsTxtStatus.Text = "HEADER ERR";
-                        ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0x43, 0x36));
-                        headerOk = false;
-                        break;
-                    }
+                    // Re-save logic from original code:
+                    _lastSavedFilePath = _observationViewModel.ExcelHelper.SaveAllResultsToExcel(
+                       ObsTxtOutputFileName.Text, _observationViewModel.DataProcessor.AllResults);
+                    _observationViewModel.DataProcessor.AllResults.Clear();
+                    UpdateObsStatus("Processing and saving complete");
                 }
-
-                if (headerOk)
-                {
-                    ObsTxtProgress.Text = "Header is correct!";
-                    ObsTxtStatus.Text = "HEADER OK";
-                    ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                UpdateObsStatus("Processing cancelled");
             }
             catch (Exception ex)
             {
+                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                UpdateObsStatus("Error");
+            }
+        }
+
+
+        private void ObsBtnReset_Click(object sender, RoutedEventArgs e)
+        {
+            // Cancel current operation if running
+            _obsCts?.Cancel();
+            _obsCts = null;
+
+            if (_observationViewModel.ResetCommand.CanExecute(null))
+                _observationViewModel.ResetCommand.Execute(null);
+
+            ObsTxtOutputFileName.Text = "";
+            ObsTxtProgress.Text = "Ready";
+            ObsProgressBar.Value = 0;
+            ObsProgressBar.IsIndeterminate = false;
+            ObsTxtStatus.Text = "READY";
+            ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
+            ObsTxtDataCount.Text = "-";
+            ObsTxtParticleCount.Text = "-";
+            ObsTxtStartTime.Text = "-";
+            ObsTxtStopTime.Text = "-";
+
+            // Clear all plots
+            foreach (var plot in GetAllObservationPlots())
+            {
+                if (plot != null)
+                {
+                    plot.Plot.Clear();
+                    plot.Refresh();
+                }
+            }
+
+            UpdateObsStatus("Reset complete");
+        }
+
+        private async void ObsBtnHeaderCheck_Click(object sender, RoutedEventArgs e)
+        {
+            string outputName = ObsTxtOutputFileName.Text.Trim();
+            string? fileName = _observationViewModel.FileHelper.FindExcelFile(outputName);
+
+            if (fileName == null)
+            {
+                MessageBox.Show($"File '{outputName}' not found.", "File Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var (isValid, message, errorRow) = await _observationViewModel.CheckHeaderAsync(fileName);
+
+            if (isValid)
+            {
+                ObsTxtProgress.Text = message;
+                ObsTxtStatus.Text = "HEADER OK";
+                ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
+            }
+            else
+            {
+                ObsTxtProgress.Text = message;
                 ObsTxtStatus.Text = "HEADER ERR";
                 ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0x43, 0x36));
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

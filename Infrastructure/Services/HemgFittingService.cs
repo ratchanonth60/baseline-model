@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Models.Baseline; // Added
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Optimization;
 
@@ -247,7 +248,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return HemgSingleSidedFitHistogram(centers, counts, input);
         }
 
-        public (double[] fitCurve, double[] parameters) HemgSingleSidedFitHistogram(double[] centers, double[] counts, double[] rawDataOptional = null)
+        public (double[] fitCurve, double[] parameters) HemgSingleSidedFitHistogram(double[] centers, double[] counts, double[]? rawDataOptional = null)
         {
             try
             {
