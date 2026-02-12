@@ -22,6 +22,8 @@ using Microsoft.Win32;
 using BaselineMode.WPF.Core.Models.Flux;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using BaselineMode.WPF.Core.Models.Shared;
+using System.Reflection;
+using System.Windows.Media;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 {
@@ -33,7 +35,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         private const int LAYER_COUNT = 7;
         private const double DETECTOR_AREA_M2 = 32 * 32 * 1e-6; // 32mm × 32mm → m^2
 
-        public IRelayCommand SelectFilesCommand { get; }
+        public IAsyncRelayCommand SelectFilesCommand { get; }
         public IAsyncRelayCommand ProcessDataCommand { get; }
         public IAsyncRelayCommand ReadDataCommand { get; }
         public IAsyncRelayCommand HeaderCheckCommand { get; }
@@ -45,7 +47,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             _fileHelper = fileHelper;
             _dataProcessor = dataProcessor;
 
-            SelectFilesCommand = new RelayCommand(SelectFiles);
+            SelectFilesCommand = new AsyncRelayCommand(SelectFiles);
             ProcessDataCommand = new AsyncRelayCommand(ProcessData);
             ReadDataCommand = new AsyncRelayCommand(ReadData);
             HeaderCheckCommand = new AsyncRelayCommand(HeaderCheck);
@@ -67,6 +69,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
         [ObservableProperty]
         private string _inputFilesInfo = "No files selected";
+
+        private List<string> _selectedFiles = [];
+
+        private string GetDailyOutputDirectory()
+        {
+            // Use FileHelper to get a daily output folder, or just the documents folder
+            return _fileHelper.GetOutputFolder("DailyFluxOutput");
+        }
 
         [ObservableProperty]
         private string _outputFileName = "FluxResult";
@@ -131,80 +141,87 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
         private CancellationTokenSource? _cts;
         private TimeSpan _duration = TimeSpan.Zero;
-        private string? _combinedOutputFilePath;
+
 
         public ObservableCollection<FluxLayerViewModel> Layers { get; }
 
         // ── Commands ────────────────────────────────────────────────
 
-        private void SelectFiles()
+        private async Task SelectFiles()
         {
             Reset();
 
-            var openFileDialog = new OpenFileDialog
+            var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Multiselect = true,
-                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*",
-                Title = "Select Text Files"
+                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
             };
 
-            if (openFileDialog.ShowDialog() == true)
+            if (dialog.ShowDialog() != true) return;
+
+            var files = dialog.FileNames.ToList();
+            _selectedFiles = files;
+            InputFileList = [.. _selectedFiles];
+
+            // กรณีไฟล์เดียว: ไม่ต้องประมวลผลอะไรซับซ้อน
+            if (files.Count == 1)
             {
-                InputFileList = openFileDialog.FileNames;
-                var fileNames = InputFileList.Select(f => Path.GetFileNameWithoutExtension(f)).ToList();
-
-                if (InputFileList.Length == 1)
-                {
-                    InputFilesInfo = "1 file selected.";
-                    OutputFileName = $"{fileNames.First()}.xlsx";
-                }
-                else
-                {
-                    try
-                    {
-                        string storageDir = Path.Combine(
-                            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                            "CombinedTextFiles");
-                        Directory.CreateDirectory(storageDir);
-
-                        _combinedOutputFilePath = Path.Combine(storageDir, "multiple_file_output.txt");
-
-                        var allContents = new List<string>();
-                        foreach (var file in InputFileList)
-                        {
-                            try { allContents.Add(File.ReadAllText(file)); }
-                            catch (Exception ex)
-                            {
-                                MessageBoxService.Show($"Error reading {file}: {ex.Message}", "Read Error",
-                                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                            }
-                        }
-
-                        if (allContents.Count > 0)
-                        {
-                            File.WriteAllText(_combinedOutputFilePath, string.Join("\n", allContents));
-                            MessageBoxService.Show(
-                                $"Files combined successfully into {_combinedOutputFilePath}",
-                                "Success", MessageBoxButton.OK, MessageBoxImage.Information);
-                            InputFileList = [_combinedOutputFilePath];
-                        }
-
-                        InputFilesInfo = $"{openFileDialog.FileNames.Length} file(s) selected.";
-                        OutputFileName = "multiple_file_output.xlsx";
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBoxService.Show($"Error combining files: {ex.Message}", "Error",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
-                    }
-                }
+                InputFilesInfo = "1 file selected.";
+                OutputFileName = Path.GetFileNameWithoutExtension(files[0]) + ".xlsx";
+                StatusMessage = "Files loaded. Ready to process.";
+                return;
             }
-            else
-            {
-                InputFilesInfo = "No files selected.";
-            }
+
+            // กรณีหลายไฟล์: ใช้ Stream เพื่อรวมไฟล์ (ประหยัด RAM)
+            await CombineFilesAsync(files);
         }
 
+        private async Task CombineFilesAsync(List<string> files)
+        {
+            IsBusy = true;
+            StatusMessage = $"Combining {files.Count} files...";
+            string combinedFilePath = Path.Combine(GetDailyOutputDirectory(), "multiple_file_output.txt");
+
+            try
+            {
+                await Task.Run(() =>
+                {
+                    using var writer = new StreamWriter(combinedFilePath, append: false);
+                    for (int i = 0; i < files.Count; i++)
+                    {
+                        using var reader = new StreamReader(files[i]);
+                        string? line;
+                        while ((line = reader.ReadLine()) != null)
+                        {
+                            writer.WriteLine(line);
+                        }
+
+                        // รายงานความคืบหน้า (ใช้ Progress<T> หรืออัปเดตตรงๆ ผ่าน Property)
+                        ProgressValue = (double)(i + 1) / files.Count * 100;
+                    }
+                });
+
+                _selectedFiles = [combinedFilePath];
+                InputFileList = _selectedFiles.ToArray();
+                InputFilesInfo = $"{files.Count} files combined.";
+                OutputFileName = "multiple_file_output.xlsx";
+                StatusMessage = "Files combined. Ready to process.";
+
+                MessageBoxService.Show($"Files combined into:\n{combinedFilePath}", "Success",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error: {ex.Message}";
+                MessageBoxService.Show($"Error combining files: {ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                IsBusy = false;
+                ProgressValue = 0;
+            }
+        }
         private async Task ProcessData()
         {
             if (InputFileList == null || InputFileList.Length == 0)
@@ -481,9 +498,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                 layer.YData = null;
                 layer.StatsText = "No Data";
                 layer.RenderPlot(
-                    Color.FromArgb(30, 30, 30),
-                    Color.FromArgb(37, 37, 38),
-                    Color.White, Color.Gray);
+                    System.Drawing.Color.FromArgb(30, 30, 30),
+                    System.Drawing.Color.FromArgb(37, 37, 38),
+                    System.Drawing.Color.White, System.Drawing.Color.Gray);
             }
             ProgressValue = 0;
         }
@@ -686,28 +703,28 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
             Application.Current?.Dispatcher?.BeginInvoke(() =>
             {
-                var figBg = ToDrawingColor(GraphFigureColor, Color.FromArgb(30, 30, 30));
-                var dataBg = ToDrawingColor(GraphDataColor, Color.FromArgb(37, 37, 38));
-                var fgColor = ToDrawingColor(GraphTextColor, Color.White);
-                var seriesColor = ToDrawingColor(GraphSeriesColor, Color.Cyan);
+                var figBg = ToDrawingColor(GraphFigureColor, System.Drawing.Color.FromArgb(30, 30, 30));
+                var dataBg = ToDrawingColor(GraphDataColor, System.Drawing.Color.FromArgb(37, 37, 38));
+                var fgColor = ToDrawingColor(GraphTextColor, System.Drawing.Color.White);
+                var seriesColor = ToDrawingColor(GraphSeriesColor, System.Drawing.Color.Cyan);
 
                 // Use different colors for each layer
                 var layerColors = new[]
                 {
-                    Color.FromArgb(255, 0, 150, 136),   // Teal
-                    Color.FromArgb(255, 33, 150, 243),   // Blue
-                    Color.FromArgb(255, 156, 39, 176),   // Purple
-                    Color.FromArgb(255, 255, 152, 0),    // Orange
-                    Color.FromArgb(255, 76, 175, 80),    // Green
-                    Color.FromArgb(255, 244, 67, 54),    // Red
-                    Color.FromArgb(255, 255, 235, 59),   // Yellow
+                    System.Drawing.Color.FromArgb(255, 0, 150, 136),   // Teal
+                    System.Drawing.Color.FromArgb(255, 33, 150, 243),   // Blue
+                    System.Drawing.Color.FromArgb(255, 156, 39, 176),   // Purple
+                    System.Drawing.Color.FromArgb(255, 255, 152, 0),    // Orange
+                    System.Drawing.Color.FromArgb(255, 76, 175, 80),    // Green
+                    System.Drawing.Color.FromArgb(255, 244, 67, 54),    // Red
+                    System.Drawing.Color.FromArgb(255, 255, 235, 59),   // Yellow
                 };
 
                 for (int i = 0; i < Layers.Count; i++)
                 {
                     Layers[i].RenderPlot(
                         figBg, dataBg, fgColor,
-                        layerColors[i % layerColors.Length],
+                        seriesColor, // Use the selected single color for all graphs
                         isLogScale: IsLogScale,
                         xMax: TimeRangeMax > 0 ? TimeRangeMax : null);
                 }
@@ -723,9 +740,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             _allResults.Clear();
         }
 
-        private static Color ToDrawingColor(System.Windows.Media.Color wpfColor, Color fallback)
+        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color wpfColor, System.Drawing.Color fallback)
         {
-            try { return Color.FromArgb(wpfColor.A, wpfColor.R, wpfColor.G, wpfColor.B); }
+            try { return System.Drawing.Color.FromArgb(wpfColor.A, wpfColor.R, wpfColor.G, wpfColor.B); }
             catch { return fallback; }
         }
     }

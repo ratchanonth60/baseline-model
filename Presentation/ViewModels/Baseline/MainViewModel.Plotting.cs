@@ -469,7 +469,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             IsBusy = true;
             StatusMessage = "Calculating Heatmap...";
 
-            Task.Run(() =>
+            _ = Task.Run(() =>
             {
                 try
                 {

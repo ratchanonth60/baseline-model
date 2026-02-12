@@ -11,7 +11,7 @@ namespace BaselineMode.WPF.Views.Flux
     {
         private readonly DispatcherTimer _timeTimer;
 
-        public FluxMainWindow(Presentation.ViewModels.FluxViewModel viewModel)
+        public FluxMainWindow(FluxViewModel viewModel)
         {
             InitializeComponent();
             DataContext = viewModel;

@@ -28,18 +28,31 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
 
         private void Plot_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (sender is WpfPlot plot && plot.DataContext is FluxLayerViewModel layerVM)
-            {
-                if (this.DataContext is ViewModels.Flux.FluxViewModel fluxVM)
-                {
-                    var detailWindow = new FluxDetailWindow();
-                    detailWindow.ShowFluxData(
-                        layerVM.XData, layerVM.YData,
-                        $"Flux Density: {layerVM.LayerName}",
-                        fluxVM.IsLogScale);
-                    detailWindow.Show();
-                }
-            }
+            if (sender is not WpfPlot plot || plot.DataContext is not FluxLayerViewModel layerVM) return;
+            if (this.DataContext is not FluxViewModel fluxVM) return;
+
+            var detailWindow = new FluxDetailWindow();
+
+            // Set Theme
+            var figBg = ToDrawingColor(fluxVM.GraphFigureColor);
+            var dataBg = ToDrawingColor(fluxVM.GraphDataColor);
+            var fgColor = ToDrawingColor(fluxVM.GraphTextColor);
+            var seriesColor = ToDrawingColor(fluxVM.GraphSeriesColor);
+
+            detailWindow.SetColorTheme(figBg, dataBg, fgColor, seriesColor);
+
+            detailWindow.ShowFluxData(
+                layerVM.XData,
+                layerVM.YData,
+                $"Flux Density: {layerVM.LayerName}",
+                fluxVM.IsLogScale);
+
+            detailWindow.Show();
+        }
+
+        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
+        {
+            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }
     }
 }

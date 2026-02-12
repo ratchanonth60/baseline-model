@@ -415,41 +415,28 @@ namespace BaselineMode.WPF.Views.Shared
 
             // Use FileHelper to find the file
             string? fileName = _observationViewModel.FileHelper.FindExcelFile(outputName);
+            if (fileName != null) return;
 
-            if (fileName == null)
+            var result = MessageBox.Show(
+                $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
+                "File Not Found",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.No) return;
+
+            var openFileDialog = new OpenFileDialog
             {
-                var result = MessageBox.Show(
-                    $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
-                    "File Not Found",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
+                Filter = "Excel Files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                Title = "Select Particle Data File"
+            };
 
-                if (result == MessageBoxResult.Yes)
-                {
-                    var openFileDialog = new OpenFileDialog
-                    {
-                        Filter = "Excel Files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
-                        Title = "Select Particle Data File"
-                    };
+            string initialDir = _observationViewModel.FileHelper.GetOutputFolder("");
+            if (Directory.Exists(initialDir))
+                openFileDialog.InitialDirectory = initialDir;
 
-                    string initialDir = _observationViewModel.FileHelper.GetOutputFolder("");
-                    if (Directory.Exists(initialDir))
-                        openFileDialog.InitialDirectory = initialDir;
-
-                    if (openFileDialog.ShowDialog() == true)
-                    {
-                        fileName = openFileDialog.FileName;
-                    }
-                    else
-                    {
-                        return; // User cancelled
-                    }
-                }
-                else
-                {
-                    return;
-                }
-            }
+            if (openFileDialog.ShowDialog() == false) return;
+            fileName = openFileDialog.FileName;
 
             _obsCts = new CancellationTokenSource();
             var progress = new Progress<ObservationProcessReport>(report =>
@@ -462,10 +449,7 @@ namespace BaselineMode.WPF.Views.Shared
 
                 if (report.CurrentTime.HasValue)
                 {
-                    if (report.IsComplete)
-                        ObsTxtStopTime.Text = report.CurrentTime.Value.ToString(FORMAT_DATE);
-                    else
-                        ObsTxtStartTime.Text = report.CurrentTime.Value.ToString(FORMAT_DATE);
+                    ObsTxtStopTime.Text = report.IsComplete ? report.CurrentTime.Value.ToString(FORMAT_DATE) : report.CurrentTime.Value.ToString(FORMAT_DATE);
                 }
 
                 if (report.IsComplete)
@@ -568,17 +552,14 @@ namespace BaselineMode.WPF.Views.Shared
 
             var (isValid, message, errorRow) = await _observationViewModel.CheckHeaderAsync(fileName);
 
+            ObsTxtProgress.Text = message;
+            ObsTxtStatus.Text = "HEADER ERR";
+            ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0x43, 0x36));
             if (isValid)
             {
                 ObsTxtProgress.Text = message;
                 ObsTxtStatus.Text = "HEADER OK";
                 ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4C, 0xAF, 0x50));
-            }
-            else
-            {
-                ObsTxtProgress.Text = message;
-                ObsTxtStatus.Text = "HEADER ERR";
-                ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0x43, 0x36));
             }
         }
 

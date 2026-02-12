@@ -269,10 +269,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                 {
                                     double center = binEdges[k] + 0.5;
                                     // Apply X-Axis Conversion ใน Loop เดียว
-                                    if (SelectedXAxisIndex == 1) // Voltage
-                                        binCenters[k] = ((center / 16383.0) * 5) * 1000;
-                                    else
-                                        binCenters[k] = center;
+                                    binCenters[k] = (SelectedXAxisIndex == 1)
+                                        ? ((center / 16383.0) * 5) * 1000
+                                        : center;
                                 }
 
                                 // Prepare Multi-Fit Results

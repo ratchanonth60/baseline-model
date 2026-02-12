@@ -23,6 +23,15 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
             ChkLogScale.Unchecked += (s, e) => { _isLogScale = false; UpdatePlot(); };
         }
 
+        public void SetColorTheme(System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color fgColor, System.Drawing.Color seriesColor)
+        {
+            _figureBg = figBg;
+            _dataBg = dataBg;
+            _fgColor = fgColor;
+            _seriesColor = seriesColor;
+            UpdatePlot();
+        }
+
         public void ShowFluxData(double[]? xData, double[]? yData, string title, bool isLogScale = false)
         {
             _xData = xData;
