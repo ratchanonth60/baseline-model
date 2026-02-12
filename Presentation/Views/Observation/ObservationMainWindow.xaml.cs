@@ -323,19 +323,8 @@ namespace BaselineMode.WPF.Views.Observation
 
         private void TxtDSSDAxisChanged(object sender, TextChangedEventArgs e)
         {
-            if (!double.TryParse(TxtDSSDXMin?.Text, out double xMin)) xMin = 0;
-            if (!double.TryParse(TxtDSSDXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxDSSD;
-
-            if (PlotDSSDX != null)
-            {
-                PlotDSSDX.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
-                PlotDSSDX.Refresh();
-            }
-            if (PlotDSSDY != null)
-            {
-                PlotDSSDY.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
-                PlotDSSDY.Refresh();
-            }
+            // Triggers re-calculation of histogram bins if Max changes
+            RefreshDSSDPlots();
         }
 
         private void ChkDSSDFit_Changed(object sender, RoutedEventArgs e)
@@ -416,10 +405,7 @@ namespace BaselineMode.WPF.Views.Observation
         private void CmbBGOLayer_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBGOPlots();
         private void TxtBGOAxisChanged(object sender, TextChangedEventArgs e)
         {
-            if (!double.TryParse(TxtBGOXMin?.Text, out double xMin)) xMin = 0;
-            if (!double.TryParse(TxtBGOXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxBGO;
-            if (PlotBGOHigh != null) { PlotBGOHigh.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); PlotBGOHigh.Refresh(); }
-            if (PlotBGOLow != null) { PlotBGOLow.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); PlotBGOLow.Refresh(); }
+            RefreshBGOPlots();
         }
         private void ChkBGOFit_Changed(object sender, RoutedEventArgs e) => RefreshBGOPlots();
         private void CmbBGOFitMethod_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBGOPlots();
@@ -446,9 +432,6 @@ namespace BaselineMode.WPF.Views.Observation
         }
         #endregion
 
-        // =======================================================
-        //  PLOT HELPERS (แก้ไขจุดสำคัญที่นี่!)
-        // =======================================================
         #region Plot Helpers
 
         private void PlotHistogram(WpfPlot plot, double[] data, string title,

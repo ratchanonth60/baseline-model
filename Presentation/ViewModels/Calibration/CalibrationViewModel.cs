@@ -68,6 +68,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
         private int _selectedXAxisIndex = 0;
 
         [ObservableProperty]
+        private double _xAxisMin = 0;
+
+        [ObservableProperty]
+        private double _xAxisMax = 16384;
+
+        [ObservableProperty]
         private int _delayTime = 50;
 
         [ObservableProperty]
@@ -575,7 +581,24 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
             catch { return fallback; }
         }
 
-        partial void OnSelectedXAxisIndexChanged(int value) => _ = UpdatePlotsAsync();
+        partial void OnSelectedXAxisIndexChanged(int value)
+        {
+            if (value == 1) // Voltage
+            {
+                XAxisMin = 0;
+                XAxisMax = 5000;
+            }
+            else // ADC
+            {
+                XAxisMin = 0;
+                XAxisMax = 16384;
+            }
+            _ = UpdatePlotsAsync();
+        }
+
+        partial void OnXAxisMinChanged(double value) => _ = UpdatePlotsAsync();
+        partial void OnXAxisMaxChanged(double value) => _ = UpdatePlotsAsync();
+
         partial void OnSelectedLayerIndexChanged(int value) => _ = UpdatePlotsAsync();
 
         private async Task UpdatePlotsAsync()
@@ -589,12 +612,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                ? GetVoltageColumns(SelectedLayerIndex)
                : GetCalibrationColumns(SelectedLayerIndex);
 
-            if (sourceColumns[0].Count == 0) return;
-
             int channelCount = 16;
-            double xMax = SelectedXAxisIndex == 1 ? 5000 : 16384;
-            double xMin = 0;
-            string xLabel = SelectedXAxisIndex == 1 ? "Voltage (mV)" : "ADC Channel (0-16383)";
+            double xMax = XAxisMax;
+            double xMin = XAxisMin;
+            string xLabel = SelectedXAxisIndex == 1 ? "Voltage (mV)" : "ADC Channel";
 
             var plotResults = new (double[] counts, double[] binCenters, string statsText, int channel)[channelCount];
 
@@ -605,8 +626,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
                 if (dataForChannel.Length > 0)
                 {
+                    // Use dynamic min/max for histogram
                     var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
-                dataForChannel, binCount: 500);  // ไม่ระบุ min/max
+                        dataForChannel, min: xMin, max: xMax, binCount: 500);
 
                     double[] binCenters = new double[binEdges.Length - 1];
                     for (int k = 0; k < binCenters.Length; k++)

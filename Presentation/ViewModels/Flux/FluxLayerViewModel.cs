@@ -36,6 +36,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             System.Drawing.Color foreColor,
             System.Drawing.Color seriesColor,
             bool isLogScale = false,
+            double xMin = 0,
             double? xMax = null,
             string? xLabel = null,
             string? yLabel = null)
@@ -43,7 +44,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             if (PlotControl != null)
             {
                 Debug.WriteLine($"[FluxLayerVM] RenderPlot called for {LayerName}. XData count: {XData?.Length ?? 0}");
-                RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor, isLogScale, xMax, xLabel, yLabel);
+                RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor, isLogScale, xMin, xMax, xLabel, yLabel);
             }
             else
             {
@@ -61,6 +62,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             System.Drawing.Color foreColor,
             System.Drawing.Color seriesColor,
             bool isLogScale = false,
+            double xMin = 0,
             double? xMax = null,
             string? xLabel = null,
             string? yLabel = null)
@@ -113,9 +115,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
                 // Set axis limits
                 if (xMax.HasValue)
-                    targetPlot.Plot.SetAxisLimits(xMin: 0, xMax: xMax.Value);
+                    targetPlot.Plot.SetAxisLimits(xMin: xMin, xMax: xMax.Value);
                 else
-                    targetPlot.Plot.SetAxisLimits(xMin: 0);
+                    targetPlot.Plot.SetAxisLimits(xMin: xMin);
 
                 targetPlot.Plot.XLabel(xLabel ?? "Cumulative Time (s)");
                 targetPlot.Plot.YLabel(yLabel ?? (isLogScale ? "Flux Density (log₁₀)" : "Flux Density (count/m²·s)"));

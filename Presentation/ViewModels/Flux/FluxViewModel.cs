@@ -103,6 +103,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         private int _threshold = 50;
 
         [ObservableProperty]
+        private double _timeRangeMin = 0;
+
+        [ObservableProperty]
         private double _timeRangeMax = 1000;
 
         [ObservableProperty]
@@ -129,6 +132,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         partial void OnGraphSeriesColorChanged(System.Windows.Media.Color value) => UpdateAllPlots();
         partial void OnGraphTextColorChanged(System.Windows.Media.Color value) => UpdateAllPlots();
         partial void OnIsLogScaleChanged(bool value) => UpdateAllPlots();
+        partial void OnTimeRangeMinChanged(double value) => UpdateAllPlots();
         partial void OnTimeRangeMaxChanged(double value) => UpdateAllPlots();
 
         // ── Data Storage ────────────────────────────────────────────
@@ -726,6 +730,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                         figBg, dataBg, fgColor,
                         seriesColor, // Use the selected single color for all graphs
                         isLogScale: IsLogScale,
+                        xMin: TimeRangeMin,
                         xMax: TimeRangeMax > 0 ? TimeRangeMax : null);
                 }
             });

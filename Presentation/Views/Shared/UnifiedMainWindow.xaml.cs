@@ -601,11 +601,7 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void ObsTxtDSSDAxisChanged(object sender, TextChangedEventArgs e)
         {
-            if (!double.TryParse(ObsTxtDSSDXMin?.Text, out double xMin)) xMin = 0;
-            if (!double.TryParse(ObsTxtDSSDXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxDSSD;
-
-            if (ObsPlotDSSDX != null) { ObsPlotDSSDX.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); ObsPlotDSSDX.Refresh(); }
-            if (ObsPlotDSSDY != null) { ObsPlotDSSDY.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); ObsPlotDSSDY.Refresh(); }
+            RefreshDSSDPlots();
         }
 
         private void ObsChkDSSDFit_Changed(object sender, RoutedEventArgs e) => RefreshDSSDPlots();
@@ -673,11 +669,7 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void ObsTxtBGOAxisChanged(object sender, TextChangedEventArgs e)
         {
-            if (!double.TryParse(ObsTxtBGOXMin?.Text, out double xMin)) xMin = 0;
-            if (!double.TryParse(ObsTxtBGOXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxBGO;
-
-            if (ObsPlotBGOHigh != null) { ObsPlotBGOHigh.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); ObsPlotBGOHigh.Refresh(); }
-            if (ObsPlotBGOLow != null) { ObsPlotBGOLow.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); ObsPlotBGOLow.Refresh(); }
+            RefreshBGOPlots();
         }
 
         private void RefreshBGOPlots()
