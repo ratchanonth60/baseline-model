@@ -8,15 +8,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using ExcelDataReader;
-using MathNet.Numerics.Statistics;
 using Microsoft.Win32;
 using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
-using BaselineMode.WPF.Core.Models.Observation; // Keep for other models if any (e.g. data structures)
+using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Models;
-// FittingResult
-using BaselineMode.WPF.Core.Interfaces; // for IFittingService
-using BaselineMode.WPF.Core.Interfaces.Observation; // for IObservationExcelHelper
+using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Core.Interfaces.Observation;
 using ScottPlot;
 using BaselineMode.WPF.Core.Models.Shared;
 
@@ -24,9 +22,10 @@ namespace BaselineMode.WPF.Views.Observation
 {
     public partial class ObservationMainWindow : Window
     {
+        // ... (Keep Fields and Constructor as is) ...
         #region Fields
 
-        private readonly ObservationMainViewModel _viewModel;
+        private readonly ObservationViewModel _viewModel;
         private readonly IObservationExcelHelper _excelHelper;
         private readonly DispatcherTimer _timer;
         private string? _lastSavedFilePath;
@@ -40,7 +39,7 @@ namespace BaselineMode.WPF.Views.Observation
 
         #region Constructor
 
-        public ObservationMainWindow(ObservationMainViewModel viewModel, IObservationExcelHelper excelHelper)
+        public ObservationMainWindow(ObservationViewModel viewModel, IObservationExcelHelper excelHelper)
         {
             InitializeComponent();
 
@@ -62,6 +61,7 @@ namespace BaselineMode.WPF.Views.Observation
 
         #endregion
 
+        // ... (Keep Plot Initialization and Data Tab Handlers as is) ...
         #region Plot Initialization
 
         private void InitializePlotStyles()
@@ -313,6 +313,7 @@ namespace BaselineMode.WPF.Views.Observation
 
         #endregion
 
+        // ... (Keep Event Handlers: CmbDSSDLayer_SelectionChanged, TxtDSSDAxisChanged etc.) ...
         #region DSSD Tab Event Handlers
 
         private void CmbDSSDLayer_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -362,46 +363,29 @@ namespace BaselineMode.WPF.Views.Observation
             PlotHistogram(PlotDSSDY, yList?.ToArray() ?? [], "Pulse Height (Y)",
                 TxtDSSDYPeak, TxtDSSDYCounts, TxtDSSDYMean, TxtDSSDYRMS, TxtDSSDYFWHM, TxtDSSDYRes);
 
-            // Plot strip histograms with stats
-            // X Strips
-            PlotStripHistogram(PlotStripX1, xStrips?[0]?.Select(x => (double)x).ToArray() ?? [], "X1",
-                TxtX1Peak, TxtX1Counts, TxtX1Mean, TxtX1RMS, TxtX1FWHM, TxtX1Res);
-            PlotStripHistogram(PlotStripX2, xStrips?[1]?.Select(x => (double)x).ToArray() ?? [], "X2",
-                TxtX2Peak, TxtX2Counts, TxtX2Mean, TxtX2RMS, TxtX2FWHM, TxtX2Res);
-            PlotStripHistogram(PlotStripX3, xStrips?[2]?.Select(x => (double)x).ToArray() ?? [], "X3",
-                TxtX3Peak, TxtX3Counts, TxtX3Mean, TxtX3RMS, TxtX3FWHM, TxtX3Res);
-            PlotStripHistogram(PlotStripX4, xStrips?[3]?.Select(x => (double)x).ToArray() ?? [], "X4",
-                TxtX4Peak, TxtX4Counts, TxtX4Mean, TxtX4RMS, TxtX4FWHM, TxtX4Res);
-            PlotStripHistogram(PlotStripX5, xStrips?[4]?.Select(x => (double)x).ToArray() ?? [], "X5",
-                TxtX5Peak, TxtX5Counts, TxtX5Mean, TxtX5RMS, TxtX5FWHM, TxtX5Res);
-            PlotStripHistogram(PlotStripX6, xStrips?[5]?.Select(x => (double)x).ToArray() ?? [], "X6",
-                TxtX6Peak, TxtX6Counts, TxtX6Mean, TxtX6RMS, TxtX6FWHM, TxtX6Res);
-            PlotStripHistogram(PlotStripX7, xStrips?[6]?.Select(x => (double)x).ToArray() ?? [], "X7",
-                TxtX7Peak, TxtX7Counts, TxtX7Mean, TxtX7RMS, TxtX7FWHM, TxtX7Res);
-            PlotStripHistogram(PlotStripX8, xStrips?[7]?.Select(x => (double)x).ToArray() ?? [], "X8",
-                TxtX8Peak, TxtX8Counts, TxtX8Mean, TxtX8RMS, TxtX8FWHM, TxtX8Res);
+            // Plot strip histograms... (Same as before)
+            PlotStripHistogram(PlotStripX1, xStrips?[0]?.Select(x => (double)x).ToArray() ?? [], "X1", TxtX1Peak, TxtX1Counts, TxtX1Mean, TxtX1RMS, TxtX1FWHM, TxtX1Res);
+            PlotStripHistogram(PlotStripX2, xStrips?[1]?.Select(x => (double)x).ToArray() ?? [], "X2", TxtX2Peak, TxtX2Counts, TxtX2Mean, TxtX2RMS, TxtX2FWHM, TxtX2Res);
+            PlotStripHistogram(PlotStripX3, xStrips?[2]?.Select(x => (double)x).ToArray() ?? [], "X3", TxtX3Peak, TxtX3Counts, TxtX3Mean, TxtX3RMS, TxtX3FWHM, TxtX3Res);
+            PlotStripHistogram(PlotStripX4, xStrips?[3]?.Select(x => (double)x).ToArray() ?? [], "X4", TxtX4Peak, TxtX4Counts, TxtX4Mean, TxtX4RMS, TxtX4FWHM, TxtX4Res);
+            PlotStripHistogram(PlotStripX5, xStrips?[4]?.Select(x => (double)x).ToArray() ?? [], "X5", TxtX5Peak, TxtX5Counts, TxtX5Mean, TxtX5RMS, TxtX5FWHM, TxtX5Res);
+            PlotStripHistogram(PlotStripX6, xStrips?[5]?.Select(x => (double)x).ToArray() ?? [], "X6", TxtX6Peak, TxtX6Counts, TxtX6Mean, TxtX6RMS, TxtX6FWHM, TxtX6Res);
+            PlotStripHistogram(PlotStripX7, xStrips?[6]?.Select(x => (double)x).ToArray() ?? [], "X7", TxtX7Peak, TxtX7Counts, TxtX7Mean, TxtX7RMS, TxtX7FWHM, TxtX7Res);
+            PlotStripHistogram(PlotStripX8, xStrips?[7]?.Select(x => (double)x).ToArray() ?? [], "X8", TxtX8Peak, TxtX8Counts, TxtX8Mean, TxtX8RMS, TxtX8FWHM, TxtX8Res);
 
-            // Y Strips
-            PlotStripHistogram(PlotStripY1, yStrips?[0]?.Select(x => (double)x).ToArray() ?? [], "Y1",
-                TxtY1Peak, TxtY1Counts, TxtY1Mean, TxtY1RMS, TxtY1FWHM, TxtY1Res);
-            PlotStripHistogram(PlotStripY2, yStrips?[1]?.Select(x => (double)x).ToArray() ?? [], "Y2",
-                TxtY2Peak, TxtY2Counts, TxtY2Mean, TxtY2RMS, TxtY2FWHM, TxtY2Res);
-            PlotStripHistogram(PlotStripY3, yStrips?[2]?.Select(x => (double)x).ToArray() ?? [], "Y3",
-                TxtY3Peak, TxtY3Counts, TxtY3Mean, TxtY3RMS, TxtY3FWHM, TxtY3Res);
-            PlotStripHistogram(PlotStripY4, yStrips?[3]?.Select(x => (double)x).ToArray() ?? [], "Y4",
-                TxtY4Peak, TxtY4Counts, TxtY4Mean, TxtY4RMS, TxtY4FWHM, TxtY4Res);
-            PlotStripHistogram(PlotStripY5, yStrips?[4]?.Select(x => (double)x).ToArray() ?? [], "Y5",
-                TxtY5Peak, TxtY5Counts, TxtY5Mean, TxtY5RMS, TxtY5FWHM, TxtY5Res);
-            PlotStripHistogram(PlotStripY6, yStrips?[5]?.Select(x => (double)x).ToArray() ?? [], "Y6",
-                TxtY6Peak, TxtY6Counts, TxtY6Mean, TxtY6RMS, TxtY6FWHM, TxtY6Res);
-            PlotStripHistogram(PlotStripY7, yStrips?[6]?.Select(x => (double)x).ToArray() ?? [], "Y7",
-                TxtY7Peak, TxtY7Counts, TxtY7Mean, TxtY7RMS, TxtY7FWHM, TxtY7Res);
-            PlotStripHistogram(PlotStripY8, yStrips?[7]?.Select(x => (double)x).ToArray() ?? [], "Y8",
-                TxtY8Peak, TxtY8Counts, TxtY8Mean, TxtY8RMS, TxtY8FWHM, TxtY8Res);
+            PlotStripHistogram(PlotStripY1, yStrips?[0]?.Select(x => (double)x).ToArray() ?? [], "Y1", TxtY1Peak, TxtY1Counts, TxtY1Mean, TxtY1RMS, TxtY1FWHM, TxtY1Res);
+            PlotStripHistogram(PlotStripY2, yStrips?[1]?.Select(x => (double)x).ToArray() ?? [], "Y2", TxtY2Peak, TxtY2Counts, TxtY2Mean, TxtY2RMS, TxtY2FWHM, TxtY2Res);
+            PlotStripHistogram(PlotStripY3, yStrips?[2]?.Select(x => (double)x).ToArray() ?? [], "Y3", TxtY3Peak, TxtY3Counts, TxtY3Mean, TxtY3RMS, TxtY3FWHM, TxtY3Res);
+            PlotStripHistogram(PlotStripY4, yStrips?[3]?.Select(x => (double)x).ToArray() ?? [], "Y4", TxtY4Peak, TxtY4Counts, TxtY4Mean, TxtY4RMS, TxtY4FWHM, TxtY4Res);
+            PlotStripHistogram(PlotStripY5, yStrips?[4]?.Select(x => (double)x).ToArray() ?? [], "Y5", TxtY5Peak, TxtY5Counts, TxtY5Mean, TxtY5RMS, TxtY5FWHM, TxtY5Res);
+            PlotStripHistogram(PlotStripY6, yStrips?[5]?.Select(x => (double)x).ToArray() ?? [], "Y6", TxtY6Peak, TxtY6Counts, TxtY6Mean, TxtY6RMS, TxtY6FWHM, TxtY6Res);
+            PlotStripHistogram(PlotStripY7, yStrips?[6]?.Select(x => (double)x).ToArray() ?? [], "Y7", TxtY7Peak, TxtY7Counts, TxtY7Mean, TxtY7RMS, TxtY7FWHM, TxtY7Res);
+            PlotStripHistogram(PlotStripY8, yStrips?[7]?.Select(x => (double)x).ToArray() ?? [], "Y8", TxtY8Peak, TxtY8Counts, TxtY8Mean, TxtY8RMS, TxtY8FWHM, TxtY8Res);
         }
 
         private (List<double> XList, List<double> YList, List<int>[] XStrips, List<int>[] YStrips) GetLayerData(int layerIndex)
         {
+            // (Same as before)
             var dp = _viewModel.DataProcessor;
             DetectorLayer layerKey = layerIndex switch
             {
@@ -414,7 +398,6 @@ namespace BaselineMode.WPF.Views.Observation
 
             if (!dp.DSSDData.TryGetValue(layerKey, out LayerData? layerData)) return ([], [], [], []);
 
-            // Map Dictionary<int, List<int>> to List<int>[] expected by User's Reverted Loop
             var stripX = new List<int>[8];
             var stripY = new List<int>[8];
             for (int i = 0; i < 8; i++)
@@ -428,84 +411,44 @@ namespace BaselineMode.WPF.Views.Observation
 
         #endregion
 
+        // ... (Keep BGO Tab Event Handlers) ...
         #region BGO Tab Event Handlers
-
-        private void CmbBGOLayer_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            RefreshBGOPlots();
-        }
-
+        private void CmbBGOLayer_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBGOPlots();
         private void TxtBGOAxisChanged(object sender, TextChangedEventArgs e)
         {
             if (!double.TryParse(TxtBGOXMin?.Text, out double xMin)) xMin = 0;
             if (!double.TryParse(TxtBGOXMax?.Text, out double xMax)) xMax = AppConstants.ChartXMaxBGO;
-
-            if (PlotBGOHigh != null)
-            {
-                PlotBGOHigh.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
-                PlotBGOHigh.Refresh();
-            }
-            if (PlotBGOLow != null)
-            {
-                PlotBGOLow.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
-                PlotBGOLow.Refresh();
-            }
+            if (PlotBGOHigh != null) { PlotBGOHigh.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); PlotBGOHigh.Refresh(); }
+            if (PlotBGOLow != null) { PlotBGOLow.Plot.SetAxisLimits(xMin: xMin, xMax: xMax); PlotBGOLow.Refresh(); }
         }
-
-        private void ChkBGOFit_Changed(object sender, RoutedEventArgs e)
-        {
-            RefreshBGOPlots();
-            System.Windows.MessageBox.Show("BGO Fit Changed");
-        }
-
-        private void CmbBGOFitMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            RefreshBGOPlots();
-        }
-
-        private void ChkBGOFilter_Changed(object sender, RoutedEventArgs e)
-        {
-            RefreshBGOPlots();
-        }
-
-        private void ChkBGOFilter_Changed(object sender, TextChangedEventArgs e)
-        {
-            RefreshBGOPlots();
-        }
+        private void ChkBGOFit_Changed(object sender, RoutedEventArgs e) => RefreshBGOPlots();
+        private void CmbBGOFitMethod_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBGOPlots();
+        private void ChkBGOFilter_Changed(object sender, RoutedEventArgs e) => RefreshBGOPlots();
+        private void ChkBGOFilter_Changed(object sender, TextChangedEventArgs e) => RefreshBGOPlots();
 
         private void RefreshBGOPlots()
         {
             if (_viewModel?.DataProcessor == null) return;
             var dp = _viewModel.DataProcessor;
             int layerIndex = CmbBGOLayer?.SelectedIndex ?? 1;
-
-            // Map UI Index to Enum (0 is Select One -> Default L3)
-            BGOLayer layerKey = layerIndex switch
-            {
-                1 => BGOLayer.L3,
-                2 => BGOLayer.L4,
-                3 => BGOLayer.L5,
-                _ => BGOLayer.L3
-            };
+            BGOLayer layerKey = layerIndex switch { 1 => BGOLayer.L3, 2 => BGOLayer.L4, 3 => BGOLayer.L5, _ => BGOLayer.L3 };
 
             List<double>? highGainList = null;
             List<double>? lowGainList = null;
-
             if (dp.BGOData.TryGetValue(layerKey, out BGOData? value))
             {
                 highGainList = value.HighGain;
                 lowGainList = value.LowGain;
             }
 
-            PlotBGOHistogram(PlotBGOHigh, highGainList?.ToArray() ?? [], "BGO High Gain",
-                TxtBGOHPeak, TxtBGOHMean, TxtBGOHRMS, TxtBGOHFWHM, TxtBGOHRes);
-
-            PlotBGOHistogram(PlotBGOLow, lowGainList?.ToArray() ?? [], "BGO Low Gain",
-                TxtBGOLPeak, TxtBGOLMean, TxtBGOLRMS, TxtBGOLFWHM, TxtBGOLRes);
+            PlotBGOHistogram(PlotBGOHigh, highGainList?.ToArray() ?? [], "BGO High Gain", TxtBGOHPeak, TxtBGOHMean, TxtBGOHRMS, TxtBGOHFWHM, TxtBGOHRes);
+            PlotBGOHistogram(PlotBGOLow, lowGainList?.ToArray() ?? [], "BGO Low Gain", TxtBGOLPeak, TxtBGOLMean, TxtBGOLRMS, TxtBGOLFWHM, TxtBGOLRes);
         }
-
         #endregion
 
+        // =======================================================
+        //  PLOT HELPERS (แก้ไขจุดสำคัญที่นี่!)
+        // =======================================================
         #region Plot Helpers
 
         private void PlotHistogram(WpfPlot plot, double[] data, string title,
@@ -515,12 +458,12 @@ namespace BaselineMode.WPF.Views.Observation
             plot.Plot.Clear();
 
             // Reset labels
-            peakLabel.Text = "-";
-            countsLabel.Text = "-";
-            meanLabel.Text = "-";
-            rmsLabel.Text = "-";
-            fwhmLabel.Text = "-";
-            resLabel.Text = "-";
+            if (peakLabel != null) peakLabel.Text = "-";
+            if (countsLabel != null) countsLabel.Text = "-";
+            if (meanLabel != null) meanLabel.Text = "-";
+            if (rmsLabel != null) rmsLabel.Text = "-";
+            if (fwhmLabel != null) fwhmLabel.Text = "-";
+            if (resLabel != null) resLabel.Text = "-";
 
             if (data == null || data.Length == 0 || data.All(v => v == 0))
             {
@@ -530,44 +473,86 @@ namespace BaselineMode.WPF.Views.Observation
                 return;
             }
 
-            // Filter and count
+            // 1. Filter Data
             var filteredData = data.Where(v => v > 0).ToArray();
-            countsLabel.Text = filteredData.Length.ToString("N0");
+            if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0");
 
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 4096);
+            if (filteredData.Length == 0)
+            {
+                plot.Refresh();
+                return;
+            }
+
+            // 2. Create Histogram (FIX: ต้องกำหนด min/max/binCount ให้ตรงกับ 0-4096 เพื่อให้ scale ถูกต้อง)
+            // ScottPlot 4.1 Syntax: Histogram(values, min, max, binCount)
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: 0, max: 4096, binCount: 4096);
+
             double[] binMidpoints = new double[hist.Length];
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
-            double binWidth = binEdges[1] - binEdges[0];
+            // 3. Plot Bar
             var bar = plot.Plot.AddBar(hist, binMidpoints);
-            bar.BarWidth = binWidth;
+            bar.BarWidth = 1; // ความกว้างเท่ากับ 1 Channel
             bar.FillColor = ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
+            bar.BorderLineWidth = 0;
 
-            // Apply fitting if enabled
+            // 4. Apply fitting
             if (ChkDSSDFit?.IsChecked == true)
             {
-                var selectedFit = (CmbDSSDFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
-                var fitResult = selectedFit == "Lorentzian"
-                    ? _viewModel.MathService.LorentzianFit(binMidpoints, hist)
-                    : _viewModel.MathService.GaussianFit(binMidpoints, hist);
-                if (fitResult != null)
+                try
                 {
-                    plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2); // #FF5252
-                    plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+                    var selectedFit = (CmbDSSDFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
 
-                    peakLabel.Text = $"{fitResult.Peak:F0}";
-                    meanLabel.Text = $"{fitResult.Mu:F2}";
-                    rmsLabel.Text = $"{fitResult.Sigma:F2}";
-                    fwhmLabel.Text = $"{fitResult.FWHM:F2}";
-                    resLabel.Text = $"{fitResult.Resolution:F2}%";
+                    // --- 4.1 Crop around peak for better convergence ---
+                    double maxVal = hist.Max();
+                    int peakIdx = Array.IndexOf(hist, maxVal);
+                    int win = 100; // window around peak
+                    int start = Math.Max(0, peakIdx - win);
+                    int end = Math.Min(hist.Length - 1, peakIdx + win);
+                    int len = end - start;
+
+                    if (len > 3)
+                    {
+                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
+                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+
+                        var fitResult = selectedFit == "Lorentzian"
+                            ? _viewModel.MathProvider.LorentzianFit(xFit, yFit)
+                            : _viewModel.MathProvider.GaussianFit(xFit, yFit);
+
+                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        {
+                            if (!fitResult.FitCurve.Any(double.IsNaN))
+                            {
+                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2);
+                                plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+
+                                if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F2}";
+                                if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
+                                if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
+                                if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
+                                if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"DSSD Fitting error: {ex.Message}");
                 }
             }
 
             plot.Plot.YAxis.Label("Count");
             plot.Plot.XAxis.Label(title);
             plot.Plot.SetAxisLimits(yMin: 0);
+
+            // Restore Zoom if available
+            if (double.TryParse(TxtDSSDXMin?.Text, out double xMin) && double.TryParse(TxtDSSDXMax?.Text, out double xMax))
+            {
+                plot.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
+            }
             plot.Refresh();
         }
 
@@ -608,49 +593,52 @@ namespace BaselineMode.WPF.Views.Observation
                 return;
             }
 
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 256);
+            // FIX: ใช้ 4096 bins สำหรับ Strip เหมือนกัน (หรือจะใช้ 256 แต่ต้องระวังเรื่อง Scale)
+            // ถ้าอยากได้ละเอียดเท่า Main Plot ใช้ 4096, ถ้าอยากดูคร่าวๆ ใช้ 256 แต่ Scale จะเพี้ยนถ้าไม่ Normalize
+            // แนะนำให้ใช้ Scale เต็ม 4096 ไปเลยเพื่อความถูกต้อง
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: 0, max: 4096, binCount: 4096);
+
             double[] binMidpoints = new double[hist.Length];
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
-            double binWidth = binEdges[1] - binEdges[0];
             var bar = plot.Plot.AddBar(hist, binMidpoints);
-            bar.BarWidth = binWidth;
+            bar.BarWidth = 1;
             bar.FillColor = ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
             plot.Plot.Title(title);
 
-            // Update counts
             if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0");
 
-            // Curve fitting if enabled
             if (ChkDSSDFit?.IsChecked == true)
             {
                 try
                 {
                     var selectedFit = (CmbDSSDFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
                     var fitResult = selectedFit == "Lorentzian"
-                        ? _viewModel.MathService.LorentzianFit(binMidpoints, hist)
-                        : _viewModel.MathService.GaussianFit(binMidpoints, hist);
-                    if (fitResult != null && fitResult.FitCurve != null)
-                    {
-                        plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve,
-                            System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2);
-                        plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak,
-                            color: System.Drawing.Color.Yellow, size: 6);
+                        ? _viewModel.MathProvider.LorentzianFit(binMidpoints, hist)
+                        : _viewModel.MathProvider.GaussianFit(binMidpoints, hist);
 
-                        if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F0}";
-                        if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
-                        if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
-                        if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
-                        if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
+                    if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == binMidpoints.Length)
+                    {
+                        if (!fitResult.FitCurve.Any(double.IsNaN))
+                        {
+                            plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.FromArgb(255, 82, 82), lineWidth: 2);
+                            plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 6);
+
+                            if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F0}";
+                            if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
+                            if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
+                            if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
+                            if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
+                        }
                     }
                 }
-                catch { /* Fitting failed, keep N/A */ }
+                catch { /* Ignore fit errors in strip plots */ }
             }
             else
             {
-                // Basic stats without fitting
+                // Basic stats calculation (manual)
                 if (filteredData.Length > 0)
                 {
                     double peak = hist.Max();
@@ -672,6 +660,13 @@ namespace BaselineMode.WPF.Views.Observation
             if (plot == null) return;
             plot.Plot.Clear();
 
+            // Reset labels
+            if (peakLabel != null) peakLabel.Text = "-";
+            if (meanLabel != null) meanLabel.Text = "-";
+            if (rmsLabel != null) rmsLabel.Text = "-";
+            if (fwhmLabel != null) fwhmLabel.Text = "-";
+            if (resLabel != null) resLabel.Text = "-";
+
             if (data == null || data.Length == 0 || data.All(v => v == 0))
             {
                 plot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
@@ -680,43 +675,78 @@ namespace BaselineMode.WPF.Views.Observation
                 return;
             }
 
-            data = [.. data.Where(v => v > 0)];
-            if (data.Length == 0) return;
+            var filteredData = data.Where(v => v > 0).ToArray();
+            if (filteredData.Length == 0)
+            {
+                plot.Refresh();
+                return;
+            }
 
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(data, binCount: 4096);
+            // FIX: ใช้ 4096 bins เหมือนกัน
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: 0, max: 4096, binCount: 4096);
+
             double[] binMidpoints = new double[hist.Length];
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
-            double binWidth = binEdges[1] - binEdges[0];
             var bar = plot.Plot.AddBar(hist, binMidpoints);
-            bar.BarWidth = binWidth;
+            bar.BarWidth = 1;
             bar.FillColor = ToDrawingColor(_viewModel.SelectedBGOColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
 
-            // Apply fitting if enabled
             if (ChkBGOFit?.IsChecked == true)
             {
-                var selectedBGOFit = (CmbBGOFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
-                var fitResult = selectedBGOFit == "Lorentzian"
-                    ? _viewModel.MathService.LorentzianFit(binMidpoints, hist)
-                    : _viewModel.MathService.GaussianFit(binMidpoints, hist);
-                if (fitResult != null)
+                try
                 {
-                    plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
-                    plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+                    var selectedBGOFit = (CmbBGOFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
 
-                    peakLabel.Text = $"{fitResult.Peak:F2}";
-                    meanLabel.Text = $"{fitResult.Mu:F2}";
-                    rmsLabel.Text = $"{fitResult.Sigma:F2}";
-                    fwhmLabel.Text = $"{fitResult.FWHM:F2}";
-                    resLabel.Text = $"{fitResult.Resolution:F2}%";
+                    // --- 4.1 Crop around peak for better convergence ---
+                    double maxVal = hist.Max();
+                    int peakIdx = Array.IndexOf(hist, maxVal);
+                    int win = 100; // window around peak
+                    int start = Math.Max(0, peakIdx - win);
+                    int end = Math.Min(hist.Length - 1, peakIdx + win);
+                    int len = end - start;
+
+                    if (len > 3)
+                    {
+                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
+                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+
+                        var fitResult = selectedBGOFit == "Lorentzian"
+                            ? _viewModel.MathProvider.LorentzianFit(xFit, yFit)
+                            : _viewModel.MathProvider.GaussianFit(xFit, yFit);
+
+                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        {
+                            if (!fitResult.FitCurve.Any(double.IsNaN))
+                            {
+                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
+                                plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+
+                                if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F2}";
+                                if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
+                                if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
+                                if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
+                                if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"BGO Fitting error: {ex.Message}");
                 }
             }
 
             plot.Plot.YAxis.Label("Count");
             plot.Plot.XAxis.Label("ADC Channel");
             plot.Plot.SetAxisLimits(yMin: 0);
+
+            if (double.TryParse(TxtBGOXMin?.Text, out double xMin) && double.TryParse(TxtBGOXMax?.Text, out double xMax))
+            {
+                plot.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
+            }
             plot.Refresh();
         }
 
@@ -731,21 +761,14 @@ namespace BaselineMode.WPF.Views.Observation
 
         private void OnObservationPlotUpdate(object? sender, EventArgs e)
         {
-            // 1. Update Backgrounds
             var bgColor = ToDrawingColor(_viewModel.SelectedGraphBackground, System.Drawing.Color.White);
             var allPlots = GetAllPlots();
             foreach (var plot in allPlots)
             {
                 plot.Plot.Style(figureBackground: bgColor, dataBackground: System.Drawing.Color.Gray);
-                // Note: keeping dataBackground fixed or dark for now, or match it if desired. 
-                // To match behavior of UnifiedMainWindow we often set both or just figure. 
-                // Let's keep dataBackground logic simple or update it too if needed. 
-                // If user wants full background control:
-                plot.Plot.Style(figureBackground: bgColor, dataBackground: bgColor);
                 plot.Refresh();
             }
 
-            // 2. Refresh Plots (this will re-run PlotHistogram etc. with new bar colors)
             try
             {
                 RefreshDSSDPlots();
@@ -757,12 +780,8 @@ namespace BaselineMode.WPF.Views.Observation
             }
         }
 
-        /// <summary>
-        /// Helper to convert Media.Color to Drawing.Color with fallback
-        /// </summary>
         private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor, System.Drawing.Color? fallback = null)
         {
-            // If completely transparent (default/uninitialized sometimes), use fallback
             if (mediaColor.A == 0 && mediaColor.R == 0 && mediaColor.G == 0 && mediaColor.B == 0)
             {
                 return fallback ?? System.Drawing.Color.Gray;

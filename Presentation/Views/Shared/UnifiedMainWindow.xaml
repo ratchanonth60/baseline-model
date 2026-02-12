@@ -552,6 +552,22 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- BGO Fitting Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <CheckBox x:Name="ObsChkBGOFit" Margin="0,8,0,0" Checked="ObsChkBGOFit_Changed" Unchecked="ObsChkBGOFit_Changed">
+                                        <TextBlock Text="BGO Fit" Foreground="#CCCCCC" FontSize="11"/>
+                                    </CheckBox>
+                                    <ComboBox x:Name="ObsCmbBGOFitMethod" Width="90" Style="{StaticResource RibbonCombo}" Margin="0,6,0,0">
+                                        <ComboBoxItem Content="Gaussian" IsSelected="True"/>
+                                        <ComboBoxItem Content="Lorentzian"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <TextBlock Text="Fitting" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Status Group -->
                         <Border Padding="12,0">
                             <StackPanel VerticalAlignment="Center">

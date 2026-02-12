@@ -39,7 +39,7 @@ public partial class App : Application
 
         // ViewModels
         services.AddTransient<MainViewModel>();
-        services.AddTransient<ObservationMainViewModel>();
+        services.AddTransient<ObservationViewModel>();
         services.AddTransient<Presentation.ViewModels.Flux.FluxViewModel>();
 
         // Views
@@ -48,7 +48,7 @@ public partial class App : Application
         services.AddTransient<BaselineMode.WPF.Views.Flux.FluxMainWindow>();
 
         // Register Fitting Service
-        services.AddSingleton<IFittingService, HemgFittingService>();
+        services.AddSingleton<IFittingService, MathService>();
     }
 
     protected override void OnStartup(StartupEventArgs e)

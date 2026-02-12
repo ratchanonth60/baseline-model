@@ -7,7 +7,7 @@ namespace BaselineMode.WPF.Views.Observation
 {
     public partial class ObservationDetailWindow : Window
     {
-        private readonly IFittingService? _fittingService;
+        private readonly IMathService? _fittingService;
 
         public ObservationDetailWindow()
         {
@@ -19,7 +19,7 @@ namespace BaselineMode.WPF.Views.Observation
         private System.Drawing.Color _dataColor = System.Drawing.Color.FromArgb(255, 0, 150, 136);
         private bool _isUpdatingUi;
 
-        public ObservationDetailWindow(IFittingService fittingService) : this()
+        public ObservationDetailWindow(IMathService fittingService) : this()
         {
             _fittingService = fittingService;
             ChkShowFit.Checked += (s, e) => UpdatePlot();
@@ -88,11 +88,11 @@ namespace BaselineMode.WPF.Views.Observation
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
+            // วาด Bar Chart (Raw Data)
             double binWidth = binEdges[1] - binEdges[0];
             var bar = DetailPlot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = binWidth;
             bar.FillColor = _dataColor;
-            bar.BorderColor = bar.FillColor;
 
             // Reset Stats
             TxtPeak.Text = "-";
@@ -106,14 +106,32 @@ namespace BaselineMode.WPF.Views.Observation
             {
                 try
                 {
-                    var fitResult = _fittingService.GaussianFit(binMidpoints, hist);
-                    if (fitResult?.FitCurve != null)
-                    {
-                        DetailPlot.Plot.AddScatter(binMidpoints, fitResult.FitCurve,
-                            System.Drawing.Color.FromArgb(255, 255, 82, 82), lineWidth: 2);
-                        DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak,
-                            color: System.Drawing.Color.Yellow, size: 10);
+                    // หาจุด Peak เบื้องต้น
+                    double maxVal = hist.Max();
+                    int peakIdx = Array.IndexOf(hist, maxVal);
 
+                    // ตัดข้อมูลเฉพาะช่วง Peak +/- 100 ช่อง (ห้ามส่ง 4096 ช่องเข้าไปตรงๆ)
+                    int win = 100;
+                    int start = Math.Max(0, peakIdx - win);
+                    int end = Math.Min(hist.Length - 1, peakIdx + win);
+                    int len = end - start;
+
+                    double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
+                    double[] yFit = hist.Skip(start).Take(len).ToArray();
+
+                    // ส่งข้อมูลที่ Crop แล้วไป Fit
+                    var fitResult = _fittingService.GaussianFit(xFit, yFit);
+
+                    if (fitResult?.FitCurve != null && fitResult.Peak > 0)
+                    {
+                        // วาดเส้น Fit Curve
+                        DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve,
+                            System.Drawing.Color.Red, lineWidth: 2, markerSize: 0);
+
+                        // จุดเหลืองบนยอด Peak
+                        DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, System.Drawing.Color.Yellow, 10);
+
+                        // อัปเดตตัวเลขบนหน้าจอ
                         TxtPeak.Text = $"{fitResult.Peak:F0}";
                         TxtMean.Text = $"{fitResult.Mu:F2}";
                         TxtRMS.Text = $"{fitResult.Sigma:F2}";
@@ -121,9 +139,7 @@ namespace BaselineMode.WPF.Views.Observation
                         TxtResolution.Text = $"{fitResult.Resolution:F2}%";
                     }
                 }
-                catch
-                {
-                }
+                catch { /* Handle Error */ }
             }
             else
             {

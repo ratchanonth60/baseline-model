@@ -787,8 +787,8 @@
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="BGO High Gain" Style="{StaticResource HeaderTextStyle}"/>
-                                <scottPlot:WpfPlot x:Name="PlotBGOHigh" Grid.Row="0"/>
+                                <TextBlock Text="BGO High Gain" Style="{StaticResource HeaderTextStyle}" Grid.Row="0"/>
+                                <scottPlot:WpfPlot x:Name="PlotBGOHigh" Grid.Row="1" MinHeight="180"/>
                                 <WrapPanel Grid.Row="2" Margin="0,8,0,0">
                                     <TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/>
                                     <TextBlock x:Name="TxtBGOHPeak" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF5252"/>
@@ -811,8 +811,8 @@
                                     <RowDefinition Height="*"/>
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="BGO Low Gain" Style="{StaticResource HeaderTextStyle}"/>
-                                <scottPlot:WpfPlot x:Name="PlotBGOLow" Grid.Row="1"/>
+                                <TextBlock Text="BGO Low Gain" Style="{StaticResource HeaderTextStyle}" Grid.Row="0"/>
+                                <scottPlot:WpfPlot x:Name="PlotBGOLow" Grid.Row="1" MinHeight="180"/>
                                 <WrapPanel Grid.Row="2" Margin="0,8,0,0">
                                     <TextBlock Text="Peak:" Style="{StaticResource StatLabelStyle}"/>
                                     <TextBlock x:Name="TxtBGOLPeak" Text="-" Style="{StaticResource StatValueStyle}" Foreground="#FF5252"/>

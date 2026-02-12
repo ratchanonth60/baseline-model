@@ -91,11 +91,11 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
-            double binWidth = binEdges[1] - binEdges[0];
             var bar = DetailPlot.Plot.AddBar(hist, binMidpoints);
-            bar.BarWidth = binWidth;
+            bar.BarWidth = 1;
             bar.FillColor = _dataColor;
             bar.BorderColor = bar.FillColor;
+            bar.BorderLineWidth = 0;
 
             // Reset Stats
             TxtPeak.Text = "-";
@@ -109,19 +109,33 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
             {
                 try
                 {
-                    var fitResult = _fittingService.GaussianFit(binMidpoints, hist);
-                    if (fitResult?.FitCurve != null)
-                    {
-                        DetailPlot.Plot.AddScatter(binMidpoints, fitResult.FitCurve,
-                            System.Drawing.Color.FromArgb(255, 255, 82, 82), lineWidth: 2);
-                        DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak,
-                            color: System.Drawing.Color.Yellow, size: 10);
+                    // --- 4.1 Crop around peak for better convergence ---
+                    double maxVal = hist.Max();
+                    int peakIdx = Array.IndexOf(hist, maxVal);
+                    int win = 100;
+                    int start = Math.Max(0, peakIdx - win);
+                    int end = Math.Min(hist.Length - 1, peakIdx + win);
+                    int len = end - start;
 
-                        TxtPeak.Text = $"{fitResult.Peak:F0}";
-                        TxtMean.Text = $"{fitResult.Mu:F2}";
-                        TxtRMS.Text = $"{fitResult.Sigma:F2}";
-                        TxtFWHM.Text = $"{fitResult.FWHM:F2}";
-                        TxtResolution.Text = $"{fitResult.Resolution:F2}%";
+                    if (len > 3)
+                    {
+                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
+                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+
+                        var fitResult = _fittingService.GaussianFit(xFit, yFit);
+                        if (fitResult?.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        {
+                            DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve,
+                                System.Drawing.Color.FromArgb(255, 255, 82, 82), lineWidth: 2);
+                            DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak,
+                                color: System.Drawing.Color.Yellow, size: 10);
+
+                            TxtPeak.Text = $"{fitResult.Peak:F0}";
+                            TxtMean.Text = $"{fitResult.Mu:F2}";
+                            TxtRMS.Text = $"{fitResult.Sigma:F2}";
+                            TxtFWHM.Text = $"{fitResult.FWHM:F2}";
+                            TxtResolution.Text = $"{fitResult.Resolution:F2}%";
+                        }
                     }
                 }
                 catch { /* Fitting failed */ }

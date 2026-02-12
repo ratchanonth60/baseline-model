@@ -29,7 +29,7 @@ namespace BaselineMode.WPF.Views.Shared
         private readonly MainViewModel _mainViewModel;
 
         // Observation Mode fields
-        private readonly ObservationMainViewModel _observationViewModel;
+        private readonly ObservationViewModel _observationViewModel;
         private readonly DispatcherTimer _obsDateTimeTimer;
 
         // Observation state
@@ -37,7 +37,7 @@ namespace BaselineMode.WPF.Views.Shared
         private const string FORMAT_DATE = "yyyy-MMM-dd HH:mm:ss.fff";
         private const string NA = "N/A";
 
-        public UnifiedMainWindow(MainViewModel mainViewModel, ObservationMainViewModel observationViewModel)
+        public UnifiedMainWindow(MainViewModel mainViewModel, ObservationViewModel observationViewModel)
         {
             InitializeComponent();
             _mainViewModel = mainViewModel;
@@ -63,7 +63,7 @@ namespace BaselineMode.WPF.Views.Shared
             this.Loaded += UnifiedMainWindow_Loaded;
         }
 
-        public ObservationMainViewModel ObservationViewModel => _observationViewModel;
+        public ObservationViewModel ObservationViewModel => _observationViewModel;
 
         private void UnifiedMainWindow_Loaded(object sender, RoutedEventArgs e)
         {
@@ -550,7 +550,7 @@ namespace BaselineMode.WPF.Views.Shared
                 return;
             }
 
-            var (isValid, message, errorRow) = await _observationViewModel.CheckHeaderAsync(fileName);
+            var (isValid, message, errorRow) = await ObservationViewModel.CheckHeaderAsync(fileName);
 
             ObsTxtProgress.Text = message;
             ObsTxtStatus.Text = "HEADER ERR";
@@ -668,6 +668,8 @@ namespace BaselineMode.WPF.Views.Shared
         #region Observation - BGO Plot Handlers
 
         private void ObsCmbBGOLayer_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshBGOPlots();
+
+        private void ObsChkBGOFit_Changed(object sender, RoutedEventArgs e) => RefreshBGOPlots();
 
         private void ObsTxtBGOAxisChanged(object sender, TextChangedEventArgs e)
         {
@@ -793,20 +795,45 @@ namespace BaselineMode.WPF.Views.Shared
             {
                 try
                 {
-                    var fitResult = _observationViewModel.FittingService.GaussianFit(binMidpoints, hist);
-                    if (fitResult != null)
-                    {
-                        plot.Plot.AddScatter(binMidpoints, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
-                        plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+                    var selectedFit = (ObsCmbDSSDFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
 
-                        if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F0}";
-                        if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
-                        if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
-                        if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
-                        if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
+                    // --- 4.1 Crop around peak for better convergence ---
+                    double maxVal = hist.Max();
+                    int peakIdx = Array.IndexOf(hist, maxVal);
+                    int win = 100; // window around peak
+                    int start = Math.Max(0, peakIdx - win);
+                    int end = Math.Min(hist.Length - 1, peakIdx + win);
+                    int len = end - start;
+
+                    if (len > 3)
+                    {
+                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
+                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+
+                        var fitResult = selectedFit == "Lorentzian"
+                            ? _observationViewModel.MathProvider.LorentzianFit(xFit, yFit)
+                            : _observationViewModel.MathProvider.GaussianFit(xFit, yFit);
+
+                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        {
+                            if (!fitResult.FitCurve.Any(double.IsNaN))
+                            {
+                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
+                                plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+
+                                if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F2}";
+                                if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
+                                if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
+                                if (fwhmLabel != null) fwhmLabel.Text = $"{fitResult.FWHM:F2}";
+                                if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
+                            }
+                        }
                     }
                 }
-                catch { /* Fitting failed */ }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"DSSD Fitting error: {ex.Message}");
+                }
             }
 
             plot.Plot.SetAxisLimits(yMin: 0);
@@ -873,6 +900,52 @@ namespace BaselineMode.WPF.Views.Shared
             double fwhmVal = 2.355 * stdDev;
             if (fwhm != null) fwhm.Text = $"{fwhmVal:F2}";
             if (res != null) res.Text = $"{(fwhmVal / avg * 100):F2}%";
+
+            // Fitting logic (BGO)
+            if (ObsChkBGOFit?.IsChecked == true)
+            {
+                try
+                {
+                    var selectedBGOFit = (ObsCmbBGOFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
+
+                    // --- 4.1 Crop around peak for better convergence ---
+                    double maxVal = hist.Max();
+                    int peakIdx = Array.IndexOf(hist, maxVal);
+                    int win = 100;
+                    int start = Math.Max(0, peakIdx - win);
+                    int end = Math.Min(hist.Length - 1, peakIdx + win);
+                    int len = end - start;
+
+                    if (len > 3)
+                    {
+                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
+                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+
+                        var fitResult = selectedBGOFit == "Lorentzian"
+                            ? _observationViewModel.MathProvider.LorentzianFit(xFit, yFit)
+                            : _observationViewModel.MathProvider.GaussianFit(xFit, yFit);
+
+                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        {
+                            if (!fitResult.FitCurve.Any(double.IsNaN))
+                            {
+                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
+                                plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+
+                                if (peak != null) peak.Text = $"{fitResult.Peak:F2}";
+                                if (mean != null) mean.Text = $"{fitResult.Mu:F2}";
+                                if (rms != null) rms.Text = $"{fitResult.Sigma:F2}";
+                                if (fwhm != null) fwhm.Text = $"{fitResult.FWHM:F2}";
+                                if (res != null) res.Text = $"{fitResult.Resolution:F2}%";
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"BGO Fitting error: {ex.Message}");
+                }
+            }
 
             plot.Refresh();
         }
@@ -978,7 +1051,7 @@ namespace BaselineMode.WPF.Views.Shared
                 return;
             }
 
-            var detailWindow = new ObservationDetailWindow(_observationViewModel.FittingService);
+            var detailWindow = new ObservationDetailWindow(_observationViewModel.MathProvider);
 
             // Sync Theme
             var bg = GetBackgroundColor();

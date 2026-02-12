@@ -100,6 +100,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
                 {
                     var bar = targetPlot.Plot.AddBar(values: Counts, positions: BinCenters);
                     bar.FillColor = seriesColor;
+                    bar.BarWidth = 1;
                     bar.BorderLineWidth = 0;
                     bar.Label = "Data";
 
