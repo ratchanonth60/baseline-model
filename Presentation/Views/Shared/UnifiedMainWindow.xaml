@@ -484,7 +484,7 @@
                                         <TextBlock Text="X:" Foreground="#858585" FontSize="10" VerticalAlignment="Center" Margin="0,0,2,0"/>
                                         <TextBox x:Name="ObsTxtDSSDXMin" Text="0" Style="{StaticResource RibbonInput}" Width="45" TextChanged="ObsTxtDSSDAxisChanged"/>
                                         <TextBlock Text="-" Foreground="#858585" FontSize="10" VerticalAlignment="Center" Margin="2,0"/>
-                                        <TextBox x:Name="ObsTxtDSSDXMax" Text="16384" Style="{StaticResource RibbonInput}" Width="50" TextChanged="ObsTxtDSSDAxisChanged"/>
+                                        <TextBox x:Name="ObsTxtDSSDXMax" Text="4096" Style="{StaticResource RibbonInput}" Width="50" TextChanged="ObsTxtDSSDAxisChanged"/>
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="DSSD View" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>

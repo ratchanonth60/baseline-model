@@ -773,7 +773,16 @@ namespace BaselineMode.WPF.Views.Shared
 
             if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0");
 
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 4096);
+            // FIX: Use dynamic max from UI
+            double xMax = 4096;
+            if (double.TryParse(ObsTxtDSSDXMax?.Text, out double _max)) xMax = _max;
+
+            int binCount = (int)xMax;
+            if (binCount > 8192) binCount = 8192;
+            if (binCount < 100) binCount = 100;
+
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: 0, max: xMax, binCount: binCount);
+
             double[] binMidpoints = new double[hist.Length];
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
@@ -836,7 +845,11 @@ namespace BaselineMode.WPF.Views.Shared
                 }
             }
 
-            plot.Plot.SetAxisLimits(yMin: 0);
+            // Set Axis Limits
+            double xMin = 0;
+            if (double.TryParse(ObsTxtDSSDXMin?.Text, out double _min)) xMin = _min;
+
+            plot.Plot.SetAxisLimits(xMin: xMin, xMax: xMax, yMin: 0);
             plot.Refresh();
         }
 
@@ -881,7 +894,16 @@ namespace BaselineMode.WPF.Views.Shared
                 return;
             }
 
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 1024);
+            // FIX: Use dynamic max from UI
+            double xMax = 4096;
+            if (double.TryParse(ObsTxtBGOXMax?.Text, out double _max)) xMax = _max;
+
+            int binCount = (int)xMax;
+            if (binCount > 8192) binCount = 8192;
+            if (binCount < 100) binCount = 100;
+
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: 0, max: xMax, binCount: binCount);
+
             double[] binMidpoints = new double[hist.Length];
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
@@ -945,6 +967,11 @@ namespace BaselineMode.WPF.Views.Shared
                 {
                     Debug.WriteLine($"BGO Fitting error: {ex.Message}");
                 }
+            }
+
+            if (double.TryParse(ObsTxtBGOXMin?.Text, out double xMin))
+            {
+                plot.Plot.SetAxisLimits(xMin: xMin, xMax: xMax);
             }
 
             plot.Refresh();
