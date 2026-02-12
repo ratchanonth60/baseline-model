@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Presentation.ViewModels;
-using BaselineMode.WPF.Presentation.ViewModels.Flux; // Added for FluxViewModel
+using BaselineMode.WPF.Presentation.ViewModels.Flux;
 
 namespace BaselineMode.WPF.Views.Flux
 {

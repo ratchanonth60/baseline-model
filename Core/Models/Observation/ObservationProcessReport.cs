@@ -1,5 +1,3 @@
-using System;
-
 namespace BaselineMode.WPF.Core.Models.Observation
 {
     public struct ObservationProcessReport

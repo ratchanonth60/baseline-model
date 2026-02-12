@@ -10,7 +10,7 @@ using BaselineMode.WPF.Core.Models.Baseline;
 using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Core.Models.Flux;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
-using BaselineMode.WPF.Presentation.ViewModels.Flux; // Added
+using BaselineMode.WPF.Presentation.ViewModels.Flux;
 
 
 
@@ -78,7 +78,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         {
             if (ProcessedData == null || ProcessedData.Count == 0) return;
 
-            Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
+            Func<BaselineData, float[]> layerSelector = SelectedLayerIndex switch
             {
                 1 => (d) => d.L2,
                 2 => (d) => d.L6,
@@ -410,7 +410,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 for (int i = 1; i <= 16; i++)
                     table.Columns.Add($"Ch {i}", typeof(double));
 
-                Func<BaselineData, double[]> selector = SelectedLayerIndex switch
+                Func<BaselineData, float[]> selector = SelectedLayerIndex switch
                 {
                     1 => (d) => d.L2,
                     2 => (d) => d.L6,

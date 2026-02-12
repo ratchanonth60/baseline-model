@@ -210,7 +210,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     });
                     if (ProcessedData.Count == 0) return;
                     // OPTIMIZE: Parallelize processing
-                    Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
+                    Func<BaselineData, float[]> layerSelector = SelectedLayerIndex switch
                     {
                         1 => (d) => d.L2,
                         2 => (d) => d.L6,
@@ -438,11 +438,6 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             return result;
         }
 
-        private bool HasSufficientData(double[] filteredData, double[] counts)
-        {
-            return filteredData.Length > 5 && counts.Max() > 0;
-        }
-
         // Removed unused PerformFit method
         /* 
         private FittingResult PerformFit(double[] binCenters, double[] counts, double[] filteredData)
@@ -459,7 +454,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             // Rows (Z): Ch 8-15 (9-16)
             double[,] matrix = new double[8, 8];
 
-            Func<BaselineData, double[]> layerSelector = SelectedLayerIndex switch
+            Func<BaselineData, float[]> layerSelector = SelectedLayerIndex switch
             {
                 1 => (d) => d.L2,
                 2 => (d) => d.L6,

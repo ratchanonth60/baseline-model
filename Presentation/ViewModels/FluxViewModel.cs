@@ -632,7 +632,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             // Compute cumulative time
             int count = _secondsPartList.Count;
             double[] cumulativeTime = new double[count];
-            double[] timeSeconds = _secondsPartList.ToArray();
+            double[] timeSeconds = [.. _secondsPartList];
 
             cumulativeTime[0] = timeSeconds[0];
             for (int i = 1; i < count; i++)
@@ -641,7 +641,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels
             // Calculate flux density for each layer
             for (int layer = 0; layer < LAYER_COUNT; layer++)
             {
-                double[] particleCounting = _particleCountingLists[layer].ToArray();
+                double[] particleCounting = [.. _particleCountingLists[layer]];
 
                 // Use list to collect valid points to avoid .Where().ToArray() double allocation
                 List<double> xPoints = new(count);

@@ -21,8 +21,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         [RelayCommand]
         private void BrowseOutputDirectory()
         {
-            var dialog = new Microsoft.Win32.OpenFolderDialog();
-            dialog.Title = "Select Output Root Folder";
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Select Output Root Folder"
+            };
             if (dialog.ShowDialog() == true)
             {
                 OutputDirectoryPath = dialog.FolderName;
@@ -46,9 +48,11 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             // Reset before selecting new files (like Form1.cs)
             Reset();
 
-            var dialog = new Microsoft.Win32.OpenFileDialog();
-            dialog.Multiselect = true;
-            dialog.Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*";
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Multiselect = true,
+                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
+            };
 
             if (dialog.ShowDialog() == true)
             {
@@ -110,7 +114,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
                             System.Windows.Application.Current.Dispatcher.Invoke(() =>
                             {
-                                _selectedFiles = new List<string> { combinedFilePath };
+                                _selectedFiles = [combinedFilePath];
                                 InputFilesInfo = $"{files.Count} files combined.";
                                 OutputFileName = "multiple_file_output.xlsx";
                                 StatusMessage = "Files combined. Ready to process.";
@@ -143,7 +147,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         [RelayCommand]
         private async Task CheckHeader()
         {
-            if (!_selectedFiles.Any())
+            if (_selectedFiles.Count == 0)
             {
                 StatusMessage = "Please select files check.";
                 return;
@@ -176,7 +180,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
                             // Safe null check for substring
                             string errContent = result.ErrorContent ?? "null";
-                            HeaderInfoText = $"{result.ErrorMessage}\nFound: {errContent.Substring(0, Math.Min(20, errContent.Length))}...";
+                            HeaderInfoText = $"{result.ErrorMessage}\nFound: {errContent[..Math.Min(20, errContent.Length)]}...";
                         });
                     }
                     else
@@ -218,7 +222,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         {
             try
             {
-                StringBuilder sb = new StringBuilder(512);
+                StringBuilder sb = new(512);
 
                 // 1. Packet Synchronization Code
                 sb.AppendLine($"Packet Synchronization Code: {hexData[0]} {hexData[1]}");
@@ -302,12 +306,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             }
         }
 
-        private string[] SplitHexData(string hexString)
+        private static string[] SplitHexData(string hexString)
         {
             // Optimized: Pre-allocate exact array size and use Span
             int n = 2;
             int length = hexString.Length;
-            if (length % n != 0) return Array.Empty<string>();
+            if (length % n != 0) return [];
 
             int arrayLength = length / n;
             var list = new string[arrayLength];
@@ -324,7 +328,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         [RelayCommand]
         private async Task SaveMean()
         {
-            if (!ProcessedData.Any()) return;
+            if (ProcessedData.Count == 0) return;
 
             StatusMessage = "Saving Mean Values...";
             await Task.Run(() =>
@@ -348,7 +352,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             StatusMessage = "Mean Values Saved.";
         }
 
-        private void SaveLayerMeans(int layerId, Func<BaselineData, double[]> selector)
+        private void SaveLayerMeans(int layerId, Func<BaselineData, float[]> selector)
         {
             var lines = new List<string>(16);
             int dataCount = ProcessedData.Count;

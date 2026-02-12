@@ -16,7 +16,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
     public class BaselineFileService : IFileService
     {
         // Constants
-        private const double VOLTAGE_FACTOR = (5.0 / 16383.0) * 1000.0;
+        private const float VOLTAGE_FACTOR = (5.0f / 16383.0f) * 1000.0f;
         private const int CHUNK_SIZE = 4128;
         private const int SAMPLES_PER_SEGMENT = 15;
         private const int CHANNELS = 16;
@@ -108,7 +108,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             return results;
         }
 
-        private void ProcessAccumulatedHex(StringBuilder sb, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec, bool force = false)
+        private static void ProcessAccumulatedHex(StringBuilder sb, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec, bool force = false)
         {
             string bufferStr = sb.ToString();
             int searchIndex = 0;
@@ -143,7 +143,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             sb.Remove(0, searchIndex);
         }
 
-        private void ProcessSingleSegment(ReadOnlySpan<char> segmentSpan, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec)
+        private static void ProcessSingleSegment(ReadOnlySpan<char> segmentSpan, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec)
         {
             int samplingPacket = ExtractSamplingPacket(segmentSpan);
 
@@ -178,7 +178,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private int ExtractSamplingPacket(ReadOnlySpan<char> hexDataSpan)
+        private static int ExtractSamplingPacket(ReadOnlySpan<char> hexDataSpan)
         {
             int byte1 = HexCharToInt(hexDataSpan[32]) * 16 + HexCharToInt(hexDataSpan[33]);
             int byte2 = HexCharToInt(hexDataSpan[34]) * 16 + HexCharToInt(hexDataSpan[35]);
@@ -241,8 +241,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             if (_disposed)
                 throw new ObjectDisposedException(nameof(BaselineFileService));
 
-            if (dataList == null)
-                throw new ArgumentNullException(nameof(dataList));
+            ArgumentNullException.ThrowIfNull(dataList);
 
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentNullException(nameof(filePath));
@@ -316,7 +315,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void WriteHeaders(ExcelWorksheet ws)
+        private static void WriteHeaders(ExcelWorksheet ws)
         {
             ws.Cells[1, 1].Value = "Sampling Packet No.";
             ws.Cells[1, 2].Value = "Sampling No.";

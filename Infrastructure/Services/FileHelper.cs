@@ -100,13 +100,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
 
             using var package = new ExcelPackage();
-            var worksheet = package.Workbook.Worksheets.Add("Processed Data");
-
-            for (int i = 0; i < data.Count; i++)
-            {
-                worksheet.Cells[i + 1, 1].Value = data[i];
-            }
-
+            WriteListToExcelSheet(package, data, "Processed Data");
             package.SaveAs(new FileInfo(fullPath));
         }
 
@@ -136,26 +130,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             string filePath = Path.Combine(saveDirectory, fileName);
 
             using var package = new ExcelPackage(new FileInfo(filePath));
-            var worksheet = package.Workbook.Worksheets.Add("ParticleData");
-
-            // Write headers
-            int col = 1;
-            foreach (var key in results[0].Keys)
-            {
-                worksheet.Cells[1, col++].Value = key;
-            }
-
-            // Write data rows
-            int row = 2;
-            foreach (var result in results)
-            {
-                int column = 1;
-                foreach (var value in result.Values)
-                {
-                    worksheet.Cells[row, column++].Value = value;
-                }
-                row++;
-            }
+            WriteResultsToExcelSheet(package, results, "ParticleData");
 
             package.Save();
             return filePath;
@@ -174,13 +149,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             {
                 string fullPath = dialog.FileName;
                 using var package = new ExcelPackage();
-                var worksheet = package.Workbook.Worksheets.Add("Processed Data");
-
-                for (int i = 0; i < data.Count; i++)
-                {
-                    worksheet.Cells[i + 1, 1].Value = data[i];
-                }
-
+                WriteListToExcelSheet(package, data, "Processed Data");
                 package.SaveAs(new FileInfo(fullPath));
                 return fullPath;
             }
@@ -201,28 +170,10 @@ namespace BaselineMode.WPF.Infrastructure.Services
             {
                 string fullPath = dialog.FileName;
                 using var package = new ExcelPackage();
-                var worksheet = package.Workbook.Worksheets.Add("ParticleData");
 
-                // Write headers
                 if (results.Count > 0)
                 {
-                    int col = 1;
-                    foreach (var key in results[0].Keys)
-                    {
-                        worksheet.Cells[1, col++].Value = key;
-                    }
-
-                    // Write data rows
-                    int row = 2;
-                    foreach (var result in results)
-                    {
-                        int column = 1;
-                        foreach (var value in result.Values)
-                        {
-                            worksheet.Cells[row, column++].Value = value;
-                        }
-                        row++;
-                    }
+                    WriteResultsToExcelSheet(package, results, "ParticleData");
                 }
 
                 package.SaveAs(new FileInfo(fullPath));
@@ -230,6 +181,39 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
 
             return null;
+        }
+
+        private static void WriteListToExcelSheet(ExcelPackage package, List<string> data, string sheetName)
+        {
+            var worksheet = package.Workbook.Worksheets.Add(sheetName);
+            for (int i = 0; i < data.Count; i++)
+            {
+                worksheet.Cells[i + 1, 1].Value = data[i];
+            }
+        }
+
+        private static void WriteResultsToExcelSheet(ExcelPackage package, List<Dictionary<string, object>> results, string sheetName)
+        {
+            var worksheet = package.Workbook.Worksheets.Add(sheetName);
+
+            // Write headers
+            int col = 1;
+            foreach (var key in results[0].Keys)
+            {
+                worksheet.Cells[1, col++].Value = key;
+            }
+
+            // Write data rows
+            int row = 2;
+            foreach (var result in results)
+            {
+                int column = 1;
+                foreach (var value in result.Values)
+                {
+                    worksheet.Cells[row, column++].Value = value;
+                }
+                row++;
+            }
         }
 
         public bool FileExists(string path)

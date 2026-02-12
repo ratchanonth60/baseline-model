@@ -11,15 +11,15 @@ using ExcelDataReader;
 using ScottPlot;
 using BaselineMode.WPF.Presentation.ViewModels;
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
-using BaselineMode.WPF.Presentation.ViewModels.Shared; // Added for ChannelViewModel
+using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Core.Models;
-using BaselineMode.WPF.Core.Models.Shared; // Added for PlotUpdateEventArgs, AppConstants
+using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Views.Observation;
-using BaselineMode.WPF.Presentation.ViewModels.Baseline; // Added
-using BaselineMode.WPF.Presentation.ViewModels.Flux; // Added
+using BaselineMode.WPF.Presentation.ViewModels.Baseline;
+using BaselineMode.WPF.Presentation.ViewModels.Flux;
 
 namespace BaselineMode.WPF.Views.Shared
 {

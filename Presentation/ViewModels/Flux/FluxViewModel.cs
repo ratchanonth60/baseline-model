@@ -632,7 +632,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             // Compute cumulative time
             int count = _secondsPartList.Count;
             double[] cumulativeTime = new double[count];
-            double[] timeSeconds = _secondsPartList.ToArray();
+            double[] timeSeconds = [.. _secondsPartList];
 
             cumulativeTime[0] = timeSeconds[0];
             for (int i = 1; i < count; i++)
@@ -641,11 +641,11 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             // Calculate flux density for each layer
             for (int layer = 0; layer < LAYER_COUNT; layer++)
             {
-                double[] particleCounting = _particleCountingLists[layer].ToArray();
+                double[] particleCounting = [.. _particleCountingLists[layer]];
 
                 // Use list to collect valid points to avoid .Where().ToArray() double allocation
-                List<double> xPoints = new List<double>(count);
-                List<double> yPoints = new List<double>(count);
+                List<double> xPoints = new(count);
+                List<double> yPoints = new(count);
                 double maxFlux = 0;
 
                 for (int j = 0; j < count; j++)
@@ -665,8 +665,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
                 if (xPoints.Count > 0)
                 {
-                    Layers[layer].XData = xPoints.ToArray();
-                    Layers[layer].YData = yPoints.ToArray();
+                    Layers[layer].XData = [.. xPoints];
+                    Layers[layer].YData = [.. yPoints];
                     Layers[layer].StatsText = $"Points: {xPoints.Count:N0} | Max: {maxFlux:F2}";
                 }
                 else

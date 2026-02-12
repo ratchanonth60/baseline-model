@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Windows;
 using BaselineMode.WPF.Presentation.ViewModels;
-using BaselineMode.WPF.Presentation.ViewModels.Flux; // Added for HeatmapViewModel
+using BaselineMode.WPF.Presentation.ViewModels.Flux;
 using ScottPlot;
 
 namespace BaselineMode.WPF.Views.Baseline
@@ -45,11 +45,11 @@ namespace BaselineMode.WPF.Views.Baseline
             HeatmapPlot.Plot.Title("Coincidence Heatmap");
 
             // Custom Ticks
-            double[] xPositions = Enumerable.Range(0, 8).Select(x => (double)x).ToArray();
+            double[] xPositions = [.. Enumerable.Range(0, 8).Select(x => (double)x)];
             string[] xLabels = vm.XLabels;
             HeatmapPlot.Plot.XTicks(xPositions, xLabels);
 
-            double[] yPositions = Enumerable.Range(0, 8).Select(y => (double)y).ToArray();
+            double[] yPositions = [.. Enumerable.Range(0, 8).Select(y => (double)y)];
             string[] yLabels = vm.YLabels;
             HeatmapPlot.Plot.YTicks(yPositions, yLabels);
 

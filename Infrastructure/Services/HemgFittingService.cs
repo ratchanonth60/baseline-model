@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Models;
-using BaselineMode.WPF.Core.Models.Baseline; // Added
+using BaselineMode.WPF.Core.Models.Baseline;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Optimization;
 
