@@ -20,14 +20,17 @@
 
         <!-- Shared ItemTemplate for Plots -->
         <DataTemplate x:Key="PlotItemTemplate">
-            <Border Style="{StaticResource ChartCard}" Margin="4">
+            <Border Style="{StaticResource ChartCard}" Margin="6" MinHeight="180">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="{Binding ChannelName}" Foreground="#26C6DA" FontSize="12" FontWeight="Bold" Margin="4,2"/>
-                    <scott:WpfPlot Grid.Row="1" MinHeight="180" x:Name="Plot" Loaded="Plot_Loaded" MouseDoubleClick="Plot_MouseDoubleClick"/>
+                    <Grid Margin="0,0,0,4">
+                        <TextBlock Text="{Binding Title}" Foreground="#CCCCCC" FontSize="11" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding StatsText}" Foreground="#007ACC" FontSize="10" HorizontalAlignment="Right"/>
+                    </Grid>
+                    <scott:WpfPlot Grid.Row="1" x:Name="Plot" Loaded="Plot_Loaded" MouseDoubleClick="Plot_MouseDoubleClick"/>
                 </Grid>
             </Border>
         </DataTemplate>

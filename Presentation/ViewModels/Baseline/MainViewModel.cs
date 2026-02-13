@@ -71,6 +71,16 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         partial void OnGraphSeriesColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
         partial void OnGraphTextColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
 
+        [ObservableProperty]
+        private double _barWidthMultiplier = 1.0;
+
+        partial void OnBarWidthMultiplierChanged(double value)
+        {
+            foreach (var ch in Channels)
+                ch.BarWidthMultiplier = value;
+            RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        }
+
         // --- Added Properties ---
         [ObservableProperty]
         private int _selectedLayerIndex = 0; // 0=L1, 1=L2, 2=L6, 3=L7

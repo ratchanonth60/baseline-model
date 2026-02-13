@@ -82,6 +82,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         partial void OnSelectedBGOColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
 
         [ObservableProperty]
+        private double _barWidthMultiplier = 1.0;
+        partial void OnBarWidthMultiplierChanged(double value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+
+        [ObservableProperty]
         private string _startTimeStr = "-";
 
         [ObservableProperty]

@@ -80,6 +80,16 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
         private int _threshold = 50;
 
         [ObservableProperty]
+        private double _barWidthMultiplier = 1.0;
+
+        partial void OnBarWidthMultiplierChanged(double value)
+        {
+            foreach (var ch in Channels)
+                ch.BarWidthMultiplier = value;
+            _ = UpdatePlotsAsync();
+        }
+
+        [ObservableProperty]
         private System.Windows.Media.Color _graphFigureColor = System.Windows.Media.Color.FromRgb(30, 30, 30);
 
         [ObservableProperty]
@@ -572,7 +582,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
             window.Show();
         }
 
-        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color wpfColor, System.Drawing.Color fallback)
+        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color wpfColor, System.Drawing.Color fallback)
         {
             try
             {
