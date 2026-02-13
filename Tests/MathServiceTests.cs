@@ -1,5 +1,5 @@
 using Xunit;
-using BaselineMode.WPF.Services;
+using BaselineMode.WPF.Infrastructure.Services;
 using System;
 
 namespace BaselineMode.WPF.Tests
@@ -91,7 +91,7 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_ConstantInput_ConvergesToValue()
         {
             // Arrange
-            var kalman = new MathService.KalmanFilter(
+            var kalman = new KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.01, R: 0.1,
                 initial_P: 1.0, initial_x: 0.0);
 
@@ -110,7 +110,7 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_NoisyInput_SmoothsOutput()
         {
             // Arrange
-            var kalman = new MathService.KalmanFilter(
+            var kalman = new KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.1, R: 1.0,
                 initial_P: 1.0, initial_x: 0.0);
             var random = new Random(42);
@@ -141,7 +141,7 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_SetR_UpdatesNoiseParameter()
         {
             // Arrange
-            var kalman = new MathService.KalmanFilter(
+            var kalman = new KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.1, R: 1.0,
                 initial_P: 1.0, initial_x: 0.0);
 
@@ -156,7 +156,7 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_SetQ_UpdatesProcessNoise()
         {
             // Arrange
-            var kalman = new MathService.KalmanFilter(
+            var kalman = new KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.1, R: 1.0,
                 initial_P: 1.0, initial_x: 0.0);
 
@@ -171,11 +171,11 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_HighR_SlowerResponse()
         {
             // Arrange - High R = trust model more, slower response to changes
-            var kalmanHighR = new MathService.KalmanFilter(
+            var kalmanHighR = new KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.01, R: 10.0,
                 initial_P: 1.0, initial_x: 0.0);
 
-            var kalmanLowR = new MathService.KalmanFilter(
+            var kalmanLowR = new KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.01, R: 0.1,
                 initial_P: 1.0, initial_x: 0.0);
 

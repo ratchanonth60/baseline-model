@@ -13,6 +13,8 @@ using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Helpers;
+using BaselineMode.WPF.Infrastructure.Services;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using ScottPlot;
@@ -487,7 +489,7 @@ namespace BaselineMode.WPF.Views.Observation
             // 3. Plot Bar
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = 1; // ความกว้างเท่ากับ 1 Channel
-            bar.FillColor = ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+            bar.FillColor = ColorHelper.ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
             bar.BorderLineWidth = 0;
 
@@ -612,7 +614,7 @@ namespace BaselineMode.WPF.Views.Observation
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = 1;
-            bar.FillColor = ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+            bar.FillColor = ColorHelper.ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
             plot.Plot.Title(title);
 
@@ -690,7 +692,7 @@ namespace BaselineMode.WPF.Views.Observation
             if (ChkBGOFit != null && ChkKalman?.IsChecked == true && filteredData.Length > 0)
             {
                 // Use default parameters from legacy: A=1, H=1, Q=1, R=1, P=1, x=0
-                var kalman = new BaselineMode.WPF.Infrastructure.Services.MathService.KalmanFilter(1, 1, 1, 1, 1, 0);
+                var kalman = new KalmanFilter(1, 1, 1, 1, 1, 0);
                 for (int i = 0; i < filteredData.Length; i++)
                 {
                     filteredData[i] = kalman.Output(filteredData[i]);
@@ -763,7 +765,7 @@ namespace BaselineMode.WPF.Views.Observation
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = 1;
-            bar.FillColor = ToDrawingColor(_viewModel.SelectedBGOColor, System.Drawing.Color.Orange);
+            bar.FillColor = ColorHelper.ToDrawingColor(_viewModel.SelectedBGOColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
 
             if (ChkBGOFit?.IsChecked == true)
@@ -834,7 +836,7 @@ namespace BaselineMode.WPF.Views.Observation
 
         private void OnObservationPlotUpdate(object? sender, EventArgs e)
         {
-            var bgColor = ToDrawingColor(_viewModel.SelectedGraphBackground, System.Drawing.Color.White);
+            var bgColor = ColorHelper.ToDrawingColor(_viewModel.SelectedGraphBackground, System.Drawing.Color.White);
             var allPlots = GetAllPlots();
             foreach (var plot in allPlots)
             {
@@ -853,14 +855,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
         }
 
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor, System.Drawing.Color? fallback = null)
-        {
-            if (mediaColor.A == 0 && mediaColor.R == 0 && mediaColor.G == 0 && mediaColor.B == 0)
-            {
-                return fallback ?? System.Drawing.Color.Gray;
-            }
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
-        }
+
 
         #endregion
     }

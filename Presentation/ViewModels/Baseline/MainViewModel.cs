@@ -113,7 +113,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         [ObservableProperty]
         private bool _showLorentzianFit = false;
 
-        // Deprecated: private int _selectedFitMethod = 0; 
+        // --- Fitting Algorithm Selection ---
+        [ObservableProperty]
+        private FittingAlgorithm _selectedFittingAlgorithm = FittingAlgorithm.LevenbergMarquardt;
+
+        public IEnumerable<FittingAlgorithm> FittingAlgorithmOptions => Enum.GetValues(typeof(FittingAlgorithm)).Cast<FittingAlgorithm>();
+
+        partial void OnSelectedFittingAlgorithmChanged(FittingAlgorithm value)
+        {
+            if (_mathService != null)
+            {
+                _mathService.Algorithm = value;
+                RefreshIfHasData();
+            }
+        }
 
         partial void OnShowGaussianFitChanged(bool value) => RefreshIfHasData();
         partial void OnShowHemgSingleFitChanged(bool value) => RefreshIfHasData();

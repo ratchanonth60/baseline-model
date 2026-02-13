@@ -11,6 +11,7 @@ using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Core.Models.Flux;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
+using BaselineMode.WPF.Core.Helpers;
 
 
 
@@ -147,7 +148,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         {
                             // ก่อนลบ baseline - ใช้ ADC range ปกติ
                             minVal = 0;
-                            maxVal = 16383;
+                            maxVal = 16384;
                         }
 
                         var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
@@ -161,8 +162,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         {
                             if (SelectedXAxisIndex == 1)
                             {
-                                // Voltage (mV): 0-16383 -> 0-5000 mV
-                                binCenters = [.. binCenters.Select(v => ((v / 16383.0) * 5.0) * 1000.0)];
+                                // Voltage (mV): 0-16384 -> 0-5000 mV
+                                binCenters = [.. binCenters.Select(v => ((v / 16384.0) * 5.0) * 1000.0)];
                             }
                             else if (SelectedXAxisIndex == 2)
                             {
@@ -275,17 +276,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             chVM.StatsText = $"μ={mu:F2}, σ={sigma:F2}, FWHM={fwhm:F2}, Res={resolution:F2}%";
 
             // Trigger Plot Refresh
-            var figBg = ToDrawingColor(GraphFigureColor);
-            var dataBg = ToDrawingColor(GraphDataColor);
-            var foreColor = ToDrawingColor(GraphTextColor);
-            var seriesColor = ToDrawingColor(GraphSeriesColor);
+            var figBg = ColorHelper.ToDrawingColor(GraphFigureColor);
+            var dataBg = ColorHelper.ToDrawingColor(GraphDataColor);
+            var foreColor = ColorHelper.ToDrawingColor(GraphTextColor);
+            var seriesColor = ColorHelper.ToDrawingColor(GraphSeriesColor);
 
             chVM.RenderPlot(figBg, dataBg, foreColor, seriesColor);
-        }
-
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
-        {
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }
 
         private static (double fwhm, double resolution) CalculateFWHM(double[] binCenters, double[] fitCurve, double mu)

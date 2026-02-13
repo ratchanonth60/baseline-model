@@ -5,6 +5,7 @@ using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using BaselineMode.WPF.Core.Models.Shared;
+using BaselineMode.WPF.Core.Helpers;
 
 namespace BaselineMode.WPF.Views.Baseline
 {
@@ -33,13 +34,12 @@ namespace BaselineMode.WPF.Views.Baseline
                 plot.Plot.Style(ScottPlot.Style.Seaborn);
                 plot.Configuration.ScrollWheelZoom = true;
 
-                // Render if data exists
                 if (DataContext is MainViewModel vm)
                 {
-                    var figBg = ToDrawingColor(vm.GraphFigureColor);
-                    var dataBg = ToDrawingColor(vm.GraphDataColor);
-                    var foreColor = ToDrawingColor(vm.GraphTextColor);
-                    var seriesColor = ToDrawingColor(vm.GraphSeriesColor);
+                    var figBg = ColorHelper.ToDrawingColor(vm.GraphFigureColor);
+                    var dataBg = ColorHelper.ToDrawingColor(vm.GraphDataColor);
+                    var foreColor = ColorHelper.ToDrawingColor(vm.GraphTextColor);
+                    var seriesColor = ColorHelper.ToDrawingColor(vm.GraphSeriesColor);
                     channelVm.RenderPlot(figBg, dataBg, foreColor, seriesColor);
                 }
             }
@@ -50,20 +50,15 @@ namespace BaselineMode.WPF.Views.Baseline
             if (DataContext is not MainViewModel vm)
                 return;
 
-            var figBg = ToDrawingColor(vm.GraphFigureColor);
-            var dataBg = ToDrawingColor(vm.GraphDataColor);
-            var foreColor = ToDrawingColor(vm.GraphTextColor);
-            var seriesColor = ToDrawingColor(vm.GraphSeriesColor);
+            var figBg = ColorHelper.ToDrawingColor(vm.GraphFigureColor);
+            var dataBg = ColorHelper.ToDrawingColor(vm.GraphDataColor);
+            var foreColor = ColorHelper.ToDrawingColor(vm.GraphTextColor);
+            var seriesColor = ColorHelper.ToDrawingColor(vm.GraphSeriesColor);
 
             foreach (var channelVM in vm.Channels)
             {
                 channelVM.RenderPlot(figBg, dataBg, foreColor, seriesColor);
             }
-        }
-
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
-        {
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }
     }
 }

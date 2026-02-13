@@ -13,6 +13,7 @@ using System.Windows;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Helpers;
 using BaselineMode.WPF.Infrastructure.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -711,10 +712,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
             Application.Current?.Dispatcher?.BeginInvoke(() =>
             {
-                var figBg = ToDrawingColor(GraphFigureColor, System.Drawing.Color.FromArgb(30, 30, 30));
-                var dataBg = ToDrawingColor(GraphDataColor, System.Drawing.Color.FromArgb(37, 37, 38));
-                var fgColor = ToDrawingColor(GraphTextColor, System.Drawing.Color.White);
-                var seriesColor = ToDrawingColor(GraphSeriesColor, System.Drawing.Color.Cyan);
+                var figBg = ColorHelper.ToDrawingColor(GraphFigureColor, System.Drawing.Color.FromArgb(30, 30, 30));
+                var dataBg = ColorHelper.ToDrawingColor(GraphDataColor, System.Drawing.Color.FromArgb(37, 37, 38));
+                var fgColor = ColorHelper.ToDrawingColor(GraphTextColor, System.Drawing.Color.White);
+                var seriesColor = ColorHelper.ToDrawingColor(GraphSeriesColor, System.Drawing.Color.Cyan);
 
                 // Use different colors for each layer
                 var layerColors = new[]
@@ -750,10 +751,6 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             _allResults.Clear();
         }
 
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color wpfColor, System.Drawing.Color fallback)
-        {
-            try { return System.Drawing.Color.FromArgb(wpfColor.A, wpfColor.R, wpfColor.G, wpfColor.B); }
-            catch { return fallback; }
-        }
+
     }
 }

@@ -258,10 +258,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                             if (filteredData.Length > 0)
                             {
                                 double hMin = 0;
-                                double hMax = 16383;
+                                double hMax = 16384;
 
                                 // ScottPlot Histogram
-                                var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: hMin, max: hMax, binCount: 16383);
+                                var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: hMin, max: hMax, binCount: 16384);
 
                                 // สร้าง BinCenters
                                 double[] binCenters = new double[binEdges.Length - 1];
@@ -270,7 +270,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     double center = binEdges[k] + 0.5;
                                     // Apply X-Axis Conversion ใน Loop เดียว
                                     binCenters[k] = (SelectedXAxisIndex == 1)
-                                        ? ((center / 16383.0) * 5) * 1000
+                                        ? ((center / 16384.0) * 5) * 1000
                                         : center;
                                 }
 

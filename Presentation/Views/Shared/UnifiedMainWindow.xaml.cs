@@ -20,6 +20,7 @@ using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Views.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
+using BaselineMode.WPF.Core.Helpers;
 
 namespace BaselineMode.WPF.Views.Shared
 {
@@ -217,10 +218,10 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void UpdatePlot(WpfPlot wpfPlot, ChannelViewModel channelVm)
         {
-            var figBg = ToDrawingColor(_mainViewModel.GraphFigureColor);
-            var dataBg = ToDrawingColor(_mainViewModel.GraphDataColor);
-            var foreColor = ToDrawingColor(_mainViewModel.GraphTextColor);
-            var seriesColor = ToDrawingColor(_mainViewModel.GraphSeriesColor);
+            var figBg = ColorHelper.ToDrawingColor(_mainViewModel.GraphFigureColor);
+            var dataBg = ColorHelper.ToDrawingColor(_mainViewModel.GraphDataColor);
+            var foreColor = ColorHelper.ToDrawingColor(_mainViewModel.GraphTextColor);
+            var seriesColor = ColorHelper.ToDrawingColor(_mainViewModel.GraphSeriesColor);
 
             channelVm.RenderTo(wpfPlot, figBg, dataBg, foreColor, seriesColor);
         }
@@ -229,10 +230,10 @@ namespace BaselineMode.WPF.Views.Shared
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                var figBg = ToDrawingColor(_mainViewModel.GraphFigureColor);
-                var dataBg = ToDrawingColor(_mainViewModel.GraphDataColor);
-                var foreColor = ToDrawingColor(_mainViewModel.GraphTextColor);
-                var seriesColor = ToDrawingColor(_mainViewModel.GraphSeriesColor);
+                var figBg = ColorHelper.ToDrawingColor(_mainViewModel.GraphFigureColor);
+                var dataBg = ColorHelper.ToDrawingColor(_mainViewModel.GraphDataColor);
+                var foreColor = ColorHelper.ToDrawingColor(_mainViewModel.GraphTextColor);
+                var seriesColor = ColorHelper.ToDrawingColor(_mainViewModel.GraphSeriesColor);
 
                 foreach (var channel in _mainViewModel.Channels)
                 {
@@ -697,22 +698,9 @@ namespace BaselineMode.WPF.Views.Shared
 
         #region Plot Helpers
 
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
-        {
-            if (mediaColor.A == 0 && mediaColor.R == 0 && mediaColor.G == 0 && mediaColor.B == 0)
-                return System.Drawing.Color.Orange; // Fallback
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
-        }
-
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor, System.Drawing.Color fallback)
-        {
-            if (mediaColor.A == 0) return fallback;
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
-        }
-
         private System.Drawing.Color GetBackgroundColor()
         {
-            return ToDrawingColor(_observationViewModel.SelectedGraphBackground, System.Drawing.Color.Gray);
+            return ColorHelper.ToDrawingColor(_observationViewModel.SelectedGraphBackground, System.Drawing.Color.Gray);
         }
 
         private System.Drawing.Color GetForegroundColor()
@@ -781,7 +769,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = (binEdges[1] - binEdges[0]) * _observationViewModel.BarWidthMultiplier;
-            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+            bar.FillColor = ColorHelper.ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
 
             // Calculate basic stats manually first
             if (peakLabel != null) peakLabel.Text = $"{hist.Max()}";
@@ -903,7 +891,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = (binEdges[1] - binEdges[0]) * _observationViewModel.BarWidthMultiplier;
-            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
+            bar.FillColor = ColorHelper.ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
 
             if (peak != null) peak.Text = $"{hist.Max()}";
             if (mean != null) mean.Text = $"{filteredData.Average():F2}";
@@ -1080,8 +1068,8 @@ namespace BaselineMode.WPF.Views.Shared
             detailWindow.SetColorTheme(bg, bg, fg);
 
             System.Drawing.Color? barColor = null;
-            if (tag.Contains("BGO")) barColor = ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
-            else barColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+            if (tag.Contains("BGO")) barColor = ColorHelper.ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
+            else barColor = ColorHelper.ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
 
             // Ensure Opacity
             if (barColor.HasValue)

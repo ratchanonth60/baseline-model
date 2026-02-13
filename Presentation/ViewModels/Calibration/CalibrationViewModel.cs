@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Drawing;
 using System.IO;
+using BaselineMode.WPF.Core.Helpers;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -571,25 +572,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
             string axisLabel = SelectedXAxisIndex == 1 ? "Voltage (mV)" : "ADC Channel";
 
-            var figureBg = ToDrawingColor(GraphFigureColor, System.Drawing.Color.FromArgb(255, 30, 30, 30));
-            var dataBg = ToDrawingColor(GraphDataColor, System.Drawing.Color.FromArgb(255, 37, 37, 38));
-            var fgColor = ToDrawingColor(GraphTextColor, System.Drawing.Color.White);
+            var figureBg = ColorHelper.ToDrawingColor(GraphFigureColor, System.Drawing.Color.FromArgb(255, 30, 30, 30));
+            var dataBg = ColorHelper.ToDrawingColor(GraphDataColor, System.Drawing.Color.FromArgb(255, 37, 37, 38));
+            var fgColor = ColorHelper.ToDrawingColor(GraphTextColor, System.Drawing.Color.White);
 
             window.SetColorTheme(figureBg, dataBg, fgColor);
 
-            var drawingColor = ToDrawingColor(GraphSeriesColor, System.Drawing.Color.Cyan);
+            var drawingColor = ColorHelper.ToDrawingColor(GraphSeriesColor, System.Drawing.Color.Cyan);
             window.ShowHistogram(rawData, channel.Title, showFit: true, color: drawingColor, xLabel: axisLabel);
             window.Show();
         }
 
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color wpfColor, System.Drawing.Color fallback)
-        {
-            try
-            {
-                return System.Drawing.Color.FromArgb(wpfColor.A, wpfColor.R, wpfColor.G, wpfColor.B);
-            }
-            catch { return fallback; }
-        }
+
 
         partial void OnSelectedXAxisIndexChanged(int value)
         {
@@ -664,10 +658,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                         channelVM.StatsText = statsText;
 
                         channelVM.RenderPlot(
-                            ToDrawingColor(GraphFigureColor, Color.FromArgb(30, 30, 30)),
-                            ToDrawingColor(GraphDataColor, Color.FromArgb(37, 37, 38)),
-                            ToDrawingColor(GraphTextColor, Color.White),
-                            ToDrawingColor(GraphSeriesColor, Color.Cyan),
+                            ColorHelper.ToDrawingColor(GraphFigureColor, Color.FromArgb(30, 30, 30)),
+                            ColorHelper.ToDrawingColor(GraphDataColor, Color.FromArgb(37, 37, 38)),
+                            ColorHelper.ToDrawingColor(GraphTextColor, Color.White),
+                            ColorHelper.ToDrawingColor(GraphSeriesColor, Color.Cyan),
                             xMin: xMin,
                             xMax: xMax,
                             xLabel: xLabel

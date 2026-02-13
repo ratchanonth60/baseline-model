@@ -4,6 +4,7 @@ using System.Diagnostics;
 using BaselineMode.WPF.Presentation.ViewModels;
 using ScottPlot;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
+using BaselineMode.WPF.Core.Helpers;
 
 namespace BaselineMode.WPF.Presentation.Views.Flux
 {
@@ -34,10 +35,10 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
             var detailWindow = new FluxDetailWindow();
 
             // Set Theme
-            var figBg = ToDrawingColor(fluxVM.GraphFigureColor);
-            var dataBg = ToDrawingColor(fluxVM.GraphDataColor);
-            var fgColor = ToDrawingColor(fluxVM.GraphTextColor);
-            var seriesColor = ToDrawingColor(fluxVM.GraphSeriesColor);
+            var figBg = ColorHelper.ToDrawingColor(fluxVM.GraphFigureColor);
+            var dataBg = ColorHelper.ToDrawingColor(fluxVM.GraphDataColor);
+            var fgColor = ColorHelper.ToDrawingColor(fluxVM.GraphTextColor);
+            var seriesColor = ColorHelper.ToDrawingColor(fluxVM.GraphSeriesColor);
 
             detailWindow.SetColorTheme(figBg, dataBg, fgColor, seriesColor);
 
@@ -50,9 +51,6 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
             detailWindow.Show();
         }
 
-        private System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
-        {
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
-        }
+
     }
 }

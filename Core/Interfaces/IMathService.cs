@@ -20,8 +20,10 @@ namespace BaselineMode.WPF.Core.Interfaces
         double CalculateRMS(double[] xData, double[] yData, double mean);
 
         /// <summary>
-        /// Perform Gaussian curve fitting
+        /// Gets or sets the fitting algorithm to use
         /// </summary>
+        BaselineMode.WPF.Core.Models.Baseline.FittingAlgorithm Algorithm { get; set; }
+
         /// <summary>
         /// Perform Gaussian curve fitting
         /// </summary>

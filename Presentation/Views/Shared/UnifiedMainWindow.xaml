@@ -294,9 +294,12 @@
                                     <CheckBox IsChecked="{Binding ShowHemgDoubleFit}" Margin="0,4,0,0">
                                         <TextBlock Text="HEMG Double" Foreground="#CCCCCC" FontSize="11"/>
                                     </CheckBox>
-                                    <CheckBox IsChecked="{Binding ShowLorentzianFit}" Margin="0,4,0,0">
-                                        <TextBlock Text="Lorentzian" Foreground="#CCCCCC" FontSize="11"/>
-                                    </CheckBox>
+                                    
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Algo:" Foreground="#858585" FontSize="11" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <ComboBox SelectedItem="{Binding SelectedFittingAlgorithm}" ItemsSource="{Binding FittingAlgorithmOptions}" 
+                                                  Width="80" Style="{StaticResource RibbonCombo}"/>
+                                    </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="Fitting" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
@@ -855,6 +858,7 @@
                                             <ComboBoxItem Content="After (log)"/>
                                         </ComboBox>
                                     </StackPanel>
+
                                 </StackPanel>
                                 <TextBlock Text="Baseline" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
@@ -884,6 +888,19 @@
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="Output" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Algorithm:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ComboBox SelectedItem="{Binding SelectedFittingAlgorithm}" 
+                                                  ItemsSource="{Binding FittingAlgorithmOptions}" 
+                                                  Width="120" Style="{StaticResource RibbonCombo}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Baseline" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
