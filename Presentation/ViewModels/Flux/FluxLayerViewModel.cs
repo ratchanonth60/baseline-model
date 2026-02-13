@@ -39,12 +39,13 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             double xMin = 0,
             double? xMax = null,
             string? xLabel = null,
-            string? yLabel = null)
+            string? yLabel = null,
+            double widthMultiplier = 1.0)
         {
             if (PlotControl != null)
             {
                 Debug.WriteLine($"[FluxLayerVM] RenderPlot called for {LayerName}. XData count: {XData?.Length ?? 0}");
-                RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor, isLogScale, xMin, xMax, xLabel, yLabel);
+                RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor, isLogScale, xMin, xMax, xLabel, yLabel, widthMultiplier);
             }
             else
             {
@@ -65,7 +66,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             double xMin = 0,
             double? xMax = null,
             string? xLabel = null,
-            string? yLabel = null)
+            string? yLabel = null,
+            double widthMultiplier = 1.0)
         {
             if (targetPlot == null) return;
             targetPlot.Plot.Clear();
@@ -94,8 +96,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
                     var scatter = targetPlot.Plot.AddScatter(XData, plotYData);
                     scatter.Color = seriesColor;
-                    scatter.LineWidth = 1;
-                    scatter.MarkerSize = 3;
+                    scatter.LineWidth = 1 * widthMultiplier;
+                    scatter.MarkerSize = (float)(3 * widthMultiplier);
                     scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
 
                     targetPlot.Plot.YAxis.TickLabelFormat(value => $"10^{value:F0}");
@@ -106,8 +108,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
                     var scatter = targetPlot.Plot.AddScatter(XData, plotYData);
                     scatter.Color = seriesColor;
-                    scatter.LineWidth = 1;
-                    scatter.MarkerSize = 3;
+                    scatter.LineWidth = 1 * widthMultiplier;
+                    scatter.MarkerSize = (float)(3 * widthMultiplier);
                     scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
 
                     targetPlot.Plot.SetAxisLimitsY(0, double.NaN);

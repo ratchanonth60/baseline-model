@@ -58,7 +58,7 @@ namespace BaselineMode.WPF.Views.Shared
                     ObsDateTimeLabel.Text = DateTime.Now.ToString(FORMAT_DATE);
             };
             _obsDateTimeTimer.Start();
-            GraphSettingsPanel.DataContext = observationViewModel;
+            // Graph settings moved to Settings Panel (XAML bindings handle DataContext)
 
             this.Loaded += UnifiedMainWindow_Loaded;
         }
@@ -550,7 +550,7 @@ namespace BaselineMode.WPF.Views.Shared
                 return;
             }
 
-            var (isValid, message, errorRow) = await ObservationViewModel.CheckHeaderAsync(fileName);
+            var (isValid, message, _) = await ObservationViewModel.CheckHeaderAsync(fileName);
 
             ObsTxtProgress.Text = message;
             ObsTxtStatus.Text = "HEADER ERR";
@@ -780,6 +780,7 @@ namespace BaselineMode.WPF.Views.Shared
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
+            bar.BarWidth = (binEdges[1] - binEdges[0]) * _observationViewModel.BarWidthMultiplier;
             bar.FillColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
 
             // Calculate basic stats manually first
@@ -808,8 +809,8 @@ namespace BaselineMode.WPF.Views.Shared
 
                     if (len > 3)
                     {
-                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+                        double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
+                        double[] yFit = [.. hist.Skip(start).Take(len)];
 
                         var fitResult = selectedFit == "Lorentzian"
                             ? _observationViewModel.MathProvider.LorentzianFit(xFit, yFit)
@@ -901,6 +902,7 @@ namespace BaselineMode.WPF.Views.Shared
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
+            bar.BarWidth = (binEdges[1] - binEdges[0]) * _observationViewModel.BarWidthMultiplier;
             bar.FillColor = ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
 
             if (peak != null) peak.Text = $"{hist.Max()}";
@@ -932,8 +934,8 @@ namespace BaselineMode.WPF.Views.Shared
 
                     if (len > 3)
                     {
-                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+                        double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
+                        double[] yFit = [.. hist.Skip(start).Take(len)];
 
                         var fitResult = selectedBGOFit == "Lorentzian"
                             ? _observationViewModel.MathProvider.LorentzianFit(xFit, yFit)

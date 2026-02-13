@@ -55,6 +55,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
         public double FWHM { get; set; }
         public double Resolution { get; set; }
 
+        /// <summary>Multiplier for bar width (1.0 = auto from bin spacing).</summary>
+        public double BarWidthMultiplier { get; set; } = 1.0;
+
         public WpfPlot? PlotControl { get; set; }
 
         public void RenderPlot(System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor, double? xMin = null, double? xMax = null, string? xLabel = null)
@@ -100,7 +103,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
                 {
                     var bar = targetPlot.Plot.AddBar(values: Counts, positions: BinCenters);
                     bar.FillColor = seriesColor;
-                    bar.BarWidth = 1;
+                    // Calculate bar width from bin spacing, scaled by multiplier
+                    double autoWidth = BinCenters.Length > 1 ? BinCenters[1] - BinCenters[0] : 1;
+                    bar.BarWidth = autoWidth * BarWidthMultiplier;
                     bar.BorderLineWidth = 0;
                     bar.Label = "Data";
 
@@ -144,10 +149,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
                 if (xMin.HasValue && xMax.HasValue)
                 {
                     targetPlot.Plot.SetAxisLimits(xMin: xMin.Value, xMax: xMax.Value);
+                    targetPlot.Plot.AxisAutoY();
                 }
                 else
                 {
                     targetPlot.Plot.AxisAuto();
+                }
+
+                // Ensure Y-axis starts at 0 for bar charts
+                if (!isLogScale)
+                {
+                    var limits = targetPlot.Plot.GetAxisLimits();
+                    targetPlot.Plot.SetAxisLimits(yMin: 0, yMax: limits.YMax * 1.05);
                 }
             }
             else

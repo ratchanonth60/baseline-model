@@ -135,6 +135,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         partial void OnTimeRangeMinChanged(double value) => UpdateAllPlots();
         partial void OnTimeRangeMaxChanged(double value) => UpdateAllPlots();
 
+        [ObservableProperty]
+        private double _barWidthMultiplier = 1.0;
+        partial void OnBarWidthMultiplierChanged(double value) => UpdateAllPlots();
+
         // ── Data Storage ────────────────────────────────────────────
 
         private readonly List<double> _secondsPartList = [];
@@ -206,7 +210,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                 });
 
                 _selectedFiles = [combinedFilePath];
-                InputFileList = _selectedFiles.ToArray();
+                InputFileList = [.. _selectedFiles];
                 InputFilesInfo = $"{files.Count} files combined.";
                 OutputFileName = "multiple_file_output.xlsx";
                 StatusMessage = "Files combined. Ready to process.";
@@ -731,7 +735,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                         seriesColor, // Use the selected single color for all graphs
                         isLogScale: IsLogScale,
                         xMin: TimeRangeMin,
-                        xMax: TimeRangeMax > 0 ? TimeRangeMax : null);
+                        xMax: TimeRangeMax > 0 ? TimeRangeMax : null,
+                        widthMultiplier: BarWidthMultiplier);
                 }
             });
         }
