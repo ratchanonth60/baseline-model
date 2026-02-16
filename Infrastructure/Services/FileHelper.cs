@@ -39,7 +39,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return appFolderPath;
         }
 
-        public string CombineFiles(string[] filePaths, string outputFileName)
+        public async Task<string> CombineFilesAsync(string[] filePaths, string outputFileName)
         {
             if (filePaths == null || filePaths.Length == 0)
                 throw new ArgumentException("No files selected for combination.");
@@ -48,22 +48,17 @@ namespace BaselineMode.WPF.Infrastructure.Services
             string outputFolder = GetOutputFolder("CombinedData");
             string outputPath = Path.Combine(outputFolder, outputFileName);
 
-            // Ensure unique filename
-            // outputPath = GetUniqueFilePath(outputPath);
-
-            using var outputStream = File.Create(outputPath);
+            using var outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true);
             foreach (var filePath in filePaths)
             {
-                using var inputStream = File.OpenRead(filePath);
-                inputStream.CopyTo(outputStream);
-                // Optional: Add a newline between files if needed
-                // outputStream.WriteByte((byte)'\n'); 
+                using var inputStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+                await inputStream.CopyToAsync(outputStream);
             }
 
             return outputPath;
         }
 
-        public void SaveToExcel(List<string> data, string fileName, string subFolder = "")
+        public async Task SaveToExcelAsync(List<string> data, string fileName, string subFolder = "")
         {
             string fullPath;
 
@@ -101,10 +96,10 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
             using var package = new ExcelPackage();
             WriteListToExcelSheet(package, data, "Processed Data");
-            package.SaveAs(new FileInfo(fullPath));
+            await package.SaveAsAsync(new FileInfo(fullPath));
         }
 
-        public string SaveResultsToExcel(string folderName, List<Dictionary<string, object>> results)
+        public async Task<string> SaveResultsToExcelAsync(string folderName, List<Dictionary<string, object>> results)
         {
             if (results == null || results.Count == 0)
                 return string.Empty;
@@ -132,11 +127,11 @@ namespace BaselineMode.WPF.Infrastructure.Services
             using var package = new ExcelPackage(new FileInfo(filePath));
             WriteResultsToExcelSheet(package, results, "ParticleData");
 
-            package.Save();
+            await package.SaveAsync();
             return filePath;
         }
 
-        public string? SaveToExcelWithDialog(List<string> data, string defaultFileName)
+        public async Task<string?> SaveToExcelWithDialogAsync(List<string> data, string defaultFileName)
         {
             var dialog = new SaveFileDialog
             {
@@ -150,14 +145,14 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 string fullPath = dialog.FileName;
                 using var package = new ExcelPackage();
                 WriteListToExcelSheet(package, data, "Processed Data");
-                package.SaveAs(new FileInfo(fullPath));
+                await package.SaveAsAsync(new FileInfo(fullPath));
                 return fullPath;
             }
 
             return null;
         }
 
-        public string? SaveResultsToExcelWithDialog(string defaultFileName, List<Dictionary<string, object>> results)
+        public async Task<string?> SaveResultsToExcelWithDialogAsync(string defaultFileName, List<Dictionary<string, object>> results)
         {
             var dialog = new SaveFileDialog
             {
@@ -176,7 +171,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     WriteResultsToExcelSheet(package, results, "ParticleData");
                 }
 
-                package.SaveAs(new FileInfo(fullPath));
+                await package.SaveAsAsync(new FileInfo(fullPath));
                 return fullPath;
             }
 

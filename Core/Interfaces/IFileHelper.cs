@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BaselineMode.WPF.Core.Interfaces
 {
@@ -20,29 +21,29 @@ namespace BaselineMode.WPF.Core.Interfaces
         /// <summary>
         /// Combine multiple files into one file
         /// </summary>
-        string CombineFiles(string[] filePaths, string outputFileName);
+        Task<string> CombineFilesAsync(string[] filePaths, string outputFileName);
 
         /// <summary>
         /// Save hex data segments to Excel file
         /// </summary>
-        void SaveToExcel(List<string> data, string fileName, string subFolder = "");
+        Task SaveToExcelAsync(List<string> data, string fileName, string subFolder = "");
 
         /// <summary>
         /// Save processed results to Excel file
         /// </summary>
-        string SaveResultsToExcel(string folderName, List<Dictionary<string, object>> results);
+        Task<string> SaveResultsToExcelAsync(string folderName, List<Dictionary<string, object>> results);
 
         /// <summary>
         /// Save hex data segments to Excel file with SaveFileDialog
         /// Returns the full path where the file was saved, or null if cancelled
         /// </summary>
-        string? SaveToExcelWithDialog(List<string> data, string defaultFileName);
+        Task<string?> SaveToExcelWithDialogAsync(List<string> data, string defaultFileName);
 
         /// <summary>
         /// Save processed results to Excel file with SaveFileDialog
         /// Returns the full path where the file was saved, or null if cancelled
         /// </summary>
-        string? SaveResultsToExcelWithDialog(string defaultFileName, List<Dictionary<string, object>> results);
+        Task<string?> SaveResultsToExcelWithDialogAsync(string defaultFileName, List<Dictionary<string, object>> results);
 
         /// <summary>
         /// Check if file exists

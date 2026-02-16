@@ -190,7 +190,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
             try
             {
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     var filteredSegments = new List<string>();
                     int processedFiles = 0;
@@ -199,7 +199,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                     {
                         if (_cts.IsCancellationRequested) break;
 
-                        string fileContent = File.ReadAllText(fileName);
+                        string fileContent = await File.ReadAllTextAsync(fileName);
                         string cleanedData = RegexPatterns.Whitespace().Replace(fileContent, "");
                         var matches = RegexPatterns.E225Header().Matches(cleanedData);
 
@@ -219,7 +219,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                         processedFiles++;
                         double progress = (double)processedFiles / InputFileList.Length * 50;
 
-                        Application.Current.Dispatcher.BeginInvoke(() =>
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
                         {
                             ProgressValue = progress;
                             StatusMessage = $"Processing file {processedFiles}/{InputFileList.Length}... ({filteredSegments.Count:N0} segments)";
@@ -233,15 +233,15 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
                     if (filteredSegments.Count > 0)
                     {
-                        Application.Current.Dispatcher.Invoke(() =>
+                        await Application.Current.Dispatcher.InvokeAsync(async () =>
                         {
                             StatusMessage = $"Saving {filteredSegments.Count:N0} segments to Excel...";
-                            _fileHelper.SaveToExcel(filteredSegments, outputName, "Source");
+                            await _fileHelper.SaveToExcelAsync(filteredSegments, outputName, "Source");
                         });
                     }
                     else
                     {
-                        Application.Current.Dispatcher.BeginInvoke(() => StatusMessage = "No valid segments found.");
+                        await Application.Current.Dispatcher.InvokeAsync(() => StatusMessage = "No valid segments found.");
                     }
                 }, _cts.Token);
 
@@ -311,7 +311,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
                     await Task.Run(() =>
                     {
-                        using var stream = File.Open(currentFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        using var stream = new FileStream(currentFile, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
                         using var reader = ExcelReaderFactory.CreateReader(stream);
                         int fileRows = 0;
                         while (reader.Read())
@@ -347,7 +347,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
                     await Task.Run(() =>
                     {
-                        using (var stream = File.Open(currentFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                        using (var stream = new FileStream(currentFile, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true))
                         using (var reader = ExcelReaderFactory.CreateReader(stream))
                         {
                             int rowCount = 0;

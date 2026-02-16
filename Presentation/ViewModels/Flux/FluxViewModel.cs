@@ -193,20 +193,21 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
             try
             {
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     using var writer = new StreamWriter(combinedFilePath, append: false);
                     for (int i = 0; i < files.Count; i++)
                     {
                         using var reader = new StreamReader(files[i]);
                         string? line;
-                        while ((line = reader.ReadLine()) != null)
+                        while ((line = await reader.ReadLineAsync()) != null)
                         {
-                            writer.WriteLine(line);
+                            await writer.WriteLineAsync(line);
                         }
 
                         // รายงานความคืบหน้า (ใช้ Progress<T> หรืออัปเดตตรงๆ ผ่าน Property)
-                        ProgressValue = (double)(i + 1) / files.Count * 100;
+                        double progress = (double)(i + 1) / files.Count * 100;
+                        Application.Current.Dispatcher.Invoke(() => ProgressValue = progress);
                     }
                 });
 
@@ -250,7 +251,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
             try
             {
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     var filteredSegments = new List<string>();
                     int processedFiles = 0;
@@ -259,7 +260,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                     {
                         if (_cts.IsCancellationRequested) break;
 
-                        string fileContent = File.ReadAllText(fileName);
+                        string fileContent = await File.ReadAllTextAsync(fileName);
                         string cleanedData = RegexPatterns.Whitespace().Replace(fileContent, "");
                         var matches = RegexPatterns.E225Header().Matches(cleanedData);
 
@@ -278,7 +279,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                         processedFiles++;
                         double progress = (double)processedFiles / InputFileList.Length * 50;
 
-                        Application.Current.Dispatcher.BeginInvoke(() =>
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
                         {
                             ProgressValue = progress;
                             StatusMessage = $"Processing file {processedFiles}/{InputFileList.Length}... ({filteredSegments.Count:N0} segments)";
@@ -291,15 +292,15 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
                     if (filteredSegments.Count > 0)
                     {
-                        Application.Current.Dispatcher.Invoke(() =>
+                        await Application.Current.Dispatcher.InvokeAsync(async () =>
                         {
                             StatusMessage = $"Saving {filteredSegments.Count:N0} segments to Excel...";
-                            _fileHelper.SaveToExcel(filteredSegments, outputName, "Source");
+                            await _fileHelper.SaveToExcelAsync(filteredSegments, outputName, "Source");
                         });
                     }
                     else
                     {
-                        Application.Current.Dispatcher.BeginInvoke(() =>
+                        await Application.Current.Dispatcher.InvokeAsync(() =>
                             StatusMessage = "No valid segments found.");
                     }
                 }, _cts.Token);
@@ -346,7 +347,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
                 await Task.Run(() =>
                 {
-                    using var stream = File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    using var stream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
                     using var reader = ExcelReaderFactory.CreateReader(stream);
                     var result = reader.AsDataSet();
                     var rawData = result.Tables[0];
@@ -451,7 +452,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             {
                 await Task.Run(() =>
                 {
-                    using var stream = File.Open(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    using var stream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
                     using var reader = ExcelReaderFactory.CreateReader(stream);
                     var result = reader.AsDataSet();
                     var rawData = result.Tables[0];

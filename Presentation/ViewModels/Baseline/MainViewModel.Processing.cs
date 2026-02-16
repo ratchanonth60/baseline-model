@@ -62,7 +62,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             StatusMessage = "Processing raw files to Excel...";
             StatusColor = System.Windows.Media.Brushes.Orange;
 
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 var progress = new Progress<double>(percent =>
                 {
@@ -90,7 +90,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                             System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = baseProgress + currentFileContribution);
                         });
 
-                        var fileData = _fileService.ProcessFileStream(file, fileProgress);
+                        var fileData = await _fileService.ProcessFileStreamAsync(file, fileProgress);
                         allData.AddRange(fileData);
 
                         currentFile++;
@@ -113,7 +113,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         var saveProgress = new Progress<double>(p =>
                              System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 70 + (p * 0.3)));
 
-                        _fileService.SaveToExcel(allData, fullPath, saveProgress);
+                        await _fileService.SaveToExcelAsync(allData, fullPath, saveProgress);
 
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
@@ -166,7 +166,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
             try
             {
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     // 1. Construct Path to Source File
                     string fileName = OutputFileName;
@@ -201,7 +201,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = p * 0.5)); // 0-50%
 
                     // Restore missing call!
-                    ProcessedData = _fileService.ReadExcelFile(fullPath, readProgress);
+                    ProcessedData = await _fileService.ReadExcelFileAsync(fullPath, readProgress);
 
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {

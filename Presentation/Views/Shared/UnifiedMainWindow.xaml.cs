@@ -490,7 +490,7 @@ namespace BaselineMode.WPF.Views.Shared
                 if (!_obsCts.IsCancellationRequested)
                 {
                     // Re-save logic from original code:
-                    _lastSavedFilePath = _observationViewModel.ExcelHelper.SaveAllResultsToExcel(
+                    _lastSavedFilePath = await _observationViewModel.ExcelHelper.SaveAllResultsToExcelAsync(
                        ObsTxtOutputFileName.Text, _observationViewModel.DataProcessor.AllResults);
                     _observationViewModel.DataProcessor.AllResults.Clear();
                     UpdateObsStatus("Processing and saving complete");

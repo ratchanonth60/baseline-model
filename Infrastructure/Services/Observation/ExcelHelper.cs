@@ -18,7 +18,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         }
 
-        public void SaveToExcel(List<string> data, string filePath)
+        public async Task SaveToExcelAsync(List<string> data, string filePath)
         {
             // Ensure the file name is valid
             filePath = Path.GetFileName(filePath);
@@ -46,10 +46,10 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
                 worksheet.Cells[i + 1, 1].Value = data[i];
             }
 
-            package.SaveAs(new FileInfo(fullPath));
+            await package.SaveAsAsync(new FileInfo(fullPath));
         }
 
-        public string? SaveAllResultsToExcel(string folderName, List<Dictionary<string, object>> allResults)
+        public async Task<string?> SaveAllResultsToExcelAsync(string folderName, List<Dictionary<string, object>> allResults)
         {
             if (allResults == null || allResults.Count == 0)
             {
@@ -97,7 +97,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
                 }
 
                 // Save the file
-                package.Save();
+                await package.SaveAsync();
             }
 
             return filePath;

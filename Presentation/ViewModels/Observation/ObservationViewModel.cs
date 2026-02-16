@@ -178,7 +178,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                     }
 
                     string finalPath = Path.Combine(fullPath, outputExcel);
-                    _fileHelper.SaveToExcel(filteredSegments, finalPath);
+                    await _fileHelper.SaveToExcelAsync(filteredSegments, finalPath);
                     LastSavedFilePath = finalPath;
                     StatusMessage = $"Successfully processed {InputFileList.Length} file(s). Saved to {finalPath}";
                 }
@@ -208,7 +208,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
             if (filteredSegments.Count > 0)
             {
-                _fileHelper.SaveToExcel(filteredSegments, exportFilePath);
+                await _fileHelper.SaveToExcelAsync(filteredSegments, exportFilePath);
                 LastSavedFilePath = exportFilePath;
                 StatusMessage = $"Exported {InputFileList.Length} file(s) to {exportFilePath}";
             }
@@ -225,27 +225,24 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         {
             var filteredSegments = new List<string>();
 
-            await Task.Run(() =>
+            foreach (var fileName in InputFileList!)
             {
-                foreach (var fileName in InputFileList!)
+                var fileContent = await File.ReadAllTextAsync(fileName);
+                var cleanedData = RegexPatterns.Whitespace().Replace(fileContent, "");
+                var matches = RegexPatterns.E225Header().Matches(cleanedData);
+
+                foreach (Match match in matches)
                 {
-                    var fileContent = File.ReadAllText(fileName);
-                    var cleanedData = RegexPatterns.Whitespace().Replace(fileContent, "");
-                    var matches = RegexPatterns.E225Header().Matches(cleanedData);
+                    var segment = match.Value;
+                    int segmentLength = segment.Length;
 
-                    foreach (Match match in matches)
+                    for (int i = 0; i < segmentLength; i += AppConstants.PacketHexLength)
                     {
-                        var segment = match.Value;
-                        int segmentLength = segment.Length;
-
-                        for (int i = 0; i < segmentLength; i += AppConstants.PacketHexLength)
-                        {
-                            var chunk = segment.Substring(i, Math.Min(AppConstants.PacketHexLength, segmentLength - i));
-                            filteredSegments.Add(chunk);
-                        }
+                        var chunk = segment.Substring(i, Math.Min(AppConstants.PacketHexLength, segmentLength - i));
+                        filteredSegments.Add(chunk);
                     }
                 }
-            });
+            }
 
             if (filteredSegments.Count > 0 && filteredSegments.Last().Length < AppConstants.PacketHexLength)
             {
@@ -294,7 +291,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
         public event EventHandler? RequestPlotUpdate;
 
-        public void LoadFiles(string[] fileNames)
+        public async void LoadFiles(string[] fileNames)
         {
             if (fileNames == null || fileNames.Length == 0)
             {
@@ -313,7 +310,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
             {
                 try
                 {
-                    string combinedOutputFilePath = _fileHelper.CombineFiles(fileNames, CombinedOutputFileName);
+                    string combinedOutputFilePath = await _fileHelper.CombineFilesAsync(fileNames, CombinedOutputFileName);
 
                     StatusMessage = $"{fileNames.Length} file(s) selected.";
                     OutputFileName = Path.GetFileNameWithoutExtension(combinedOutputFilePath);

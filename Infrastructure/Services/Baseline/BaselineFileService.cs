@@ -36,7 +36,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
         // 1. Parsing + Processing Streaming (True Zero-Allocation Logic)
         // ---------------------------------------------------------
 
-        public List<BaselineData> ProcessFileStream(string filePath, IProgress<double>? progress = null)
+        public async Task<List<BaselineData>> ProcessFileStreamAsync(string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(BaselineFileService));
@@ -53,7 +53,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             var results = new List<BaselineData>(estimatedCapacity);
 
             // Use StreamReader
-            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 131072))
+            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 131072, useAsync: true))
             using (var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 131072))
             {
                 char[] fileBuffer = new char[131072];
@@ -69,7 +69,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
 
                 try
                 {
-                    while ((charsRead = sr.Read(fileBuffer, 0, fileBuffer.Length)) > 0)
+                    while ((charsRead = await sr.ReadAsync(fileBuffer, 0, fileBuffer.Length)) > 0)
                     {
                         processedBytes += charsRead;
 
@@ -236,7 +236,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             }
         }
 
-        public void SaveToExcel(List<BaselineData> dataList, string filePath, IProgress<double>? progress = null)
+        public async Task SaveToExcelAsync(List<BaselineData> dataList, string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(BaselineFileService));
@@ -296,7 +296,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
                 ws.Cells[2, 1].LoadFromArrays(ConvertArrayToEnumerable(dataArray));
             }
 
-            package.Save();
+            await package.SaveAsync();
         }
 
         private static IEnumerable<object[]> ConvertArrayToEnumerable(object[,] array)
@@ -340,7 +340,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             }
         }
 
-        public List<BaselineData> ReadExcelFile(string filePath, IProgress<double>? progress = null)
+        public async Task<List<BaselineData>> ReadExcelFileAsync(string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(BaselineFileService));
@@ -352,6 +352,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
                 throw new FileNotFoundException("Excel file not found", filePath);
 
             using var package = new ExcelPackage(new FileInfo(filePath));
+            await package.LoadAsync(new FileInfo(filePath));
             var ws = package.Workbook.Worksheets[0];
             if (ws.Dimension == null) return [];
 

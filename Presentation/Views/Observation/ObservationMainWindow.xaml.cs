@@ -123,7 +123,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
         }
 
-        private void BtnReadData_Click(object sender, RoutedEventArgs e)
+        private async void BtnReadData_Click(object sender, RoutedEventArgs e)
         {
             string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string folderPath = Path.Combine(projectDirectory, AppConstants.SourceFolderName);
@@ -190,7 +190,7 @@ namespace BaselineMode.WPF.Views.Observation
                 RefreshBGOPlots();
 
                 // Save results
-                _lastSavedFilePath = _excelHelper.SaveAllResultsToExcel(TxtOutputFileName.Text, _viewModel.DataProcessor.AllResults);
+                _lastSavedFilePath = await _excelHelper.SaveAllResultsToExcelAsync(TxtOutputFileName.Text, _viewModel.DataProcessor.AllResults);
                 _viewModel.DataProcessor.AllResults.Clear();
 
                 UpdateStatus("Processing complete");
