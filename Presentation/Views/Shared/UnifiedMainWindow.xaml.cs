@@ -21,6 +21,7 @@ using BaselineMode.WPF.Views.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
 using BaselineMode.WPF.Core.Helpers;
+using BaselineMode.WPF.Infrastructure.Services;
 
 namespace BaselineMode.WPF.Views.Shared
 {
@@ -152,7 +153,7 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void BtnSettings_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Theme settings will be available in a future update.", "Theme Settings", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBoxService.Show("Theme settings will be available in a future update.", "Theme Settings", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void SwitchToBaselineMode()
@@ -314,7 +315,7 @@ namespace BaselineMode.WPF.Views.Shared
         {
             if (_observationViewModel.InputFileList == null || _observationViewModel.InputFileList.Length == 0)
             {
-                MessageBox.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBoxService.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -363,7 +364,7 @@ namespace BaselineMode.WPF.Views.Shared
         {
             if (_observationViewModel.InputFileList == null || _observationViewModel.InputFileList.Length == 0)
             {
-                MessageBox.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBoxService.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -405,7 +406,7 @@ namespace BaselineMode.WPF.Views.Shared
                 ObsProgressBar.IsIndeterminate = false;
                 ObsTxtStatus.Text = "ERROR";
                 ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0x43, 0x36));
-                MessageBox.Show($"Processing error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show($"Processing error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -419,7 +420,7 @@ namespace BaselineMode.WPF.Views.Shared
             string? fileName = _observationViewModel.FileHelper.FindExcelFile(outputName);
             if (fileName != null) return;
 
-            var result = MessageBox.Show(
+            var result = MessageBoxService.Show(
                 $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
                 "File Not Found",
                 MessageBoxButton.YesNo,
@@ -490,8 +491,12 @@ namespace BaselineMode.WPF.Views.Shared
                 if (!_obsCts.IsCancellationRequested)
                 {
                     // Re-save logic from original code:
-                    _lastSavedFilePath = await _observationViewModel.ExcelHelper.SaveAllResultsToExcelAsync(
+                    var saveResult = await _observationViewModel.ExcelHelper.SaveAllResultsToExcelAsync(
                        ObsTxtOutputFileName.Text, _observationViewModel.DataProcessor.AllResults);
+                    if (saveResult.IsSuccess)
+                    {
+                        _lastSavedFilePath = saveResult.Value;
+                    }
                     _observationViewModel.DataProcessor.AllResults.Clear();
                     UpdateObsStatus("Processing and saving complete");
                 }
@@ -502,7 +507,7 @@ namespace BaselineMode.WPF.Views.Shared
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 UpdateObsStatus("Error");
             }
         }
@@ -548,7 +553,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             if (fileName == null)
             {
-                MessageBox.Show($"File '{outputName}' not found.", "File Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBoxService.Show($"File '{outputName}' not found.", "File Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -590,7 +595,7 @@ namespace BaselineMode.WPF.Views.Shared
                     if (Directory.Exists(folderPath))
                         Process.Start("explorer.exe", folderPath);
                     else
-                        MessageBox.Show("No result file or output folder found.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBoxService.Show("No result file or output folder found.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
         }

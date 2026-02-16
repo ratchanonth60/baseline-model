@@ -79,20 +79,28 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     {
                         System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = $"Processing file {currentFile + 1}/{fileCount}...");
 
-                        // Create a progress reporter for the current file processing
                         var fileProgress = new Progress<double>(p =>
                         {
-                            // Calculate global progress: 
-                            // Base progress for completed files + fraction of current file
-                            // Processing takes up 70% of total progress
                             double baseProgress = (double)currentFile / fileCount * 70;
                             double currentFileContribution = (p / 100.0) * (1.0 / fileCount) * 70;
                             System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = baseProgress + currentFileContribution);
                         });
 
-                        var fileData = await _fileService.ProcessFileStreamAsync(file, fileProgress);
-                        allData.AddRange(fileData);
+                        var result = await _fileService.ProcessFileStreamAsync(file, fileProgress);
+                        if (result.IsFailure)
+                        {
+                            _logger.LogError($"Failed to process raw file {file}: {result.Error}");
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                StatusMessage = result.Error;
+                                StatusColor = System.Windows.Media.Brushes.Red;
+                                MessageBoxService.Show(result.Error, "Process Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                            });
+                            return;
+                        }
 
+                        allData.AddRange(result.Value);
+                        _logger.LogInfo($"Processed {result.Value.Count} events from {file}");
                         currentFile++;
                     }
 
@@ -113,7 +121,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         var saveProgress = new Progress<double>(p =>
                              System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 70 + (p * 0.3)));
 
-                        await _fileService.SaveToExcelAsync(allData, fullPath, saveProgress);
+                        var saveResult = await _fileService.SaveToExcelAsync(allData, fullPath, saveProgress);
+                        if (saveResult.IsFailure)
+                        {
+                            _logger.LogError($"Failed to save Baseline Excel: {saveResult.Error}");
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                StatusMessage = saveResult.Error;
+                                StatusColor = System.Windows.Media.Brushes.Red;
+                                MessageBoxService.Show(saveResult.Error, "Save Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                            });
+                            return;
+                        }
+
+                        _logger.LogInfo($"Baseline data saved to Excel: {fullPath}");
 
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
@@ -134,6 +155,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 }
                 catch (Exception ex)
                 {
+                    _logger.LogException(ex, "Error in PreProcessData (Baseline)");
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         StatusMessage = $"Error: {ex.Message}";
@@ -200,8 +222,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     var readProgress = new Progress<double>(p =>
                         System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = p * 0.5)); // 0-50%
 
-                    // Restore missing call!
-                    ProcessedData = await _fileService.ReadExcelFileAsync(fullPath, readProgress);
+                    var readResult = await _fileService.ReadExcelFileAsync(fullPath, readProgress);
+                    if (readResult.IsFailure)
+                    {
+                        _logger.LogError($"Failed to read baseline Excel: {readResult.Error}");
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            StatusMessage = readResult.Error;
+                            MessageBoxService.Show(readResult.Error, "Read Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                        });
+                        return;
+                    }
+
+                    ProcessedData = readResult.Value;
+                    _logger.LogInfo($"Successfully read {ProcessedData.Count} events from baseline Excel: {fullPath}");
 
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
@@ -381,6 +415,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             }
             catch (Exception ex)
             {
+                _logger.LogException(ex, "Error in ProcessData (Baseline)");
                 StatusMessage = $"Error: {ex.Message}";
             }
             finally

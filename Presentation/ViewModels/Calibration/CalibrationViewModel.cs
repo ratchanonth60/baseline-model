@@ -27,16 +27,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
         private readonly IMathService _mathService;
         private readonly IFileHelper _fileHelper;
         private readonly IObservationDataProcessor _dataProcessor;
+        private readonly ILoggerService _logger;
 
         private const int ESTIMATED_ROWS = 10000;
         private const int DATA_POINTS_PER_ROW = 11;
         private const int INITIAL_CAPACITY = ESTIMATED_ROWS * DATA_POINTS_PER_ROW;
 
-        public CalibrationViewModel(IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor)
+        public CalibrationViewModel(IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger)
         {
             _mathService = mathService;
             _fileHelper = fileHelper;
             _dataProcessor = dataProcessor;
+            _logger = logger;
 
             Channels = [];
             for (int i = 0; i < 16; i++)
@@ -236,7 +238,16 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                         await Application.Current.Dispatcher.InvokeAsync(async () =>
                         {
                             StatusMessage = $"Saving {filteredSegments.Count:N0} segments to Excel...";
-                            await _fileHelper.SaveToExcelAsync(filteredSegments, outputName, "Source");
+                            var saveResult = await _fileHelper.SaveToExcelAsync(filteredSegments, outputName, "Source");
+                            if (saveResult.IsFailure)
+                            {
+                                StatusMessage = saveResult.Error;
+                                _logger.LogError($"Failed to save calibration Excel: {saveResult.Error}");
+                            }
+                            else
+                            {
+                                _logger.LogInfo($"Calibration data saved to Excel: {outputName}");
+                            }
                         });
                     }
                     else
@@ -251,6 +262,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                _logger.LogException(ex, "Error in ProcessData (Calibration)");
                 MessageBoxService.Show($"Error processing data: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -425,6 +437,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                _logger.LogException(ex, "Error in ReadData (Calibration)");
                 MessageBoxService.Show($"Error reading data: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally

@@ -32,6 +32,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
     {
         private readonly IFileHelper _fileHelper;
         private readonly IObservationDataProcessor _dataProcessor;
+        private readonly ILoggerService _logger;
 
         private const int LAYER_COUNT = 7;
         private const double DETECTOR_AREA_M2 = 32 * 32 * 1e-6; // 32mm × 32mm → m^2
@@ -43,10 +44,11 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         public IRelayCommand StopCommand { get; }
         public IRelayCommand ResetCommand { get; }
 
-        public FluxViewModel(IFileHelper fileHelper, IObservationDataProcessor dataProcessor)
+        public FluxViewModel(IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger)
         {
             _fileHelper = fileHelper;
             _dataProcessor = dataProcessor;
+            _logger = logger;
 
             SelectFilesCommand = new AsyncRelayCommand(SelectFiles);
             ProcessDataCommand = new AsyncRelayCommand(ProcessData);
@@ -189,33 +191,27 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         {
             IsBusy = true;
             StatusMessage = $"Combining {files.Count} files...";
-            string combinedFilePath = Path.Combine(GetDailyOutputDirectory(), "multiple_file_output.txt");
+            string combinedFileName = "multiple_file_output.txt";
 
             try
             {
-                await Task.Run(async () =>
+                var result = await _fileHelper.CombineFilesAsync(files.ToArray(), combinedFileName);
+                if (result.IsFailure)
                 {
-                    using var writer = new StreamWriter(combinedFilePath, append: false);
-                    for (int i = 0; i < files.Count; i++)
-                    {
-                        using var reader = new StreamReader(files[i]);
-                        string? line;
-                        while ((line = await reader.ReadLineAsync()) != null)
-                        {
-                            await writer.WriteLineAsync(line);
-                        }
+                    StatusMessage = result.Error;
+                    _logger.LogError($"Migration failed: {result.Error}");
+                    MessageBoxService.Show($"Error combining files: {result.Error}", "Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
 
-                        // รายงานความคืบหน้า (ใช้ Progress<T> หรืออัปเดตตรงๆ ผ่าน Property)
-                        double progress = (double)(i + 1) / files.Count * 100;
-                        Application.Current.Dispatcher.Invoke(() => ProgressValue = progress);
-                    }
-                });
-
+                string combinedFilePath = result.Value;
                 _selectedFiles = [combinedFilePath];
                 InputFileList = [.. _selectedFiles];
                 InputFilesInfo = $"{files.Count} files combined.";
                 OutputFileName = "multiple_file_output.xlsx";
                 StatusMessage = "Files combined. Ready to process.";
+                _logger.LogInfo($"Files combined successfully for flux: {combinedFilePath}");
 
                 MessageBoxService.Show($"Files combined into:\n{combinedFilePath}", "Success",
                     MessageBoxButton.OK, MessageBoxImage.Information);
@@ -223,6 +219,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                _logger.LogException(ex, "Error in CombineFilesAsync (Flux)");
                 MessageBoxService.Show($"Error combining files: {ex.Message}", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -295,7 +292,16 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                         await Application.Current.Dispatcher.InvokeAsync(async () =>
                         {
                             StatusMessage = $"Saving {filteredSegments.Count:N0} segments to Excel...";
-                            await _fileHelper.SaveToExcelAsync(filteredSegments, outputName, "Source");
+                            var saveResult = await _fileHelper.SaveToExcelAsync(filteredSegments, outputName, "Source");
+                            if (saveResult.IsFailure)
+                            {
+                                StatusMessage = saveResult.Error;
+                                _logger.LogError($"Failed to save flux Excel: {saveResult.Error}");
+                            }
+                            else
+                            {
+                                _logger.LogInfo($"Flux data saved to Excel: {outputName}");
+                            }
                         });
                     }
                     else
@@ -311,6 +317,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
+                _logger.LogException(ex, "Error in ProcessData (Flux)");
                 MessageBoxService.Show($"Error processing data: {ex.Message}", "Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }

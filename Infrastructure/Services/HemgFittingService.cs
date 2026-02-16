@@ -152,7 +152,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 // Regularization (Damping)
                 for (int i = 0; i < n; i++) JtJ[i][i] += lambda * (JtJ[i][i] + 1e-7);
 
-                double[] delta = SolveLinearSystem(JtJ, JtRes);
+                double[]? delta = SolveLinearSystem(JtJ, JtRes);
                 if (delta == null) { lambda *= 10; continue; }
 
                 double[] pNew = new double[n];

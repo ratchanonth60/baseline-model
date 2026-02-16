@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using BaselineMode.WPF.Core.Models.Shared;
 
 namespace BaselineMode.WPF.Core.Interfaces
 {
@@ -21,29 +22,27 @@ namespace BaselineMode.WPF.Core.Interfaces
         /// <summary>
         /// Combine multiple files into one file
         /// </summary>
-        Task<string> CombineFilesAsync(string[] filePaths, string outputFileName);
+        Task<Result<string>> CombineFilesAsync(string[] filePaths, string outputFileName);
 
         /// <summary>
         /// Save hex data segments to Excel file
         /// </summary>
-        Task SaveToExcelAsync(List<string> data, string fileName, string subFolder = "");
+        Task<Result> SaveToExcelAsync(List<string> data, string fileName, string subFolder = "");
 
         /// <summary>
         /// Save processed results to Excel file
         /// </summary>
-        Task<string> SaveResultsToExcelAsync(string folderName, List<Dictionary<string, object>> results);
+        Task<Result<string>> SaveResultsToExcelAsync(string folderName, List<Dictionary<string, object>> results);
 
         /// <summary>
         /// Save hex data segments to Excel file with SaveFileDialog
-        /// Returns the full path where the file was saved, or null if cancelled
         /// </summary>
-        Task<string?> SaveToExcelWithDialogAsync(List<string> data, string defaultFileName);
+        Task<Result<string>> SaveToExcelWithDialogAsync(List<string> data, string defaultFileName);
 
         /// <summary>
         /// Save processed results to Excel file with SaveFileDialog
-        /// Returns the full path where the file was saved, or null if cancelled
         /// </summary>
-        Task<string?> SaveResultsToExcelWithDialogAsync(string defaultFileName, List<Dictionary<string, object>> results);
+        Task<Result<string>> SaveResultsToExcelWithDialogAsync(string defaultFileName, List<Dictionary<string, object>> results);
 
         /// <summary>
         /// Check if file exists
@@ -52,7 +51,6 @@ namespace BaselineMode.WPF.Core.Interfaces
 
         /// <summary>
         /// Search for Excel file in multiple possible locations
-        /// Returns array of paths to search and finds the first existing one
         /// </summary>
         string[] GetPossibleFilePaths(string outputName);
 

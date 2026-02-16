@@ -131,7 +131,7 @@ namespace BaselineMode.WPF.Views.Observation
 
             if (!File.Exists(fileName))
             {
-                MessageBox.Show("The specified file does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show("The specified file does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -190,14 +190,18 @@ namespace BaselineMode.WPF.Views.Observation
                 RefreshBGOPlots();
 
                 // Save results
-                _lastSavedFilePath = await _excelHelper.SaveAllResultsToExcelAsync(TxtOutputFileName.Text, _viewModel.DataProcessor.AllResults);
+                var saveResult = await _excelHelper.SaveAllResultsToExcelAsync(TxtOutputFileName.Text, _viewModel.DataProcessor.AllResults);
+                if (saveResult.IsSuccess)
+                {
+                    _lastSavedFilePath = saveResult.Value;
+                }
                 _viewModel.DataProcessor.AllResults.Clear();
 
                 UpdateStatus("Processing complete");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -239,7 +243,7 @@ namespace BaselineMode.WPF.Views.Observation
 
             if (!File.Exists(fileName))
             {
-                MessageBox.Show("File not found!", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBoxService.Show("File not found!", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -269,7 +273,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -281,7 +285,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
             else
             {
-                MessageBox.Show("No result file found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show("No result file found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

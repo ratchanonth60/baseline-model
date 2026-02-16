@@ -126,7 +126,7 @@ namespace BaselineMode.WPF.Views.Observation
                     (isEnabled: ChkShowHemg.IsChecked == true, name: "HEMG", color: System.Drawing.Color.Lime, fitFunc: (System.Func<double[], double[], Core.Models.Baseline.FittingResult>)_fittingService.HemgDoubleSidedFit)
                 };
 
-                foreach (var cfg in fitConfigs.Where(c => c.isEnabled))
+                foreach (var (isEnabled, name, color, fitFunc) in fitConfigs.Where(c => c.isEnabled))
                 {
                     try
                     {
@@ -138,14 +138,14 @@ namespace BaselineMode.WPF.Views.Observation
                         int len = end - start;
                         if (len < 3) continue;
 
-                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+                        double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
+                        double[] yFit = [.. hist.Skip(start).Take(len)];
 
-                        var fitResult = cfg.fitFunc(xFit, yFit);
+                        var fitResult = fitFunc(xFit, yFit);
 
                         if (fitResult?.FitCurve != null && fitResult.Peak > 0)
                         {
-                            var scatter = DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve, cfg.color, lineWidth: 2, markerSize: 0, label: cfg.name);
+                            var scatter = DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve, color, lineWidth: 2, markerSize: 0, label: name);
 
                             // Highlight peak for active fit
                             DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, System.Drawing.Color.Yellow, 8);

@@ -19,7 +19,7 @@ using BaselineMode.WPF.Core.Models.Shared;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 {
-    public partial class ObservationViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IMathService mathService, IFileService fileService, IFileHelper fileHelper) : SharedViewModelBase
+    public partial class ObservationViewModel(IObservationDataProcessor dataProcessor, IObservationExcelHelper excelHelper, IFittingService fittingService, IMathService mathService, IFileService fileService, IFileHelper fileHelper, ILoggerService logger) : SharedViewModelBase
     {
         private readonly IObservationDataProcessor _dataProcessor = dataProcessor;
         private readonly IObservationExcelHelper _excelHelper = excelHelper;
@@ -27,6 +27,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         private readonly IMathService _mathService = mathService;
         private readonly IFileService _fileService = fileService;
         private readonly IFileHelper _fileHelper = fileHelper;
+        private readonly ILoggerService _logger = logger;
 
         // Services exposed as Interfaces
         public IObservationDataProcessor DataProcessor => _dataProcessor;
@@ -178,9 +179,17 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                     }
 
                     string finalPath = Path.Combine(fullPath, outputExcel);
-                    await _fileHelper.SaveToExcelAsync(filteredSegments, finalPath);
+                    var result = await _fileHelper.SaveToExcelAsync(filteredSegments, finalPath);
+                    if (result.IsFailure)
+                    {
+                        StatusMessage = result.Error;
+                        _logger.LogError($"Failed to save observation Excel: {result.Error}");
+                        return;
+                    }
+
                     LastSavedFilePath = finalPath;
                     StatusMessage = $"Successfully processed {InputFileList.Length} file(s). Saved to {finalPath}";
+                    _logger.LogInfo($"Observation files converted to Excel successfully: {finalPath}");
                 }
                 else
                 {
@@ -208,9 +217,17 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
             if (filteredSegments.Count > 0)
             {
-                await _fileHelper.SaveToExcelAsync(filteredSegments, exportFilePath);
+                var result = await _fileHelper.SaveToExcelAsync(filteredSegments, exportFilePath);
+                if (result.IsFailure)
+                {
+                    StatusMessage = result.Error;
+                    _logger.LogError($"Export failed: {result.Error}");
+                    return;
+                }
+
                 LastSavedFilePath = exportFilePath;
                 StatusMessage = $"Exported {InputFileList.Length} file(s) to {exportFilePath}";
+                _logger.LogInfo($"Observation data exported to: {exportFilePath}");
             }
             else
             {
@@ -285,6 +302,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
             {
                 StatusMessage = "Error!";
                 IsBusy = false;
+                _logger.LogException(ex, "Error in AnalyzeFiles (Observation)");
                 System.Diagnostics.Debug.WriteLine(ex.Message);
             }
         }
@@ -310,16 +328,25 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
             {
                 try
                 {
-                    string combinedOutputFilePath = await _fileHelper.CombineFilesAsync(fileNames, CombinedOutputFileName);
+                    var combineResult = await _fileHelper.CombineFilesAsync(fileNames, CombinedOutputFileName);
+                    if (combineResult.IsFailure)
+                    {
+                        StatusMessage = combineResult.Error;
+                        _logger.LogError($"Error combining files: {combineResult.Error}");
+                        return;
+                    }
 
+                    string combinedOutputFilePath = combineResult.Value;
                     StatusMessage = $"{fileNames.Length} file(s) selected.";
                     OutputFileName = Path.GetFileNameWithoutExtension(combinedOutputFilePath);
                     StatusMessage = $"Files combined successfully into {combinedOutputFilePath}";
                     InputFileList = [combinedOutputFilePath];
+                    _logger.LogInfo($"Files combined successfully for observation: {combinedOutputFilePath}");
                 }
                 catch (Exception ex)
                 {
                     StatusMessage = $"Error combining files: {ex.Message}";
+                    _logger.LogException(ex, "Error combining files in LoadFiles (Observation)");
                 }
             }
         }

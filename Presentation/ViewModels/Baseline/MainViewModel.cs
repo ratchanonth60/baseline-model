@@ -28,6 +28,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
     {
         private readonly IFileService _fileService;
         private readonly IMathService _mathService;
+        private readonly ILoggerService _logger;
         private bool _disposed = false;
 
         [ObservableProperty]
@@ -177,15 +178,16 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
         public event EventHandler<PlotUpdateEventArgs>? RequestPlotUpdate;
 
-        public MainViewModel(IFileService fileService, IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor)
+        public MainViewModel(IFileService fileService, IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger)
         {
             _fileService = fileService;
             _mathService = mathService;
+            _logger = logger;
 
             // Initialize CalibrationVM with dependencies
-            _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor);
+            _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor, logger);
             // Initialize FluxVM
-            _fluxVM = new FluxViewModel(fileHelper, dataProcessor);
+            _fluxVM = new FluxViewModel(fileHelper, dataProcessor, logger);
             // ObservationVM will be assigned from outside or we could initialize it here
             // But since it's injected into MainWindow, we'll assign it there.
 
