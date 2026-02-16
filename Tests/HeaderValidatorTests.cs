@@ -1,6 +1,7 @@
 using Xunit;
 using System.IO;
-using BaselineMode.WPF.Services;
+using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Core.Models.Shared;
 
 namespace BaselineMode.WPF.Tests
 {

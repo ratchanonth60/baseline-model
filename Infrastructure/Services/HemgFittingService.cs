@@ -1,6 +1,7 @@
 // Services/HemgFittingService.cs
 using System;
 using System.Linq;
+using BaselineMode.WPF.Core.Interfaces;
 
 namespace BaselineMode.WPF.Infrastructure.Services
 {
@@ -8,11 +9,12 @@ namespace BaselineMode.WPF.Infrastructure.Services
     /// HEMG (Hyper-Exponentially Modified Gaussian) Double-Sided Fitting Service.
     /// Improved version with peak detection, Gaussian core, and Levenberg-Marquardt optimizer.
     /// </summary>
-    public class HemgFittingService
+    public class HemgFittingService(ILoggerService loggerService) : IHemgFittingService
     {
         private const double MAX_EXP_ARG = 700.0;
         private const double SQRT_2 = 1.41421356237;
         private const double SQRT_2PI = 2.50662827463;
+        private readonly ILoggerService _logger = loggerService ?? throw new ArgumentNullException(nameof(loggerService));
 
         /// <summary>
         /// Fit data with double-sided Hyper-EMG function (from raw thresholded data).
@@ -26,7 +28,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"HEMG Fit Error: {ex.Message}");
+                _logger.LogException(ex, "HEMG Fit Error");
                 return (new double[16384], new double[7]);
             }
         }
@@ -87,7 +89,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"HEMG Optimization Error: {ex.Message}");
+                _logger.LogException(ex, "HEMG Optimization Error");
                 return (new double[binCenters.Length], new double[7]);
             }
         }

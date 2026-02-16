@@ -7,7 +7,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
     public class LoggerService : ILoggerService
     {
         private readonly string _logFilePath;
-        private readonly object _lock = new object();
+        private readonly Lock _lock = new();
 
         public LoggerService()
         {
@@ -38,7 +38,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 try
                 {
                     string entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {message}";
-                    File.AppendAllLines(_logFilePath, new[] { entry });
+                    File.AppendAllLines(_logFilePath, [entry]);
                 }
                 catch
                 {

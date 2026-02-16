@@ -444,8 +444,10 @@ namespace BaselineMode.WPF.Views.Shared
             _obsCts = new CancellationTokenSource();
             var progress = new Progress<ObservationProcessReport>(report =>
             {
-                ObsProgressBar.Maximum = report.TotalSteps;
-                ObsProgressBar.Value = report.CurrentStep;
+                ObsProgressBar.Maximum = 100;
+                ObsProgressBar.Value = report.TotalSteps > 0
+                    ? (double)report.CurrentStep / report.TotalSteps * 100.0
+                    : 0;
                 ObsTxtProgress.Text = report.Message;
                 ObsTxtDataCount.Text = $"{report.TotalSteps}";
                 ObsTxtParticleCount.Text = $"{report.TotalSteps * 5}";
@@ -524,6 +526,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             ObsTxtOutputFileName.Text = "";
             ObsTxtProgress.Text = "Ready";
+            ObsProgressBar.Maximum = 100;
             ObsProgressBar.Value = 0;
             ObsProgressBar.IsIndeterminate = false;
             ObsTxtStatus.Text = "READY";
@@ -812,12 +815,12 @@ namespace BaselineMode.WPF.Views.Shared
                         double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
                         double[] yFit = [.. hist.Skip(start).Take(len)];
 
-                        foreach (var cfg in fitConfigs.Where(c => c.isEnabled))
+                        foreach (var (isEnabled, label, color, fitFunc) in fitConfigs.Where(c => c.isEnabled))
                         {
-                            var fitResult = cfg.fitFunc(xFit, yFit);
-                            if (fitResult?.FitCurve != null && fitResult.FitCurve.Length == xFit.Length && !fitResult.FitCurve.Any(double.IsNaN))
+                            var fitResult = fitFunc(xFit, yFit);
+                            if (fitResult?.IsValid == true && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length && !fitResult.FitCurve.Any(double.IsNaN))
                             {
-                                var scatter = plot.Plot.AddScatter(xFit, fitResult.FitCurve, cfg.color, lineWidth: 2, label: cfg.label);
+                                var scatter = plot.Plot.AddScatter(xFit, fitResult.FitCurve, color, lineWidth: 2, label: label);
                                 plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 6);
 
                                 // Update statistics labels with THIS result
@@ -943,12 +946,12 @@ namespace BaselineMode.WPF.Views.Shared
                         double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
                         double[] yFit = [.. hist.Skip(start).Take(len)];
 
-                        foreach (var cfg in fitConfigs.Where(c => c.isEnabled))
+                        foreach (var (isEnabled, label, color, fitFunc) in fitConfigs.Where(c => c.isEnabled))
                         {
-                            var fitResult = cfg.fitFunc(xFit, yFit);
-                            if (fitResult?.FitCurve != null && fitResult.FitCurve.Length == xFit.Length && !fitResult.FitCurve.Any(double.IsNaN))
+                            var fitResult = fitFunc(xFit, yFit);
+                            if (fitResult?.IsValid == true && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length && !fitResult.FitCurve.Any(double.IsNaN))
                             {
-                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, cfg.color, lineWidth: 2, label: cfg.label);
+                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, color, lineWidth: 2, label: label);
                                 plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 6);
 
                                 if (peak != null) peak.Text = $"{fitResult.Peak:F2}";

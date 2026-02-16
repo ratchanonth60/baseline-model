@@ -123,7 +123,7 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
                         double[] yFit = hist.Skip(start).Take(len).ToArray();
 
                         var fitResult = _fittingService.GaussianFit(xFit, yFit);
-                        if (fitResult?.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        if (fitResult?.IsValid == true && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
                         {
                             DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve,
                                 System.Drawing.Color.FromArgb(255, 255, 82, 82), lineWidth: 2);

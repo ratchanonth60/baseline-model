@@ -47,10 +47,15 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private System.Windows.Media.Brush _statusColor = System.Windows.Media.Brushes.Gray;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
         private bool _isBusy;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
         private double _progressValue;
+
+        /// <summary>True when busy and progress not yet reported (show indeterminate bar).</summary>
+        public bool IsProgressIndeterminate => IsBusy && ProgressValue <= 0;
 
         [ObservableProperty]
         private string _inputFilesInfo = "No files selected";
@@ -122,7 +127,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         [ObservableProperty]
         private FittingAlgorithm _selectedFittingAlgorithm = FittingAlgorithm.LevenbergMarquardt;
 
-        public IEnumerable<FittingAlgorithm> FittingAlgorithmOptions => Enum.GetValues(typeof(FittingAlgorithm)).Cast<FittingAlgorithm>();
+        public static IEnumerable<FittingAlgorithm> FittingAlgorithmOptions => Enum.GetValues<FittingAlgorithm>().Cast<FittingAlgorithm>();
 
         partial void OnSelectedFittingAlgorithmChanged(FittingAlgorithm value)
         {

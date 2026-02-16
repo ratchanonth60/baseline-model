@@ -195,7 +195,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
             try
             {
-                var result = await _fileHelper.CombineFilesAsync(files.ToArray(), combinedFileName);
+                var result = await _fileHelper.CombineFilesAsync([.. files], combinedFileName);
                 if (result.IsFailure)
                 {
                     StatusMessage = result.Error;

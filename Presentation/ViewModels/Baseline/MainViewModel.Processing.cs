@@ -317,7 +317,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     if (ShowGaussianFit)
                                     {
                                         var res = _mathService.GaussianFit(binCenters, counts);
-                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                                         {
                                             fitResults["Gaussian"] = new ChannelViewModel.FitData
                                             {
@@ -332,7 +332,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     if (ShowHemgSingleFit)
                                     {
                                         var res = _mathService.HyperEMGFit(binCenters, counts, filteredData);
-                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                                         {
                                             fitResults["HEMG-S"] = new ChannelViewModel.FitData
                                             {
@@ -347,7 +347,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     if (ShowHemgDoubleFit)
                                     {
                                         var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
-                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                                         {
                                             fitResults["HEMG-D"] = new ChannelViewModel.FitData
                                             {
@@ -362,7 +362,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     if (ShowLorentzianFit)
                                     {
                                         var res = _mathService.LorentzianFit(binCenters, counts);
-                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                                         {
                                             fitResults["Lorentzian"] = new ChannelViewModel.FitData
                                             {
@@ -570,7 +570,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             var res = _mathService.GaussianFit(binCenters, counts);
-                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                             {
                                 var data = new ChannelViewModel.FitData
                                 {
@@ -595,7 +595,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             var res = _mathService.HyperEMGFit(binCenters, counts, filteredData);
-                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                             {
                                 var data = new ChannelViewModel.FitData
                                 {
@@ -620,7 +620,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
-                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                             {
                                 var data = new ChannelViewModel.FitData
                                 {
@@ -645,7 +645,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             var res = _mathService.LorentzianFit(binCenters, counts);
-                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                             {
                                 var data = new ChannelViewModel.FitData
                                 {

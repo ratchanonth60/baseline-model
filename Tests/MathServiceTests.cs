@@ -10,7 +10,8 @@ namespace BaselineMode.WPF.Tests
 
         public MathServiceTests()
         {
-            _mathService = new MathService();
+            var logger = new LoggerService();
+            _mathService = new MathService(new HemgFittingService(logger), logger);
         }
 
         #region CalculateMoments Tests
@@ -91,9 +92,9 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_ConstantInput_ConvergesToValue()
         {
             // Arrange
-            var kalman = new KalmanFilter(
+            var kalman = new MathService.KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.01, R: 0.1,
-                initial_P: 1.0, initial_x: 0.0);
+                initialP: 1.0, initialX: 0.0);
 
             // Act - Feed constant value multiple times
             double lastOutput = 0;
@@ -110,9 +111,9 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_NoisyInput_SmoothsOutput()
         {
             // Arrange
-            var kalman = new KalmanFilter(
+            var kalman = new MathService.KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.1, R: 1.0,
-                initial_P: 1.0, initial_x: 0.0);
+                initialP: 1.0, initialX: 0.0);
             var random = new Random(42);
 
             // Act - Feed noisy input (true value = 5, noise ±2)
@@ -141,9 +142,9 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_SetR_UpdatesNoiseParameter()
         {
             // Arrange
-            var kalman = new KalmanFilter(
+            var kalman = new MathService.KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.1, R: 1.0,
-                initial_P: 1.0, initial_x: 0.0);
+                initialP: 1.0, initialX: 0.0);
 
             // Act
             kalman.SetR(5.0);
@@ -156,9 +157,9 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_SetQ_UpdatesProcessNoise()
         {
             // Arrange
-            var kalman = new KalmanFilter(
+            var kalman = new MathService.KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.1, R: 1.0,
-                initial_P: 1.0, initial_x: 0.0);
+                initialP: 1.0, initialX: 0.0);
 
             // Act
             kalman.SetQ(0.5);
@@ -171,13 +172,13 @@ namespace BaselineMode.WPF.Tests
         public void KalmanFilter_HighR_SlowerResponse()
         {
             // Arrange - High R = trust model more, slower response to changes
-            var kalmanHighR = new KalmanFilter(
+            var kalmanHighR = new MathService.KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.01, R: 10.0,
-                initial_P: 1.0, initial_x: 0.0);
+                initialP: 1.0, initialX: 0.0);
 
-            var kalmanLowR = new KalmanFilter(
+            var kalmanLowR = new MathService.KalmanFilter(
                 A: 1.0, H: 1.0, Q: 0.01, R: 0.1,
-                initial_P: 1.0, initial_x: 0.0);
+                initialP: 1.0, initialX: 0.0);
 
             // Act - Single step from 0 to 10
             double outputHighR = kalmanHighR.Output(10.0);

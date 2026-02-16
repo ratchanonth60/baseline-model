@@ -1,4 +1,4 @@
-﻿<Window x:Class="BaselineMode.WPF.Views.Shared.UnifiedMainWindow"
+<Window x:Class="BaselineMode.WPF.Views.Shared.UnifiedMainWindow"
         x:Name="MainWindowRoot"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -365,8 +365,9 @@
                                 <TextBlock Text="STATUS" Foreground="#858585" FontSize="10"/>
                                 <TextBlock Text="{Binding StatusMessage}" Foreground="#4EC9B0" FontSize="11" FontWeight="SemiBold" 
                                            MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                                <ProgressBar Value="{Binding ProgressValue}" Maximum="100" Height="4" Width="120" 
-                                             Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"/>
+                                <ProgressBar Value="{Binding ProgressValue}" Minimum="0" Maximum="100" Height="4" Width="120" 
+                                             Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"
+                                             IsIndeterminate="{Binding IsProgressIndeterminate}"/>
                             </StackPanel>
                         </Border>
 
@@ -590,7 +591,7 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="STATUS" Foreground="#858585" FontSize="10"/>
                                 <TextBlock x:Name="ObsTxtStatus" Text="READY" Foreground="#4CAF50" FontSize="13" FontWeight="Bold"/>
-                                <ProgressBar x:Name="ObsProgressBar" Value="0" Maximum="100" Height="4" Width="100" 
+                                <ProgressBar x:Name="ObsProgressBar" Value="0" Minimum="0" Maximum="100" Height="4" Width="100" 
                                              Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"/>
                                 <TextBlock x:Name="ObsTxtProgress" Text="Ready" Foreground="#858585" FontSize="10" Margin="0,2,0,0"/>
                             </StackPanel>
@@ -698,9 +699,9 @@
                                 <TextBlock Text="STATUS" Foreground="#858585" FontSize="10"/>
                                 <TextBlock Text="{Binding CalibrationVM.StatusMessage}" Foreground="#4EC9B0" FontSize="11" FontWeight="SemiBold" 
                                            MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                                <ProgressBar Value="{Binding CalibrationVM.ProgressValue}" Maximum="100" Height="4" Width="100" 
+                                <ProgressBar Value="{Binding CalibrationVM.ProgressValue}" Minimum="0" Maximum="100" Height="4" Width="100" 
                                              Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"
-                                             IsIndeterminate="{Binding CalibrationVM.IsBusy}"/>
+                                             IsIndeterminate="{Binding CalibrationVM.IsProgressIndeterminate}"/>
                                 <TextBlock Text="{Binding CalibrationVM.HeaderCheckStatus}" FontSize="10" Margin="0,2,0,0">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -827,9 +828,9 @@
                                 <TextBlock Text="STATUS" Foreground="#858585" FontSize="10"/>
                                 <TextBlock Text="{Binding StatusMessage}" Foreground="#4EC9B0" FontSize="11" FontWeight="SemiBold" 
                                            MaxWidth="150" TextTrimming="CharacterEllipsis"/>
-                                <ProgressBar Value="{Binding ProgressValue}" Maximum="100" Height="4" Width="100" 
+                                <ProgressBar Value="{Binding ProgressValue}" Minimum="0" Maximum="100" Height="4" Width="100" 
                                              Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"
-                                             IsIndeterminate="{Binding IsBusy}"/>
+                                             IsIndeterminate="{Binding IsProgressIndeterminate}"/>
                                 <TextBlock Text="{Binding HeaderCheckStatus}" FontSize="10" Margin="0,2,0,0" Foreground="#FFD740"/>
                             </StackPanel>
                         </Border>
@@ -1842,8 +1843,8 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <ProgressBar x:Name="StatusProgressBar" Width="120" Height="6" Value="{Binding ProgressValue}" 
-                                 IsIndeterminate="{Binding IsBusy}"
+                    <ProgressBar x:Name="StatusProgressBar" Width="120" Height="6" Minimum="0" Maximum="100" Value="{Binding ProgressValue}" 
+                                 IsIndeterminate="{Binding IsProgressIndeterminate}"
                                  Background="#00000033" Foreground="#FFFFFFCC" BorderThickness="0"/>
                 </StackPanel>
 

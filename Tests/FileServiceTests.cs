@@ -1,13 +1,18 @@
 using Xunit;
-using BaselineMode.WPF.Services;
-using System.IO;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
+using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Core.Models.Baseline;
+using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Infrastructure.Services.Baseline;
 
 namespace BaselineMode.WPF.Tests
 {
     public class FileServiceTests
     {
-        private readonly FileService _fileService;
+        private readonly IFileService _fileService;
         private readonly string _tempDir;
 
         // Each 4128-char segment produces 15 BaselineData items (SAMPLES_PER_SEGMENT)
@@ -16,7 +21,7 @@ namespace BaselineMode.WPF.Tests
 
         public FileServiceTests()
         {
-            _fileService = new FileService();
+            _fileService = new BaselineFileService(new LoggerService());
             _tempDir = Path.Combine(Path.GetTempPath(), "BaselineModeFileTests");
             if (!Directory.Exists(_tempDir))
                 Directory.CreateDirectory(_tempDir);
@@ -46,14 +51,15 @@ namespace BaselineMode.WPF.Tests
         #region ProcessFileStream Tests
 
         [Fact]
-        public void ProcessFileStream_EmptyFile_ReturnsEmptyList()
+        public async Task ProcessFileStream_EmptyFile_ReturnsEmptyList()
         {
             // Arrange
             string emptyFile = Path.Combine(_tempDir, "empty.txt");
             File.WriteAllText(emptyFile, "");
 
             // Act
-            var result = _fileService.ProcessFileStream(emptyFile);
+            var res = await _fileService.ProcessFileStreamAsync(emptyFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -64,14 +70,15 @@ namespace BaselineMode.WPF.Tests
         }
 
         [Fact]
-        public void ProcessFileStream_NoE225Header_ReturnsEmptyList()
+        public async Task ProcessFileStream_NoE225Header_ReturnsEmptyList()
         {
             // Arrange
             string noHeaderFile = Path.Combine(_tempDir, "no_header.txt");
             File.WriteAllText(noHeaderFile, new string('A', 10000));
 
             // Act
-            var result = _fileService.ProcessFileStream(noHeaderFile);
+            var res = await _fileService.ProcessFileStreamAsync(noHeaderFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -82,7 +89,7 @@ namespace BaselineMode.WPF.Tests
         }
 
         [Fact]
-        public void ProcessFileStream_SingleValidSegment_Returns15Items()
+        public async Task ProcessFileStream_SingleValidSegment_Returns15Items()
         {
             // Arrange - Each segment produces 15 samples
             string singleFile = Path.Combine(_tempDir, "single_segment.txt");
@@ -90,7 +97,8 @@ namespace BaselineMode.WPF.Tests
             File.WriteAllText(singleFile, segment);
 
             // Act
-            var result = _fileService.ProcessFileStream(singleFile);
+            var res = await _fileService.ProcessFileStreamAsync(singleFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -101,7 +109,7 @@ namespace BaselineMode.WPF.Tests
         }
 
         [Fact]
-        public void ProcessFileStream_MultipleSegments_ReturnsCorrectCount()
+        public async Task ProcessFileStream_MultipleSegments_ReturnsCorrectCount()
         {
             // Arrange - 3 segments = 3 * 15 = 45 samples
             string multiFile = Path.Combine(_tempDir, "multi_segment.txt");
@@ -109,7 +117,8 @@ namespace BaselineMode.WPF.Tests
             File.WriteAllText(multiFile, content);
 
             // Act
-            var result = _fileService.ProcessFileStream(multiFile);
+            var res = await _fileService.ProcessFileStreamAsync(multiFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -120,7 +129,7 @@ namespace BaselineMode.WPF.Tests
         }
 
         [Fact]
-        public void ProcessFileStream_SegmentsWithNewlines_ParsesCorrectly()
+        public async Task ProcessFileStream_SegmentsWithNewlines_ParsesCorrectly()
         {
             // Arrange - Newlines are ignored, still 3 segments
             string nlFile = Path.Combine(_tempDir, "newlines.txt");
@@ -128,7 +137,8 @@ namespace BaselineMode.WPF.Tests
             File.WriteAllText(nlFile, content);
 
             // Act
-            var result = _fileService.ProcessFileStream(nlFile);
+            var res = await _fileService.ProcessFileStreamAsync(nlFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -139,7 +149,7 @@ namespace BaselineMode.WPF.Tests
         }
 
         [Fact]
-        public void ProcessFileStream_SegmentsWithSpaces_ParsesCorrectly()
+        public async Task ProcessFileStream_SegmentsWithSpaces_ParsesCorrectly()
         {
             // Arrange - Spaces are filtered out, hex chars only
             string spaceFile = Path.Combine(_tempDir, "spaces.txt");
@@ -150,7 +160,8 @@ namespace BaselineMode.WPF.Tests
             File.WriteAllText(spaceFile, content);
 
             // Act
-            var result = _fileService.ProcessFileStream(spaceFile);
+            var res = await _fileService.ProcessFileStreamAsync(spaceFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -161,7 +172,7 @@ namespace BaselineMode.WPF.Tests
         }
 
         [Fact]
-        public void ProcessFileStream_IncompleteSegmentAtEnd_IgnoresIncomplete()
+        public async Task ProcessFileStream_IncompleteSegmentAtEnd_IgnoresIncomplete()
         {
             // Arrange
             string incompleteFile = Path.Combine(_tempDir, "incomplete.txt");
@@ -170,7 +181,8 @@ namespace BaselineMode.WPF.Tests
             File.WriteAllText(incompleteFile, completeSegment + incompleteSegment);
 
             // Act
-            var result = _fileService.ProcessFileStream(incompleteFile);
+            var res = await _fileService.ProcessFileStreamAsync(incompleteFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert - Only the complete segment (15 samples)
             Assert.NotNull(result);
@@ -181,7 +193,7 @@ namespace BaselineMode.WPF.Tests
         }
 
         [Fact]
-        public void ProcessFileStream_GarbageBeforeHeader_FindsHeader()
+        public async Task ProcessFileStream_GarbageBeforeHeader_FindsHeader()
         {
             // Arrange
             string garbageFile = Path.Combine(_tempDir, "garbage_before.txt");
@@ -190,7 +202,8 @@ namespace BaselineMode.WPF.Tests
             File.WriteAllText(garbageFile, garbage + segment);
 
             // Act
-            var result = _fileService.ProcessFileStream(garbageFile);
+            var res = await _fileService.ProcessFileStreamAsync(garbageFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -201,7 +214,7 @@ namespace BaselineMode.WPF.Tests
         }
 
         [Fact]
-        public void ProcessFileStream_CaseInsensitiveHeader_Finds_e225()
+        public async Task ProcessFileStream_CaseInsensitiveHeader_Finds_e225()
         {
             // Arrange - lowercase e225
             string lowerFile = Path.Combine(_tempDir, "lowercase.txt");
@@ -209,7 +222,8 @@ namespace BaselineMode.WPF.Tests
             File.WriteAllText(lowerFile, segment);
 
             // Act
-            var result = _fileService.ProcessFileStream(lowerFile);
+            var res = await _fileService.ProcessFileStreamAsync(lowerFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert - Should find it (IndexOf is case-insensitive)
             Assert.NotNull(result);
@@ -224,7 +238,7 @@ namespace BaselineMode.WPF.Tests
         #region BaselineData Structure Tests
 
         [Fact]
-        public void ProcessFileStream_ValidSegment_PopulatesBaselineData()
+        public async Task ProcessFileStream_ValidSegment_PopulatesBaselineData()
         {
             // Arrange
             string dataFile = Path.Combine(_tempDir, "data_check.txt");
@@ -232,7 +246,8 @@ namespace BaselineMode.WPF.Tests
             File.WriteAllText(dataFile, segment);
 
             // Act
-            var result = _fileService.ProcessFileStream(dataFile);
+            var res = await _fileService.ProcessFileStreamAsync(dataFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -257,7 +272,7 @@ namespace BaselineMode.WPF.Tests
         #region Progress Reporting Tests
 
         [Fact]
-        public void ProcessFileStream_WithProgress_ReportsProgress()
+        public async Task ProcessFileStream_WithProgress_ReportsProgress()
         {
             // Arrange
             string progressFile = Path.Combine(_tempDir, "progress.txt");
@@ -273,7 +288,8 @@ namespace BaselineMode.WPF.Tests
             var progress = new Progress<double>(p => lastProgress = p);
 
             // Act
-            var result = _fileService.ProcessFileStream(progressFile, progress);
+            var res = await _fileService.ProcessFileStreamAsync(progressFile, progress);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert
             Assert.NotNull(result);
@@ -288,7 +304,7 @@ namespace BaselineMode.WPF.Tests
         #region Large File Handling
 
         [Fact]
-        public void ProcessFileStream_LargeFile_ProcessesWithoutMemoryIssue()
+        public async Task ProcessFileStream_LargeFile_ProcessesWithoutMemoryIssue()
         {
             // Arrange - Create a moderately large file with 500 segments
             string largeFile = Path.Combine(_tempDir, "large.txt");
@@ -301,7 +317,8 @@ namespace BaselineMode.WPF.Tests
             }
 
             // Act
-            var result = _fileService.ProcessFileStream(largeFile);
+            var res = await _fileService.ProcessFileStreamAsync(largeFile, null);
+            var result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
             // Assert - 500 segments * 15 samples = 7500
             Assert.NotNull(result);

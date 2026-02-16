@@ -521,7 +521,7 @@ namespace BaselineMode.WPF.Views.Observation
                             ? _viewModel.MathProvider.LorentzianFit(xFit, yFit)
                             : _viewModel.MathProvider.GaussianFit(xFit, yFit);
 
-                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        if (fitResult != null && fitResult.IsValid && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
                         {
                             if (!fitResult.FitCurve.Any(double.IsNaN))
                             {
@@ -633,7 +633,7 @@ namespace BaselineMode.WPF.Views.Observation
                         ? _viewModel.MathProvider.LorentzianFit(binMidpoints, hist)
                         : _viewModel.MathProvider.GaussianFit(binMidpoints, hist);
 
-                    if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == binMidpoints.Length)
+                    if (fitResult != null && fitResult.IsValid && fitResult.FitCurve != null && fitResult.FitCurve.Length == binMidpoints.Length)
                     {
                         if (!fitResult.FitCurve.Any(double.IsNaN))
                         {
@@ -795,7 +795,7 @@ namespace BaselineMode.WPF.Views.Observation
                             ? _viewModel.MathProvider.LorentzianFit(xFit, yFit)
                             : _viewModel.MathProvider.GaussianFit(xFit, yFit);
 
-                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        if (fitResult != null && fitResult.IsValid && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
                         {
                             if (!fitResult.FitCurve.Any(double.IsNaN))
                             {

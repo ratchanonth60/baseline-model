@@ -2,6 +2,9 @@ namespace BaselineMode.WPF.Core.Models.Baseline
 {
     public class FittingResult
     {
+        /// <summary>True when fit succeeded and result is usable; false for Empty or failed fit.</summary>
+        public bool IsValid { get; set; }
+
         public double[] FitCurve { get; set; } = [];
         public double Mu { get; set; }
         public double Sigma { get; set; }
@@ -28,6 +31,7 @@ namespace BaselineMode.WPF.Core.Models.Baseline
 
         public FittingResult(double[] fitCurve, double mu, double sigma, double peak, double rms)
         {
+            IsValid = true;
             FitCurve = fitCurve;
             Mu = mu;
             Sigma = sigma;
@@ -44,6 +48,7 @@ namespace BaselineMode.WPF.Core.Models.Baseline
         public FittingResult(double[] fitCurve, double a, double mu, double sigma, double tauL1,
             double tauR1, double etaL1, double etaR1)
         {
+            IsValid = true;
             FitCurve = fitCurve;
             A = a;
             Mu = mu;
@@ -58,7 +63,11 @@ namespace BaselineMode.WPF.Core.Models.Baseline
 
         public static FittingResult Empty(int length)
         {
-            return new FittingResult(new double[length], 0, 0, 0, 0);
+            var empty = new FittingResult(new double[length], 0, 0, 0, 0)
+            {
+                IsValid = false
+            };
+            return empty;
         }
     }
 }

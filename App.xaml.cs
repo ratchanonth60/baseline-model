@@ -30,8 +30,9 @@ public partial class App : Application
 
     private static void ConfigureServices(ServiceCollection services)
     {
-        // Core Services
+        // Core Services (order: Logger first, then HEMG and Math depend on it)
         services.AddSingleton<ILoggerService, LoggerService>();
+        services.AddSingleton<IHemgFittingService, HemgFittingService>();
         services.AddSingleton<IMathService, MathService>();
         services.AddSingleton<IFileService, BaselineFileService>(); // Updated
         services.AddSingleton<IObservationDataProcessor, ObservationDataProcessor>();

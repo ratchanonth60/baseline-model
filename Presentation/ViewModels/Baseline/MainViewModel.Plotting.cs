@@ -178,22 +178,22 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         if (ShowGaussianFit)
                         {
                             var res = _mathService.GaussianFit(binCenters, counts);
-                            if (res.FitCurve != null) fitResults["Gaussian"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.LimeGreen, Label = "Gaussian" };
+                            if (res.IsValid && res.FitCurve != null) fitResults["Gaussian"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.LimeGreen, Label = "Gaussian" };
                         }
                         if (ShowHemgSingleFit)
                         {
                             var res = _mathService.HyperEMGFit(binCenters, counts, filteredData);
-                            if (res.FitCurve != null) fitResults["HEMG-S"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Red, Label = "HEMG(1)" };
+                            if (res.IsValid && res.FitCurve != null) fitResults["HEMG-S"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Red, Label = "HEMG(1)" };
                         }
                         if (ShowHemgDoubleFit)
                         {
                             var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
-                            if (res.FitCurve != null) fitResults["HEMG-D"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Magenta, Label = "HEMG(2)" };
+                            if (res.IsValid && res.FitCurve != null) fitResults["HEMG-D"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Magenta, Label = "HEMG(2)" };
                         }
                         if (ShowLorentzianFit)
                         {
                             var res = _mathService.LorentzianFit(binCenters, counts);
-                            if (res.FitCurve != null) fitResults["Lorentzian"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Cyan, Label = "Lorentzian" };
+                            if (res.IsValid && res.FitCurve != null) fitResults["Lorentzian"] = new ChannelViewModel.FitData { Curve = res.FitCurve, Color = System.Drawing.Color.Cyan, Label = "Lorentzian" };
                         }
 
                         ProcessChannelData(chIndex, filteredData, counts, binCenters, fitResults);

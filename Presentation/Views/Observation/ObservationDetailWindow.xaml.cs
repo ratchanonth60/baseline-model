@@ -143,7 +143,7 @@ namespace BaselineMode.WPF.Views.Observation
 
                         var fitResult = fitFunc(xFit, yFit);
 
-                        if (fitResult?.FitCurve != null && fitResult.Peak > 0)
+                        if (fitResult?.IsValid == true && fitResult.FitCurve != null && fitResult.Peak > 0)
                         {
                             var scatter = DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve, color, lineWidth: 2, markerSize: 0, label: name);
 
