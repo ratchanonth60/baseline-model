@@ -19,23 +19,38 @@ namespace BaselineMode.WPF.Views.Observation
         private System.Drawing.Color _dataColor = System.Drawing.Color.FromArgb(255, 0, 150, 136);
         private bool _isUpdatingUi;
 
+        private double _xMin = 0;
+        private double _xMax = 4096;
+        private int _binCount = 4096;
+        private double _barWidthMultiplier = 1.0;
+
         public ObservationDetailWindow(IMathService fittingService) : this()
         {
             _fittingService = fittingService;
-            ChkShowFit.Checked += (s, e) => UpdatePlot();
-            ChkShowFit.Unchecked += (s, e) => UpdatePlot();
+            ChkShowGauss.Checked += (s, e) => UpdatePlot();
+            ChkShowGauss.Unchecked += (s, e) => UpdatePlot();
+            ChkShowLorentz.Checked += (s, e) => UpdatePlot();
+            ChkShowLorentz.Unchecked += (s, e) => UpdatePlot();
+            ChkShowHemg.Checked += (s, e) => UpdatePlot();
+            ChkShowHemg.Unchecked += (s, e) => UpdatePlot();
         }
 
-        public void ShowHistogram(double[] data, string title, bool showFit = true, System.Drawing.Color? color = null)
+        public void ShowHistogram(double[] data, string title, bool showFit = true, System.Drawing.Color? color = null,
+            double xMin = 0, double xMax = 4096, int binCount = 4096, double barWidthMultiplier = 1.0)
         {
             _currentData = data;
             _currentTitle = title;
             if (color.HasValue) _dataColor = color.Value;
+            _xMin = xMin;
+            _xMax = xMax;
+            _binCount = binCount;
+            _barWidthMultiplier = barWidthMultiplier;
+
             TitleText.Text = title;
             Title = $"Detail View - {title}";
 
             _isUpdatingUi = true;
-            ChkShowFit.IsChecked = showFit;
+            ChkShowGauss.IsChecked = showFit; // Default Gaussian
             _isUpdatingUi = false;
 
             UpdatePlot();
@@ -83,7 +98,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
 
             // Create histogram
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 4096);
+            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: _xMin, max: _xMax, binCount: _binCount);
             double[] binMidpoints = new double[hist.Length];
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
@@ -91,7 +106,7 @@ namespace BaselineMode.WPF.Views.Observation
             // วาด Bar Chart (Raw Data)
             double binWidth = binEdges[1] - binEdges[0];
             var bar = DetailPlot.Plot.AddBar(hist, binMidpoints);
-            bar.BarWidth = binWidth;
+            bar.BarWidth = binWidth * _barWidthMultiplier;
             bar.FillColor = _dataColor;
 
             // Reset Stats
@@ -101,59 +116,65 @@ namespace BaselineMode.WPF.Views.Observation
             TxtFWHM.Text = "-";
             TxtResolution.Text = "-";
 
-            // Try Gaussian fit if checked
-            if (ChkShowFit.IsChecked == true && _fittingService != null)
+            // Multi-Fit Logic
+            if (_fittingService != null)
             {
-                try
+                var fitConfigs = new[]
                 {
-                    // หาจุด Peak เบื้องต้น
-                    double maxVal = hist.Max();
-                    int peakIdx = Array.IndexOf(hist, maxVal);
+                    (isEnabled: ChkShowGauss.IsChecked == true, name: "Gaussian", color: System.Drawing.Color.Red, fitFunc: (System.Func<double[], double[], Core.Models.Baseline.FittingResult>)_fittingService.GaussianFit),
+                    (isEnabled: ChkShowLorentz.IsChecked == true, name: "Lorentzian", color: System.Drawing.Color.Cyan, fitFunc: (System.Func<double[], double[], Core.Models.Baseline.FittingResult>)_fittingService.LorentzianFit),
+                    (isEnabled: ChkShowHemg.IsChecked == true, name: "HEMG", color: System.Drawing.Color.Lime, fitFunc: (System.Func<double[], double[], Core.Models.Baseline.FittingResult>)_fittingService.HemgDoubleSidedFit)
+                };
 
-                    // ตัดข้อมูลเฉพาะช่วง Peak +/- 100 ช่อง (ห้ามส่ง 4096 ช่องเข้าไปตรงๆ)
-                    int win = 100;
-                    int start = Math.Max(0, peakIdx - win);
-                    int end = Math.Min(hist.Length - 1, peakIdx + win);
-                    int len = end - start;
-
-                    double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                    double[] yFit = hist.Skip(start).Take(len).ToArray();
-
-                    // ส่งข้อมูลที่ Crop แล้วไป Fit
-                    var fitResult = _fittingService.GaussianFit(xFit, yFit);
-
-                    if (fitResult?.FitCurve != null && fitResult.Peak > 0)
+                foreach (var cfg in fitConfigs.Where(c => c.isEnabled))
+                {
+                    try
                     {
-                        // วาดเส้น Fit Curve
-                        DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve,
-                            System.Drawing.Color.Red, lineWidth: 2, markerSize: 0);
+                        double maxVal = hist.Max();
+                        int peakIdx = Array.IndexOf(hist, maxVal);
+                        int win = 100;
+                        int start = Math.Max(0, peakIdx - win);
+                        int end = Math.Min(hist.Length - 1, peakIdx + win);
+                        int len = end - start;
+                        if (len < 3) continue;
 
-                        // จุดเหลืองบนยอด Peak
-                        DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, System.Drawing.Color.Yellow, 10);
+                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
+                        double[] yFit = hist.Skip(start).Take(len).ToArray();
 
-                        // อัปเดตตัวเลขบนหน้าจอ
-                        TxtPeak.Text = $"{fitResult.Peak:F0}";
-                        TxtMean.Text = $"{fitResult.Mu:F2}";
-                        TxtRMS.Text = $"{fitResult.Sigma:F2}";
-                        TxtFWHM.Text = $"{fitResult.FWHM:F2}";
-                        TxtResolution.Text = $"{fitResult.Resolution:F2}%";
+                        var fitResult = cfg.fitFunc(xFit, yFit);
+
+                        if (fitResult?.FitCurve != null && fitResult.Peak > 0)
+                        {
+                            var scatter = DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve, cfg.color, lineWidth: 2, markerSize: 0, label: cfg.name);
+
+                            // Highlight peak for active fit
+                            DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, System.Drawing.Color.Yellow, 8);
+
+                            // Update stats labels (last enabled wins)
+                            TxtPeak.Text = $"{fitResult.Peak:F0}";
+                            TxtMean.Text = $"{fitResult.Mu:F2}";
+                            TxtRMS.Text = $"{fitResult.Sigma:F2}";
+                            TxtFWHM.Text = $"{fitResult.FWHM:F2}";
+                            TxtResolution.Text = $"{fitResult.Resolution:F2}%";
+                        }
                     }
+                    catch { }
                 }
-                catch { /* Handle Error */ }
+
+                if (fitConfigs.Count(c => c.isEnabled) > 1)
+                    DetailPlot.Plot.Legend(location: ScottPlot.Alignment.UpperRight);
             }
-            else
+
+            if (TxtPeak.Text == "-") // If no fit was successful or enabled
             {
-                // Calculate basic stats manually if fit is disabled
                 TxtPeak.Text = $"{hist.Max()}";
                 TxtMean.Text = $"{filteredData.Average():F2}";
-
                 double avg = filteredData.Average();
-                double sumSquares = filteredData.Sum(d => Math.Pow(d - avg, 2));
-                double stdDev = Math.Sqrt(sumSquares / filteredData.Length);
+                double stdDev = Math.Sqrt(filteredData.Sum(d => Math.Pow(d - avg, 2)) / filteredData.Length);
                 TxtRMS.Text = $"{stdDev:F2}";
             }
 
-            DetailPlot.Plot.SetAxisLimits(yMin: 0);
+            DetailPlot.Plot.SetAxisLimits(xMin: _xMin, xMax: _xMax, yMin: 0);
             DetailPlot.Refresh();
         }
     }

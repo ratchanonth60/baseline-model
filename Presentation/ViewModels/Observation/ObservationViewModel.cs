@@ -86,10 +86,34 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         partial void OnBarWidthMultiplierChanged(double value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
 
         [ObservableProperty]
-        private string _startTimeStr = "-";
+        private string _stopTimeStr = "-";
+
+        // Fit Selection Flags (DSSD)
+        [ObservableProperty]
+        private bool _showGaussianFitDSSD = true;
 
         [ObservableProperty]
-        private string _stopTimeStr = "-";
+        private bool _showLorentzianFitDSSD = false;
+
+        [ObservableProperty]
+        private bool _showHemgFitDSSD = false;
+
+        // Fit Selection Flags (BGO)
+        [ObservableProperty]
+        private bool _showGaussianFitBGO = true;
+
+        [ObservableProperty]
+        private bool _showLorentzianFitBGO = false;
+
+        [ObservableProperty]
+        private bool _showHemgFitBGO = false;
+
+        partial void OnShowGaussianFitDSSDChanged(bool value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnShowLorentzianFitDSSDChanged(bool value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnShowHemgFitDSSDChanged(bool value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnShowGaussianFitBGOChanged(bool value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnShowLorentzianFitBGOChanged(bool value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnShowHemgFitBGOChanged(bool value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
 
         public Dictionary<string, int[]>? HistogramData { get; private set; }
 

@@ -40,7 +40,12 @@
                 <TextBlock Text="FWHM:" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
                 <TextBlock x:Name="TxtFWHM" Text="-" Foreground="#40C4FF" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
                 <TextBlock x:Name="TxtResolution" Text="-" Foreground="#FF80AB" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                <CheckBox x:Name="ChkShowFit" Content="Show Gaussian Fit" IsChecked="False" Foreground="#4EC9B0" VerticalAlignment="Center"/>
+                
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                    <CheckBox x:Name="ChkShowGauss" Content="G" ToolTip="Gaussian" IsChecked="True" Foreground="#FF5252" Margin="0,0,8,0"/>
+                    <CheckBox x:Name="ChkShowLorentz" Content="L" ToolTip="Lorentzian" IsChecked="False" Foreground="#40C4FF" Margin="0,0,8,0"/>
+                    <CheckBox x:Name="ChkShowHemg" Content="H" ToolTip="HEMG" IsChecked="False" Foreground="#69F0AE" Margin="0,0,8,0"/>
+                </StackPanel>
             </WrapPanel>
         </Border>
     </Grid>

@@ -227,7 +227,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return J;
         }
 
-        private double[] SolveLinearSystem(double[][] A, double[] b)
+        private double[]? SolveLinearSystem(double[][] A, double[] b)
         {
             int n = b.Length;
             // Simple Gaussian Elimination with pivoting

@@ -26,14 +26,10 @@ namespace BaselineMode.WPF.Infrastructure.Services
         // ==========================================
         // 1. KALMAN FILTER (นำกลับมาให้แล้ว)
         // ==========================================
-        public class KalmanFilter
+        public class KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
         {
-            private double A, H, Q, R, P, x;
-
-            public KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
-            {
-                this.A = A; this.H = H; this.Q = Q; this.R = R; this.P = initial_P; this.x = initial_x;
-            }
+            private double Q = Q;
+            private double R = R;
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetR(double R) => this.R = R;
@@ -48,13 +44,13 @@ namespace BaselineMode.WPF.Infrastructure.Services
             public double Output(double input)
             {
                 // Time update
-                x = A * x;
-                P = A * P * A + Q;
+                initial_x = A * initial_x;
+                initial_P = A * initial_P * A + Q;
                 // Measurement update
-                double K = P * H / (H * P * H + R);
-                x = x + K * (input - H * x);
-                P = (1 - K * H) * P;
-                return x;
+                double K = initial_P * H / (H * initial_P * H + R);
+                initial_x += K * (input - H * initial_x);
+                initial_P = (1 - K * H) * initial_P;
+                return initial_x;
             }
         }
 
@@ -297,83 +293,8 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
         }
 
-        // ==========================================
-        // 5. SOLVER & MATH UTILITIES
-        // ==========================================
-        private double[] FitCurveLevenbergMarquardtManual(double[] initialP, double[] x, double[] y, Func<double[], double, double> modelFunc)
-        {
-            int n = initialP.Length;
-            int m = x.Length;
-            double[] p = (double[])initialP.Clone();
-            double lambda = 0.001;
-
-            double[] residuals = _doublePool.Rent(m);
-            double[][] J = _jaggedPool.Rent(m);
-            for (int i = 0; i < m; i++) J[i] = _doublePool.Rent(n);
-            double[][] JtJ = _jaggedPool.Rent(n);
-            for (int i = 0; i < n; i++) JtJ[i] = _doublePool.Rent(n);
-            double[] JtRes = _doublePool.Rent(n);
-            double[] pNew = _doublePool.Rent(n);
-
-            try
-            {
-                double currentError = CalcResiduals(p, x, y, modelFunc, residuals);
-
-                for (int iter = 0; iter < 50; iter++)
-                {
-                    CalcJacobian(p, x, modelFunc, J, m, n);
-
-                    for (int i = 0; i < n; i++)
-                    {
-                        JtRes[i] = 0;
-                        Array.Clear(JtJ[i], 0, n);
-                        for (int k = 0; k < m; k++)
-                        {
-                            double jki = J[k][i];
-                            JtRes[i] += jki * residuals[k];
-                            for (int j = 0; j <= i; j++) JtJ[i][j] += jki * J[k][j];
-                        }
-                    }
-                    for (int i = 0; i < n; i++) for (int j = i + 1; j < n; j++) JtJ[i][j] = JtJ[j][i];
-                    for (int i = 0; i < n; i++) JtJ[i][i] *= (1.0 + lambda);
-
-                    double[] delta = SolveLinearSystem(JtJ, JtRes, n);
-                    for (int i = 0; i < n; i++) pNew[i] = p[i] + delta[i];
-
-                    // [FIX 3] เรียก Constraints ที่ขยายขอบเขต (5000)
-                    EnforceConstraints(pNew);
-
-                    double newError = CalcResiduals(pNew, x, y, modelFunc, null);
-
-                    if (newError < currentError)
-                    {
-                        lambda /= 10.0;
-                        currentError = newError;
-                        Array.Copy(pNew, p, n);
-                        if (lambda < 1e-7) lambda = 1e-7;
-                    }
-                    else
-                    {
-                        lambda *= 10.0;
-                        if (lambda > 1e7) break;
-                    }
-                }
-            }
-            finally
-            {
-                _doublePool.Return(residuals);
-                for (int i = 0; i < m; i++) _doublePool.Return(J[i]);
-                _jaggedPool.Return(J);
-                for (int i = 0; i < n; i++) _doublePool.Return(JtJ[i]);
-                _jaggedPool.Return(JtJ);
-                _doublePool.Return(JtRes);
-                _doublePool.Return(pNew);
-            }
-            return p;
-        }
-
         // [FIX 4] ขยายขอบเขตให้รองรับข้อมูล ADC Channel
-        private void EnforceConstraints(double[] p)
+        private static void EnforceConstraints(double[] p)
         {
             if (p[0] < 0) p[0] = 0; // Amp
             // Sigma: ขยายจาก 50 เป็น 5000
@@ -430,7 +351,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return sign * y;
         }
 
-        private double CalcResiduals(double[] p, double[] x, double[] y, Func<double[], double, double> func, double[]? residuals)
+        private static double CalcResiduals(double[] p, double[] x, double[] y, Func<double[], double, double> func, double[]? residuals)
         {
             double sumSq = 0;
             for (int i = 0; i < x.Length; i++)
@@ -442,7 +363,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return sumSq;
         }
 
-        private void CalcJacobian(double[] p, double[] x, Func<double[], double, double> func, double[][] J, int m, int n)
+        private static void CalcJacobian(double[] p, double[] x, Func<double[], double, double> func, double[][] J, int m, int n)
         {
             double eps = 1e-5;
             double[] pPerturbed = _doublePool.Rent(n);

@@ -510,8 +510,8 @@ namespace BaselineMode.WPF.Views.Observation
 
                     if (len > 3)
                     {
-                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+                        double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
+                        double[] yFit = [.. hist.Skip(start).Take(len)];
 
                         var fitResult = selectedFit == "Lorentzian"
                             ? _viewModel.MathProvider.LorentzianFit(xFit, yFit)
@@ -714,7 +714,7 @@ namespace BaselineMode.WPF.Views.Observation
                     else deviation = 0;
 
                     // Legacy logic: keep values > mean + k*sigma
-                    filteredData = filteredData.Where(v => v > (mean + k * deviation)).ToArray();
+                    filteredData = [.. filteredData.Where(v => v > (mean + k * deviation))];
                 }
             }
 
@@ -784,8 +784,8 @@ namespace BaselineMode.WPF.Views.Observation
 
                     if (len > 3)
                     {
-                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+                        double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
+                        double[] yFit = [.. hist.Skip(start).Take(len)];
 
                         var fitResult = selectedBGOFit == "Lorentzian"
                             ? _viewModel.MathProvider.LorentzianFit(xFit, yFit)

@@ -19,6 +19,7 @@ using ScottPlot;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Calibration;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
+using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
@@ -28,6 +29,9 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private readonly IFileService _fileService;
         private readonly IMathService _mathService;
         private bool _disposed = false;
+
+        [ObservableProperty]
+        private ObservationViewModel? _observationVM;
 
         [ObservableProperty]
         private CalibrationViewModel _calibrationVM;
@@ -182,6 +186,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor);
             // Initialize FluxVM
             _fluxVM = new FluxViewModel(fileHelper, dataProcessor);
+            // ObservationVM will be assigned from outside or we could initialize it here
+            // But since it's injected into MainWindow, we'll assign it there.
 
             // Initialize 16 channels
             InitializeChannels();
