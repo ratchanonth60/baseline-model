@@ -19,6 +19,7 @@ using ScottPlot;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Calibration;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
+using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
@@ -27,7 +28,11 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
     {
         private readonly IFileService _fileService;
         private readonly IMathService _mathService;
+        private readonly ILoggerService _logger;
         private bool _disposed = false;
+
+        [ObservableProperty]
+        private ObservationViewModel? _observationVM;
 
         [ObservableProperty]
         private CalibrationViewModel _calibrationVM;
@@ -42,10 +47,15 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private System.Windows.Media.Brush _statusColor = System.Windows.Media.Brushes.Gray;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
         private bool _isBusy;
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
         private double _progressValue;
+
+        /// <summary>True when busy and progress not yet reported (show indeterminate bar).</summary>
+        public bool IsProgressIndeterminate => IsBusy && ProgressValue <= 0;
 
         [ObservableProperty]
         private string _inputFilesInfo = "No files selected";
@@ -113,7 +123,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         [ObservableProperty]
         private bool _showLorentzianFit = false;
 
-        // Deprecated: private int _selectedFitMethod = 0; 
+        // --- Fitting Algorithm Selection ---
+        [ObservableProperty]
+        private FittingAlgorithm _selectedFittingAlgorithm = FittingAlgorithm.LevenbergMarquardt;
+
+        public static IEnumerable<FittingAlgorithm> FittingAlgorithmOptions => Enum.GetValues<FittingAlgorithm>().Cast<FittingAlgorithm>();
+
+        partial void OnSelectedFittingAlgorithmChanged(FittingAlgorithm value)
+        {
+            if (_mathService != null)
+            {
+                _mathService.Algorithm = value;
+                RefreshIfHasData();
+            }
+        }
 
         partial void OnShowGaussianFitChanged(bool value) => RefreshIfHasData();
         partial void OnShowHemgSingleFitChanged(bool value) => RefreshIfHasData();
@@ -160,15 +183,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
         public event EventHandler<PlotUpdateEventArgs>? RequestPlotUpdate;
 
-        public MainViewModel(IFileService fileService, IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor)
+        public MainViewModel(IFileService fileService, IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger)
         {
             _fileService = fileService;
             _mathService = mathService;
+            _logger = logger;
 
             // Initialize CalibrationVM with dependencies
-            _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor);
+            _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor, logger);
             // Initialize FluxVM
-            _fluxVM = new FluxViewModel(fileHelper, dataProcessor);
+            _fluxVM = new FluxViewModel(fileHelper, dataProcessor, logger);
+            // ObservationVM will be assigned from outside or we could initialize it here
+            // But since it's injected into MainWindow, we'll assign it there.
 
             // Initialize 16 channels
             InitializeChannels();

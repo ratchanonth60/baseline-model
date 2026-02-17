@@ -1,10 +1,14 @@
 using Xunit;
-using BaselineMode.WPF.Views.models;
-using BaselineMode.WPF.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using BaselineMode.WPF.Core.Models.Baseline;
+using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Infrastructure.Services.Baseline;
+using BaselineMode.WPF.Infrastructure.Services.Observation;
+using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 
 namespace BaselineMode.WPF.Tests
 {
@@ -14,13 +18,24 @@ namespace BaselineMode.WPF.Tests
     /// </summary>
     public class MainViewModelTests
     {
+        private static MainViewModel CreateMainViewModel()
+        {
+            var logger = new LoggerService();
+            var fileService = new BaselineFileService(logger);
+            var hemg = new HemgFittingService(logger);
+            var mathService = new MathService(hemg, logger);
+            var fileHelper = new FileHelper(logger);
+            var dataProcessor = new ObservationDataProcessor();
+            return new MainViewModel(fileService, mathService, fileHelper, dataProcessor, logger);
+        }
+
         #region Constructor Tests
 
         [Fact]
         public void Constructor_InitializesDefaultValues()
         {
             // Arrange & Act
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.Equal("Ready", vm.StatusMessage);
@@ -35,7 +50,7 @@ namespace BaselineMode.WPF.Tests
         public void Constructor_InitializesChannels()
         {
             // Arrange & Act
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.Equal(8, vm.ChannelsX.Count); // X-direction channels
@@ -50,7 +65,7 @@ namespace BaselineMode.WPF.Tests
         public void ResetCommand_ClearsSelectedFiles()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             
             // Act
             vm.ResetCommand.Execute(null);
@@ -65,7 +80,7 @@ namespace BaselineMode.WPF.Tests
         public void ResetCommand_ClearsProcessedData()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             
             // Act
             vm.ResetCommand.Execute(null);
@@ -78,7 +93,7 @@ namespace BaselineMode.WPF.Tests
         public void ResetCommand_ResetsCurrentPage()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             
             // Act
             vm.ResetCommand.Execute(null);
@@ -95,7 +110,7 @@ namespace BaselineMode.WPF.Tests
         public void StopCommand_SetsStatusMessage()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.StopCommand.Execute(null);
@@ -112,7 +127,7 @@ namespace BaselineMode.WPF.Tests
         public void NextPageCommand_IncrementsCurrentPage_WhenNotAtEnd()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             vm.ProcessedData = GenerateSampleData(250); // Enough for multiple pages
             vm.CurrentPage = 1;
             
@@ -130,7 +145,7 @@ namespace BaselineMode.WPF.Tests
         public void PreviousPageCommand_DecrementsCurrentPage_WhenNotAtStart()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             vm.CurrentPage = 2;
 
             // Act
@@ -144,7 +159,7 @@ namespace BaselineMode.WPF.Tests
         public void PreviousPageCommand_DoesNotDecrementBelowOne()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             vm.CurrentPage = 1;
 
             // Act
@@ -162,7 +177,7 @@ namespace BaselineMode.WPF.Tests
         public void SelectedLayerIndex_CanBeChanged()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.SelectedLayerIndex = 2;
@@ -175,7 +190,7 @@ namespace BaselineMode.WPF.Tests
         public void SelectedDirectionIndex_CanBeChanged()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.SelectedDirectionIndex = 1;
@@ -188,7 +203,7 @@ namespace BaselineMode.WPF.Tests
         public void SelectedMode_CanBeChanged()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.SelectedMode = 1;
@@ -201,7 +216,7 @@ namespace BaselineMode.WPF.Tests
         public void SelectedBaselineMode_CanBeChanged()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.SelectedBaselineMode = 2;
@@ -214,7 +229,7 @@ namespace BaselineMode.WPF.Tests
         public void UseKalmanFilter_CanBeToggled()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.UseKalmanFilter = true;
@@ -227,7 +242,7 @@ namespace BaselineMode.WPF.Tests
         public void UseThresholding_CanBeToggled()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.UseThresholding = true;
@@ -240,20 +255,20 @@ namespace BaselineMode.WPF.Tests
         public void UseGaussianFit_CanBeToggled()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
-            vm.UseGaussianFit = true;
+            vm.ShowGaussianFit = true;
 
             // Assert
-            Assert.True(vm.UseGaussianFit);
+            Assert.True(vm.ShowGaussianFit);
         }
 
         [Fact]
         public void KFactor_CanBeChanged()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.KFactor = 3.5;
@@ -266,7 +281,7 @@ namespace BaselineMode.WPF.Tests
         public void ThresholdValue_CanBeChanged()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.ThresholdValue = 100;
@@ -279,7 +294,7 @@ namespace BaselineMode.WPF.Tests
         public void OutputFileName_CanBeChanged()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.OutputFileName = "test_output.xlsx";
@@ -296,7 +311,7 @@ namespace BaselineMode.WPF.Tests
         public void CanSaveMean_DefaultIsFalse()
         {
             // Arrange & Act
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.False(vm.CanSaveMean);
@@ -306,7 +321,7 @@ namespace BaselineMode.WPF.Tests
         public void CanSaveMean_UpdatedWhenBaselineModeChanges()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act - Set to mode 0 or 1 (non-log scale modes enable CanSaveMean)
             vm.SelectedBaselineMode = 0;
@@ -323,7 +338,7 @@ namespace BaselineMode.WPF.Tests
         public void IsBusy_CanBeSet()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             // Note: IsBusy is typically set internally, but we test the property works
@@ -336,7 +351,7 @@ namespace BaselineMode.WPF.Tests
         public void ProgressValue_DefaultIsZero()
         {
             // Arrange & Act
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.Equal(0, vm.ProgressValue);
@@ -346,7 +361,7 @@ namespace BaselineMode.WPF.Tests
         public void StatusMessage_CanBeChanged()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Act
             vm.StatusMessage = "Processing...";
@@ -363,7 +378,7 @@ namespace BaselineMode.WPF.Tests
         public void SelectFilesCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.SelectFilesCommand);
@@ -373,7 +388,7 @@ namespace BaselineMode.WPF.Tests
         public void PreProcessDataCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.PreProcessDataCommand);
@@ -383,7 +398,7 @@ namespace BaselineMode.WPF.Tests
         public void BrowseOutputDirectoryCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.BrowseOutputDirectoryCommand);
@@ -393,7 +408,7 @@ namespace BaselineMode.WPF.Tests
         public void CheckHeaderCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.CheckHeaderCommand);
@@ -403,7 +418,7 @@ namespace BaselineMode.WPF.Tests
         public void ProcessDataCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.ProcessDataCommand);
@@ -413,7 +428,7 @@ namespace BaselineMode.WPF.Tests
         public void StopCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.StopCommand);
@@ -423,7 +438,7 @@ namespace BaselineMode.WPF.Tests
         public void ResetCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.ResetCommand);
@@ -433,7 +448,7 @@ namespace BaselineMode.WPF.Tests
         public void ShowHeatmapCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.ShowHeatmapCommand);
@@ -443,7 +458,7 @@ namespace BaselineMode.WPF.Tests
         public void SaveMeanCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.SaveMeanCommand);
@@ -453,7 +468,7 @@ namespace BaselineMode.WPF.Tests
         public void ShowChannelDetailCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.ShowChannelDetailCommand);
@@ -463,7 +478,7 @@ namespace BaselineMode.WPF.Tests
         public void NextPageCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.NextPageCommand);
@@ -473,7 +488,7 @@ namespace BaselineMode.WPF.Tests
         public void PreviousPageCommand_Exists()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.NotNull(vm.PreviousPageCommand);
@@ -487,7 +502,7 @@ namespace BaselineMode.WPF.Tests
         public void ProcessDataCommand_SetsErrorMessage_WhenNoFilesSelected()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             vm.ResetCommand.Execute(null); // Ensure no files selected
 
             // Act
@@ -501,7 +516,7 @@ namespace BaselineMode.WPF.Tests
         public void PreProcessDataCommand_SetsErrorMessage_WhenNoFilesSelected()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             vm.ResetCommand.Execute(null);
 
             // Act
@@ -515,7 +530,7 @@ namespace BaselineMode.WPF.Tests
         public void ShowHeatmapCommand_SetsErrorMessage_WhenNoData()
         {
             // Arrange
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
             vm.ResetCommand.Execute(null);
 
             // Act
@@ -533,7 +548,7 @@ namespace BaselineMode.WPF.Tests
         public void Channels_AreProperlyNamed()
         {
             // Arrange & Act
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             for (int i = 0; i < vm.Channels.Count; i++)
@@ -546,7 +561,7 @@ namespace BaselineMode.WPF.Tests
         public void ChannelsX_ContainsFirstEightChannels()
         {
             // Arrange & Act
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.Equal(8, vm.ChannelsX.Count);
@@ -560,7 +575,7 @@ namespace BaselineMode.WPF.Tests
         public void ChannelsZ_ContainsLastEightChannels()
         {
             // Arrange & Act
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.Equal(8, vm.ChannelsZ.Count);
@@ -578,7 +593,7 @@ namespace BaselineMode.WPF.Tests
         public void CurrentDateTime_IsSet()
         {
             // Arrange & Act
-            var vm = new MainViewModel();
+            var vm = CreateMainViewModel();
 
             // Assert
             Assert.True(vm.CurrentDateTime > DateTime.MinValue);
@@ -609,12 +624,12 @@ namespace BaselineMode.WPF.Tests
             return data;
         }
 
-        private double[] GenerateRandomChannelData(Random random)
+        private float[] GenerateRandomChannelData(Random random)
         {
-            var data = new double[16];
+            var data = new float[16];
             for (int i = 0; i < 16; i++)
             {
-                data[i] = random.NextDouble() * 16383;
+                data[i] = (float)(random.NextDouble() * 16383);
             }
             return data;
         }

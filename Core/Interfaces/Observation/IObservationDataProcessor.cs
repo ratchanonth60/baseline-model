@@ -12,7 +12,7 @@ namespace BaselineMode.WPF.Core.Interfaces.Observation
 
         // File processing methods
         System.Threading.Tasks.Task<Dictionary<string, int[]>> ProcessFilesAsync(string[] filePaths);
-        string ReadHeader(string filePath);
+        System.Threading.Tasks.Task<string> ReadHeaderAsync(string filePath);
 
         // Generic accessors
         Dictionary<DetectorLayer, LayerData> DSSDData { get; }

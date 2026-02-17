@@ -1,23 +1,27 @@
 using System;
+using System.Collections.Concurrent; // สำหรับ Parallel Partitioner
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using BaselineMode.WPF.Core.Models;
-using BaselineMode.WPF.Infrastructure.Services;
+using System.Globalization;
+using System.Buffers.Binary; // สำหรับการแปลง Byte แบบรวดเร็ว
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using BaselineMode.WPF.Core.Models.Baseline;
-using BaselineMode.WPF.Core.Models.Shared;
-using BaselineMode.WPF.Core.Models.Flux;
-using BaselineMode.WPF.Presentation.ViewModels.Shared;
+using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Presentation.ViewModels.Shared; // ปรับ Namespace ตามโครงสร้างโปรเจกต์จริง
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 {
     public partial class MainViewModel
     {
+        // ---------------------------------------------------------
+        // 1. Directory & File Selection (Optimized Merging)
+        // ---------------------------------------------------------
+
         [RelayCommand]
         private void BrowseOutputDirectory()
         {
@@ -33,8 +37,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
         private string GetDailyOutputDirectory()
         {
-            string dateStr = DateTime.Now.ToString("yyyy-MM-dd");
-            string fullPath = Path.Combine(OutputDirectoryPath, dateStr);
+            string fullPath = Path.Combine(OutputDirectoryPath, DateTime.Now.ToString("yyyy-MM-dd"));
             if (!Directory.Exists(fullPath))
             {
                 Directory.CreateDirectory(fullPath);
@@ -45,171 +48,158 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         [RelayCommand]
         private async Task SelectFiles()
         {
-            // Reset before selecting new files (like Form1.cs)
-            Reset();
-
+            Reset(); // เคลียร์ค่าเก่า
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
                 Multiselect = true,
                 Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
             };
 
-            if (dialog.ShowDialog() == true)
+            if (dialog.ShowDialog() != true) return;
+
+            var files = dialog.FileNames.ToList();
+
+            if (files.Count == 1)
             {
-                var files = dialog.FileNames.ToList();
-                _selectedFiles = files; // Temporary set, might change if combined
+                // กรณีเลือกไฟล์เดียว
+                _selectedFiles = files;
+                InputFilesInfo = "1 file selected.";
+                OutputFileName = Path.GetFileNameWithoutExtension(files[0]) + ".xlsx";
+                StatusMessage = "File loaded. Ready.";
+            }
+            else
+            {
+                // กรณีเลือกหลายไฟล์ -> รวมไฟล์แบบ High Performance
+                IsBusy = true;
+                StatusMessage = $"Merging {files.Count} files...";
+                InputFilesInfo = $"{files.Count} files selected.";
 
-                if (files.Count == 1)
+                await Task.Run(() =>
                 {
-                    // Single file - use filename as output
-                    InputFilesInfo = "1 file selected.";
-                    OutputFileName = Path.GetFileNameWithoutExtension(files.First()) + ".xlsx";
-                    StatusMessage = "Files loaded. Ready to process.";
-                }
-                else if (files.Count > 1)
-                {
-                    // Multiple files - combine them
-                    IsBusy = true;
-                    StatusMessage = $"Combining {files.Count} files...";
-
-                    await Task.Run(() =>
+                    try
                     {
-                        try
+                        string outputDir = GetDailyOutputDirectory();
+                        string combinedFilePath = Path.Combine(outputDir, "multiple_file_output.txt");
+
+                        // Optimization: ใช้ FileStream + Buffer ขนาดใหญ่ (1MB) เพื่อ copy ข้อมูลดิบ
+                        // วิธีนี้เร็วกว่า StringBuilder หรือ StreamReader/Writer มาก
+                        int bufferSize = 1024 * 1024;
+                        using (var outputStream = new FileStream(combinedFilePath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize))
                         {
-                            string outputDir = GetDailyOutputDirectory();
-                            string combinedFilePath = Path.Combine(outputDir, "multiple_file_output.txt");
-
-                            var progress = new Progress<double>(percent =>
-                            {
-                                ProgressValue = percent;
-                            });
-
-                            // Combine files using StringBuilder for better performance
-                            int totalFiles = files.Count;
+                            double totalFiles = files.Count;
                             int processed = 0;
-
-                            // Estimate capacity based on first file size
-                            long estimatedSize = 0;
-                            if (File.Exists(files[0]))
-                            {
-                                estimatedSize = new FileInfo(files[0]).Length * totalFiles;
-                            }
-
-                            var sb = new StringBuilder((int)Math.Min(estimatedSize, int.MaxValue / 2));
 
                             foreach (var file in files)
                             {
-                                try
+                                // SequentialScan บอก OS ว่าเราจะอ่านรวดเดียว เพื่อให้ OS ทำ Read-Ahead Caching
+                                using (var inputStream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, FileOptions.SequentialScan))
                                 {
-                                    sb.Append(File.ReadAllText(file));
+                                    inputStream.CopyTo(outputStream);
                                 }
-                                catch { /* Skip unreadable files */ }
 
                                 processed++;
-                                ((IProgress<double>)progress).Report((double)processed / totalFiles * 100);
+                                // Update UI ทุกๆ 5 ไฟล์ เพื่อลด overhead ของการ switch thread
+                                if (processed % 5 == 0 || processed == totalFiles)
+                                {
+                                    ProgressValue = (processed / totalFiles) * 100;
+                                }
                             }
-
-                            // Write combined content
-                            File.WriteAllText(combinedFilePath, sb.ToString());
-
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                _selectedFiles = [combinedFilePath];
-                                InputFilesInfo = $"{files.Count} files combined.";
-                                OutputFileName = "multiple_file_output.xlsx";
-                                StatusMessage = "Files combined. Ready to process.";
-                                MessageBoxService.Show(
-                                    $"Files combined into:\n{combinedFilePath}",
-                                    "Success",
-                                    System.Windows.MessageBoxButton.OK,
-                                    System.Windows.MessageBoxImage.Information);
-                            });
                         }
-                        catch (Exception ex)
+
+                        Application.Current.Dispatcher.Invoke(() =>
                         {
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                StatusMessage = $"Error: {ex.Message}";
-                                MessageBoxService.Show(
-                                    $"Error combining files: {ex.Message}",
-                                    "Error",
-                                    System.Windows.MessageBoxButton.OK,
-                                    System.Windows.MessageBoxImage.Error);
-                            });
-                        }
-                    });
-
-                    IsBusy = false;
-                }
+                            _selectedFiles = [combinedFilePath];
+                            OutputFileName = "multiple_file_output.xlsx";
+                            StatusMessage = "Merge Complete. Ready.";
+                            MessageBoxService.Show($"Files merged into:\n{combinedFilePath}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            StatusMessage = $"Merge Error: {ex.Message}";
+                            MessageBoxService.Show($"Error merging files: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        });
+                    }
+                });
+                IsBusy = false;
             }
         }
+
+        // ---------------------------------------------------------
+        // 2. Header Checking (Head & Tail Scan)
+        // ---------------------------------------------------------
 
         [RelayCommand]
         private async Task CheckHeader()
         {
-            if (_selectedFiles.Count == 0)
+            if (_selectedFiles == null || _selectedFiles.Count == 0)
             {
-                StatusMessage = "Please select files check.";
+                StatusMessage = "Please select files first.";
                 return;
             }
 
-            HeaderInfoText = "Checking...";
+            HeaderInfoText = "Analyzing File Structure (Head & Tail)...";
             IsBusy = true;
 
             await Task.Run(() =>
             {
                 try
                 {
-                    // Reverting to Legacy Flow: Check the combined file (or single selected file)
-                    // This treats the entire selection as one "block" of data.
-                    var fileToCheck = _selectedFiles.First();
+                    var filePath = _selectedFiles.First();
+                    var fileInfo = new FileInfo(filePath);
 
-                    // 1. Data Integrity Check (Shared Logic via HeaderValidator)
-                    var result = HeaderValidator.ValidateFile(fileToCheck);
+                    // 1. อ่านส่วนหัว (Head) - เพื่อดู Packet แรก
+                    string firstHeaderHex = ReadFileBlock(filePath, isTail: false);
+                    byte[]? firstHeaderBytes = ParseHexToBytesSafe(firstHeaderHex);
 
-                    if (!result.IsValid)
+                    // 2. อ่านส่วนท้าย (Tail) - เพื่อดู Packet สุดท้าย
+                    // นี่คือจุดสำคัญ: เราไม่อ่านทั้งไฟล์ แต่ Seek ไปท้ายไฟล์แล้วอ่านย้อนกลับ
+                    string lastHeaderHex = ReadFileBlock(filePath, isTail: true);
+                    byte[]? lastHeaderBytes = FindLastPacketInHex(lastHeaderHex);
+
+                    Application.Current.Dispatcher.Invoke(() =>
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            StatusMessage = result.ErrorMessage ?? "Unknown error";
-                            MessageBoxService.Show(
-                                $"{result.ErrorMessage}\nContent: '{result.ErrorContent}' \nFile: {result.FilteredFilePath}",
-                                "Check Error",
-                                System.Windows.MessageBoxButton.OK,
-                                System.Windows.MessageBoxImage.Error);
+                        StringBuilder sb = new();
+                        sb.AppendLine($"File Size: {fileInfo.Length / (1024.0 * 1024.0):F2} MB");
+                        sb.AppendLine("--------------------------------------------------");
 
-                            // Safe null check for substring
-                            string errContent = result.ErrorContent ?? "null";
-                            HeaderInfoText = $"{result.ErrorMessage}\nFound: {errContent[..Math.Min(20, errContent.Length)]}...";
-                        });
-                    }
-                    else
-                    {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            StatusMessage = "Header is correct!";
-                            MessageBoxService.Show("Header is correct!", "Check", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
-                        });
+                        // แสดงข้อมูล Header แรก
+                        sb.AppendLine("[START OF FILE]");
+                        if (firstHeaderBytes != null)
+                            sb.AppendLine(ParseHeaderSummary(firstHeaderBytes));
+                        else
+                            sb.AppendLine("Error: Could not read start of file.");
 
-                        // 2. Parse Header Info
-                        // Ensure clean content for splitting
-                        if (!string.IsNullOrEmpty(result.FirstHeaderContent))
-                        {
-                            var cleanHex = result.FirstHeaderContent.Replace(" ", "").Trim();
-                            var hexData = SplitHexData(cleanHex);
+                        sb.AppendLine("--------------------------------------------------");
 
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                ParseHeaderInfo(hexData);
-                            });
+                        // แสดงข้อมูล Header สุดท้าย
+                        sb.AppendLine("[END OF FILE]");
+                        if (lastHeaderBytes != null)
+                        {
+                            sb.AppendLine(ParseHeaderSummary(lastHeaderBytes));
                         }
-                    }
+                        else
+                        {
+                            sb.AppendLine("Warning: Could not identify a valid packet at the end of file.");
+                            sb.AppendLine("(File might be truncated or format is inconsistent)");
+                        }
+
+                        // Parameters
+                        sb.AppendLine("--------------------------------------------------");
+                        sb.AppendLine($"Delay Time: {DelayTimeMs}");
+                        sb.AppendLine($"Threshold: {KFactor}");
+
+                        HeaderInfoText = sb.ToString();
+                        StatusMessage = "Header Analysis Complete.";
+                    });
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    Application.Current.Dispatcher.Invoke(() =>
                     {
-                        StatusMessage = $"Error: {ex.Message}";
+                        StatusMessage = "Error Analyzing Header";
                         HeaderInfoText = $"Error: {ex.Message}";
                     });
                 }
@@ -218,178 +208,239 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             IsBusy = false;
         }
 
-        private void ParseHeaderInfo(string[] hexData)
+        private static string ReadFileBlock(string path, bool isTail)
+        {
+            // อ่าน Text File ประมาณ 16KB (เพียงพอสำหรับ Header 2064 Bytes แบบ Text Hex)
+            const int BUFFER_SIZE = 16384;
+
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (isTail)
+            {
+                // ถ้าอ่านท้ายไฟล์ ให้ Seek ไปที่ตำแหน่ง (Length - BufferSize)
+                long seekPos = Math.Max(0, fs.Length - BUFFER_SIZE);
+                fs.Seek(seekPos, SeekOrigin.Begin);
+            }
+
+            using var sr = new StreamReader(fs);
+            if (isTail) return sr.ReadToEnd(); // อ่านจนจบ
+
+            // ถ้าอ่านหัวไฟล์ อ่านแค่ Buffer
+            char[] buffer = new char[BUFFER_SIZE];
+            int read = sr.Read(buffer, 0, BUFFER_SIZE);
+            return new string(buffer, 0, read);
+        }
+
+        private static byte[]? FindLastPacketInHex(string hexContent)
+        {
+            if (string.IsNullOrEmpty(hexContent)) return null;
+
+            // Clean Hex Content
+            string clean = hexContent.Replace(" ", "").Replace("\r", "").Replace("\n", "").Trim();
+
+            // ค้นหา Sync Code "AA55" ตัวสุดท้าย (สมมติว่า Packet เริ่มด้วย AA 55)
+            // ถ้า Sync Code เปลี่ยน ให้แก้ตรงนี้
+            string syncPattern = "AA55";
+            int lastIndex = clean.LastIndexOf(syncPattern, StringComparison.OrdinalIgnoreCase);
+
+            if (lastIndex != -1)
+            {
+                // ตรวจสอบความยาว: Packet ยาว 2064 bytes = 4128 hex chars
+                int expectedHexLength = 4128;
+
+                // ลองตัดมา parse
+                if (lastIndex + expectedHexLength <= clean.Length)
+                {
+                    string packetHex = clean.Substring(lastIndex, expectedHexLength);
+                    return HexStringToByteArray(packetHex);
+                }
+                else
+                {
+                    // กรณี Packet สุดท้ายมาไม่ครบ (File truncated)
+                    // ตัดมาเท่าที่มี
+                    string partialHex = clean[lastIndex..];
+                    // ต้องมีความยาวเลขคู่ถึงจะแปลงเป็น byte ได้
+                    if (partialHex.Length % 2 != 0) partialHex = partialHex[..^1];
+                    return HexStringToByteArray(partialHex);
+                }
+            }
+            return null;
+        }
+
+        private static byte[]? ParseHexToBytesSafe(string hexContent)
+        {
+            if (string.IsNullOrEmpty(hexContent)) return null;
+            string clean = hexContent.Replace(" ", "").Replace("\r", "").Replace("\n", "").Trim();
+
+            // เอาแค่ Packet แรก (4128 chars)
+            if (clean.Length > 4128) clean = clean[..4128];
+            if (clean.Length % 2 != 0) clean = clean[..^1];
+
+            return HexStringToByteArray(clean);
+        }
+
+        private static byte[]? HexStringToByteArray(string hex)
         {
             try
             {
-                StringBuilder sb = new(512);
-
-                // 1. Packet Synchronization Code
-                sb.AppendLine($"Packet Synchronization Code: {hexData[0]} {hexData[1]}");
-
-                // 2. Package Identification
-                sb.AppendLine($"Package Identification: {hexData[2]} {hexData[3]}");
-
-                // 3. Packet Sequence
-                sb.AppendLine($"Packet Sequence: {hexData[4]} {hexData[5]}");
-
-                // 4. Packet Data Length
-                sb.AppendLine($"Packet data length: {hexData[6]} {hexData[7]}");
-
-                // 5. Timestamp
-                if (hexData.Length >= 14)
+                int len = hex.Length;
+                byte[] bytes = new byte[len / 2];
+                // ใช้ Loop ธรรมดา เร็วกว่า LINQ มาก
+                for (int i = 0; i < len; i += 2)
                 {
-                    // Optimized: Avoid LINQ, use direct array operations
-                    byte[] timecodeDec = new byte[6];
-                    for (int i = 0; i < 6; i++)
-                    {
-                        timecodeDec[i] = Convert.ToByte(hexData[8 + i], 16);
-                    }
-
-                    // Optimized: Manual byte reversal without LINQ allocations
-                    byte[] temp4 = new byte[4];
-                    for (int i = 0; i < 4; i++) temp4[i] = timecodeDec[3 - i];
-                    uint seconds_part = BitConverter.ToUInt32(temp4, 0);
-
-                    ushort milliseconds_part = (ushort)((timecodeDec[5] << 8) | timecodeDec[4]);
-
-                    // Form1 calculates double total_seconds but creates DateTime from parts
-                    DateTime datetime_value = DateTimeOffset.FromUnixTimeSeconds((long)seconds_part)
-                        .AddMilliseconds(milliseconds_part)
-                        .UtcDateTime;
-
-                    sb.AppendLine($"Timestamp: {datetime_value.ToString("yyyy-MMM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}");
+                    // ใช้ Span เพื่อลด substring allocation (ใน .NET Core/5+)
+                    // ถ้าใช้ .NET Framework เก่า ให้ใช้ substring
+                    bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
                 }
+                return bytes;
+            }
+            catch { return null; }
+        }
 
-                // 6. Data Type
-                if (hexData.Length >= 16)
-                {
-                    sb.AppendLine($"Data Type: {hexData[14]} {hexData[15]}");
-                }
+        private static string ParseHeaderSummary(byte[] data)
+        {
+            if (data == null || data.Length < 14) return "Invalid/Incomplete Packet Data";
 
-                // 7. Checksum
-                if (hexData.Length >= 2064)
-                {
-                    // Optimized: Direct loop instead of LINQ for checksum calculation
-                    int total_sum = 0;
-                    for (int i = 8; i < 2062; i++)
-                    {
-                        total_sum += Convert.ToInt32(hexData[i], 16);
-                    }
-                    int last_two_bytes = total_sum % 65536;
-                    string checksum_hex = last_two_bytes.ToString("X4");
+            try
+            {
+                // Logic การถอดเวลา (อิงตาม Code เก่าของคุณ)
+                // Bytes 8-11: Seconds (Reversed/Little Endian)
+                uint seconds_part = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(8, 4));
 
-                    string CheckSum_fromData = hexData[2062] + hexData[2063];
+                // Bytes 12-13: Milliseconds
+                ushort milliseconds_part = (ushort)((data[13] << 8) | data[12]);
 
-                    sb.AppendLine($"Check Sum: {hexData[2062]} {hexData[2063]}");
+                DateTime dt = DateTimeOffset.FromUnixTimeSeconds(seconds_part)
+                    .AddMilliseconds(milliseconds_part)
+                    .UtcDateTime; // หรือ .ToLocalTime() ถ้าต้องการ
 
-                    if (checksum_hex.Equals(CheckSum_fromData, StringComparison.OrdinalIgnoreCase))
-                    {
-                        sb.AppendLine("Checksum matches!");
-                    }
-                    else
-                    {
-                        sb.AppendLine($"Checksum does not match. (Calc: {checksum_hex})");
-                    }
-                }
-
-                // 8. Test Conditions (UI Variables)
-                sb.AppendLine("Test condition:");
-                sb.AppendLine($"Delay Time: {DelayTimeMs}");
-                sb.AppendLine($"Threshold: {KFactor}"); // Assuming Threshold in Form1 corresponds to k-factor or threshold value
-
-                HeaderInfoText = sb.ToString();
+                return $"Timestamp: {dt.ToString("yyyy-MMM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture)} (UTC)\n" +
+                       $"Sync Code: {data[0]:X2} {data[1]:X2}\n" +
+                       $"Seq No:    {data[4]:X2} {data[5]:X2}";
             }
             catch (Exception ex)
             {
-                HeaderInfoText = $"Error parsing header: {ex.Message}";
+                return $"Error parsing timestamp: {ex.Message}";
             }
         }
 
-        private static string[] SplitHexData(string hexString)
-        {
-            // Optimized: Pre-allocate exact array size and use Span
-            int n = 2;
-            int length = hexString.Length;
-            if (length % n != 0) return [];
-
-            int arrayLength = length / n;
-            var list = new string[arrayLength];
-
-            // Use Span for better performance (reduces allocations)
-            ReadOnlySpan<char> hexSpan = hexString.AsSpan();
-            for (int i = 0; i < arrayLength; i++)
-            {
-                list[i] = hexSpan.Slice(i * n, n).ToString();
-            }
-            return list;
-        }
+        // ---------------------------------------------------------
+        // 3. Save Mean (Parallel Calculation)
+        // ---------------------------------------------------------
 
         [RelayCommand]
         private async Task SaveMean()
         {
-            if (ProcessedData.Count == 0) return;
+            if (ProcessedData == null || ProcessedData.Count == 0)
+            {
+                StatusMessage = "No data to process.";
+                return;
+            }
 
-            StatusMessage = "Saving Mean Values...";
+            StatusMessage = "Calculating Means (Multithreaded)...";
+            IsBusy = true;
+
             await Task.Run(() =>
             {
                 try
                 {
-                    SaveLayerMeans(1, d => d.L1);
-                    SaveLayerMeans(2, d => d.L2);
-                    SaveLayerMeans(6, d => d.L6);
-                    SaveLayerMeans(7, d => d.L7);
+                    // ยิง 4 Layers พร้อมกัน
+                    var t1 = Task.Run(() => CalculateMeanParallel(d => d.L1));
+                    var t2 = Task.Run(() => CalculateMeanParallel(d => d.L2));
+                    var t6 = Task.Run(() => CalculateMeanParallel(d => d.L6));
+                    var t7 = Task.Run(() => CalculateMeanParallel(d => d.L7));
+
+                    Task.WaitAll(t1, t2, t6, t7);
+
+                    WriteMeansToFile(1, t1.Result);
+                    WriteMeansToFile(2, t2.Result);
+                    WriteMeansToFile(6, t6.Result);
+                    WriteMeansToFile(7, t7.Result);
+
+                    Application.Current.Dispatcher.Invoke(() => StatusMessage = "Mean Values Saved Successfully.");
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    Application.Current.Dispatcher.Invoke(() =>
                     {
                         StatusMessage = $"Error saving means: {ex.Message}";
-                        MessageBoxService.Show($"Error saving means: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                        MessageBoxService.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     });
                 }
             });
-            StatusMessage = "Mean Values Saved.";
+            IsBusy = false;
         }
 
-        private void SaveLayerMeans(int layerId, Func<BaselineData, float[]> selector)
+        // ฟังก์ชันคำนวณแบบ Parallel (รองรับข้อมูลหลักล้าน)
+        private double[] CalculateMeanParallel(Func<BaselineData, float[]> selector)
         {
-            var lines = new List<string>(16);
             int dataCount = ProcessedData.Count;
+            if (dataCount == 0) return new double[16];
 
+            object lockObj = new();
+            double[] finalSums = new double[16];
+
+            // แบ่งงานเป็น Chunks ให้ทุก Core ช่วยกันทำ
+            Parallel.ForEach(
+                Partitioner.Create(0, dataCount),
+                () => new double[16], // Local Storage per thread
+                (range, state, localSums) =>
+                {
+                    // Loop ภายใน Chunk
+                    for (int i = range.Item1; i < range.Item2; i++)
+                    {
+                        float[] values = selector(ProcessedData[i]);
+                        // บวกค่า 16 Channel (Loop Unrolling จะทำให้ไวกว่านี้แต่นี่ก็ไวมากแล้ว)
+                        for (int ch = 0; ch < 16; ch++)
+                        {
+                            localSums[ch] += values[ch];
+                        }
+                    }
+                    return localSums;
+                },
+                (localSums) =>
+                {
+                    // รวมผลลัพธ์จากแต่ละ Thread (Lock แค่ตอนจบงานย่อย)
+                    lock (lockObj)
+                    {
+                        for (int ch = 0; ch < 16; ch++)
+                        {
+                            finalSums[ch] += localSums[ch];
+                        }
+                    }
+                }
+            );
+
+            // หารจำนวนเพื่อหาค่าเฉลี่ย
             for (int i = 0; i < 16; i++)
             {
-                if (dataCount == 0)
-                {
-                    lines.Add("0.00");
-                    continue;
-                }
-
-                // Optimized: Direct calculation without LINQ allocations
-                double sum = 0;
-                for (int j = 0; j < dataCount; j++)
-                {
-                    sum += selector(ProcessedData[j])[i];
-                }
-                double simpleMean = sum / dataCount;
-                lines.Add($"{simpleMean:F2}");
+                finalSums[i] /= dataCount;
             }
 
-            string outputDir = GetDailyOutputDirectory();
-            string path = Path.Combine(outputDir, $"MeanValues{layerId}.txt");
-            System.IO.File.WriteAllText(path, string.Join(Environment.NewLine, lines));
+            return finalSums;
         }
 
+        private void WriteMeansToFile(int layerId, double[] means)
+        {
+            var lines = new List<string>(16);
+            for (int i = 0; i < 16; i++)
+            {
+                lines.Add(means[i].ToString("F2"));
+            }
+            string path = Path.Combine(GetDailyOutputDirectory(), $"MeanValues{layerId}.txt");
+            File.WriteAllLines(path, lines);
+        }
+
+        // Helper Load Mean เดิม (ถ้ามีใช้)
         private double LoadMeanFromFile(int channelIndex)
         {
-            string layerFile = SelectedLayerIndex switch
+            string fileName = SelectedLayerIndex switch
             {
                 1 => "MeanValues2.txt",
                 2 => "MeanValues6.txt",
                 3 => "MeanValues7.txt",
                 _ => "MeanValues1.txt"
             };
-
+            string fullPath = Path.Combine(GetDailyOutputDirectory(), fileName);
             try
             {
                 string outputDir = GetDailyOutputDirectory();
@@ -404,6 +455,5 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             catch { }
             return 0;
         }
-
     }
 }

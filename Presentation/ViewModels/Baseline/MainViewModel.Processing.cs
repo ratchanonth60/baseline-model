@@ -62,7 +62,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             StatusMessage = "Processing raw files to Excel...";
             StatusColor = System.Windows.Media.Brushes.Orange;
 
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 var progress = new Progress<double>(percent =>
                 {
@@ -79,20 +79,28 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     {
                         System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = $"Processing file {currentFile + 1}/{fileCount}...");
 
-                        // Create a progress reporter for the current file processing
                         var fileProgress = new Progress<double>(p =>
                         {
-                            // Calculate global progress: 
-                            // Base progress for completed files + fraction of current file
-                            // Processing takes up 70% of total progress
                             double baseProgress = (double)currentFile / fileCount * 70;
                             double currentFileContribution = (p / 100.0) * (1.0 / fileCount) * 70;
                             System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = baseProgress + currentFileContribution);
                         });
 
-                        var fileData = _fileService.ProcessFileStream(file, fileProgress);
-                        allData.AddRange(fileData);
+                        var result = await _fileService.ProcessFileStreamAsync(file, fileProgress);
+                        if (result.IsFailure)
+                        {
+                            _logger.LogError($"Failed to process raw file {file}: {result.Error}");
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                StatusMessage = result.Error;
+                                StatusColor = System.Windows.Media.Brushes.Red;
+                                MessageBoxService.Show(result.Error, "Process Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                            });
+                            return;
+                        }
 
+                        allData.AddRange(result.Value);
+                        _logger.LogInfo($"Processed {result.Value.Count} events from {file}");
                         currentFile++;
                     }
 
@@ -113,7 +121,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         var saveProgress = new Progress<double>(p =>
                              System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 70 + (p * 0.3)));
 
-                        _fileService.SaveToExcel(allData, fullPath, saveProgress);
+                        var saveResult = await _fileService.SaveToExcelAsync(allData, fullPath, saveProgress);
+                        if (saveResult.IsFailure)
+                        {
+                            _logger.LogError($"Failed to save Baseline Excel: {saveResult.Error}");
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                StatusMessage = saveResult.Error;
+                                StatusColor = System.Windows.Media.Brushes.Red;
+                                MessageBoxService.Show(saveResult.Error, "Save Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                            });
+                            return;
+                        }
+
+                        _logger.LogInfo($"Baseline data saved to Excel: {fullPath}");
 
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
@@ -134,6 +155,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 }
                 catch (Exception ex)
                 {
+                    _logger.LogException(ex, "Error in PreProcessData (Baseline)");
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         StatusMessage = $"Error: {ex.Message}";
@@ -166,7 +188,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
             try
             {
-                await Task.Run(() =>
+                await Task.Run(async () =>
                 {
                     // 1. Construct Path to Source File
                     string fileName = OutputFileName;
@@ -200,8 +222,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     var readProgress = new Progress<double>(p =>
                         System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = p * 0.5)); // 0-50%
 
-                    // Restore missing call!
-                    ProcessedData = _fileService.ReadExcelFile(fullPath, readProgress);
+                    var readResult = await _fileService.ReadExcelFileAsync(fullPath, readProgress);
+                    if (readResult.IsFailure)
+                    {
+                        _logger.LogError($"Failed to read baseline Excel: {readResult.Error}");
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            StatusMessage = readResult.Error;
+                            MessageBoxService.Show(readResult.Error, "Read Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                        });
+                        return;
+                    }
+
+                    ProcessedData = readResult.Value;
+                    _logger.LogInfo($"Successfully read {ProcessedData.Count} events from baseline Excel: {fullPath}");
 
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
@@ -228,9 +262,22 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
                             if (filteredData.Length > 0)
                             {
-                                var (counts, binCenters) = BuildHistogram(filteredData, subtracted);
+                                double hMin = 0;
+                                double hMax = 16384;
 
+                                // ScottPlot Histogram
+                                var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: hMin, max: hMax, binCount: 16384);
 
+                                // สร้าง BinCenters
+                                double[] binCenters = new double[binEdges.Length - 1];
+                                for (int k = 0; k < binCenters.Length; k++)
+                                {
+                                    double center = binEdges[k] + 0.5;
+                                    // Apply X-Axis Conversion ใน Loop เดียว
+                                    binCenters[k] = (SelectedXAxisIndex == 1)
+                                        ? ((center / 16384.0) * 5) * 1000
+                                        : center;
+                                }
 
                                 // Prepare Multi-Fit Results
                                 var fitResults = new Dictionary<string, ChannelViewModel.FitData>();
@@ -241,7 +288,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     if (ShowGaussianFit)
                                     {
                                         var res = _mathService.GaussianFit(binCenters, counts);
-                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                                         {
                                             fitResults["Gaussian"] = new ChannelViewModel.FitData
                                             {
@@ -256,7 +303,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     if (ShowHemgSingleFit)
                                     {
                                         var res = _mathService.HyperEMGFit(binCenters, counts, filteredData);
-                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                                         {
                                             fitResults["HEMG-S"] = new ChannelViewModel.FitData
                                             {
@@ -271,7 +318,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     if (ShowHemgDoubleFit)
                                     {
                                         var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
-                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                                         {
                                             fitResults["HEMG-D"] = new ChannelViewModel.FitData
                                             {
@@ -286,7 +333,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                     if (ShowLorentzianFit)
                                     {
                                         var res = _mathService.LorentzianFit(binCenters, counts);
-                                        if (res.FitCurve != null && res.FitCurve.Length > 0)
+                                        if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                                         {
                                             fitResults["Lorentzian"] = new ChannelViewModel.FitData
                                             {
@@ -334,6 +381,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             }
             catch (Exception ex)
             {
+                _logger.LogException(ex, "Error in ProcessData (Baseline)");
                 StatusMessage = $"Error: {ex.Message}";
             }
             finally
@@ -498,7 +546,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             var res = _mathService.GaussianFit(binCenters, counts);
-                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                             {
                                 var data = new ChannelViewModel.FitData
                                 {
@@ -523,7 +571,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             var res = _mathService.HyperEMGFit(binCenters, counts, filteredData);
-                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                             {
                                 var data = new ChannelViewModel.FitData
                                 {
@@ -548,7 +596,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             var res = _mathService.HyperEMGDoubleSidedFit(binCenters, counts, filteredData);
-                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                             {
                                 var data = new ChannelViewModel.FitData
                                 {
@@ -573,7 +621,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             var res = _mathService.LorentzianFit(binCenters, counts);
-                            if (res.FitCurve != null && res.FitCurve.Length > 0)
+                            if (res.IsValid && res.FitCurve != null && res.FitCurve.Length > 0)
                             {
                                 var data = new ChannelViewModel.FitData
                                 {

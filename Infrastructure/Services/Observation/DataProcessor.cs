@@ -88,7 +88,7 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
 
             foreach (var filePath in filePaths)
             {
-                await Task.Run(() => ProcessFile(filePath));
+                await ProcessFileAsync(filePath);
             }
 
             // Return processed data as histogram arrays
@@ -98,9 +98,9 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
         /// <summary>
         /// Process a single file
         /// </summary>
-        private void ProcessFile(string filePath)
+        private async Task ProcessFileAsync(string filePath)
         {
-            var lines = File.ReadAllLines(filePath);
+            var lines = await File.ReadAllLinesAsync(filePath);
             foreach (var line in lines.Skip(1)) // Skip header
             {
                 if (string.IsNullOrWhiteSpace(line)) continue;
@@ -116,9 +116,9 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
         /// <summary>
         /// Read header information from a file
         /// </summary>
-        public string ReadHeader(string filePath)
+        public async Task<string> ReadHeaderAsync(string filePath)
         {
-            var lines = File.ReadAllLines(filePath);
+            var lines = await File.ReadAllLinesAsync(filePath);
             if (lines.Length == 0) return "Empty file";
 
             var headerLine = lines[0];

@@ -11,6 +11,7 @@ using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Core.Models.Flux;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
+using BaselineMode.WPF.Core.Helpers;
 
 
 
@@ -78,30 +79,100 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         {
             if (ProcessedData == null || ProcessedData.Count == 0) return;
 
-
-            var layerSelector = GetLayerSelector();
+            Func<BaselineData, float[]> layerSelector = SelectedLayerIndex switch
+            {
+                1 => (d) => d.L2,
+                2 => (d) => d.L6,
+                3 => (d) => d.L7,
+                _ => (d) => d.L1
+            };
 
             for (int i = 0; i < 16; i++)
             {
                 int chIndex = i;
-                var rawData = ExtractChannelData(layerSelector, chIndex);
+                var rawData = ProcessedData.Select(d => layerSelector(d)[chIndex]).ToArray();
 
                 if (rawData.Length > 0)
                 {
+                    double[] processedData;
+                    double meanToSubtract = 0;
 
-                    // Use helper (`ApplyBaselineSubtraction` logic is implicitly handled in main via manual calculation, but we use helper in dev)
-                    // Wait, logic in main assumes rawData is NOT modified in place?
-                    // rawData comes from ExtractChannelData.
-                    // In lines 100+ of THIS file, it seemed to do manual subtraction.
-                    // We will use logic:
-                    bool subtracted = ApplyBaselineSubtraction(rawData, chIndex, out _);
-                    var filteredData = ApplyThresholding(rawData);
+                    // ตรวจสอบว่าต้องลบ baseline หรือไม่
+                    bool shouldSubtract = (SelectedBaselineMode == 1 || SelectedBaselineMode == 3);
+
+                    if (shouldSubtract)
+                    {
+                        // คำนวณ mean
+                        double currentMean = rawData.Average();
+
+                        if (SelectedMode == 0)
+                        {
+                            // Load mean from file
+                            meanToSubtract = LoadMeanFromFile(chIndex);
+                            if (meanToSubtract == 0)
+                                meanToSubtract = currentMean;
+                        }
+                        else
+                        {
+                            meanToSubtract = currentMean;
+                        }
+
+                        processedData = [.. rawData.Select(x => x - meanToSubtract)];
+                    }
+                    else
+                    {
+                        // ไม่ลบ baseline - ใช้ข้อมูลดิบ
+                        processedData = [.. rawData];
+                    }
+
+                    // Apply thresholding
+                    var filteredData = ApplyThresholding(processedData);
 
                     if (filteredData.Length > 5)
                     {
-                        var (counts, binCenters) = BuildHistogram(filteredData, subtracted);
+                        // Declare minVal/maxVal BEFORE usage
+                        double minVal, maxVal;
 
-                        // Multi-Fit Logic (Synchronous for Refresh)
+                        if (shouldSubtract)
+                        {
+                            // หลังลบ baseline อาจมีค่าติดลบ - ใช้ค่าจริง
+                            minVal = filteredData.Min();
+                            maxVal = filteredData.Max();
+
+                            // ขยาย range เล็กน้อย
+                            double range = maxVal - minVal;
+                            minVal -= range * 0.05;
+                            maxVal += range * 0.05;
+                        }
+                        else
+                        {
+                            // ก่อนลบ baseline - ใช้ ADC range ปกติ
+                            minVal = 0;
+                            maxVal = 16383;
+                        }
+
+                        var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
+                            filteredData, min: minVal, max: maxVal, binCount: 16384);
+
+                        double[] binCenters = new double[binEdges.Length - 1];
+                        for (int k = 0; k < binCenters.Length; k++)
+                            binCenters[k] = (binEdges[k] + binEdges[k + 1]) / 2.0;
+
+                        if (!shouldSubtract)
+                        {
+                            if (SelectedXAxisIndex == 1)
+                            {
+                                // Voltage (mV): 0-16383 -> 0-5000 mV
+                                binCenters = [.. binCenters.Select(v => ((v / 16383.0) * 5.0) * 1000.0)];
+                            }
+                            else if (SelectedXAxisIndex == 2)
+                            {
+                                // Energy (MeV): Linear calibration
+                                binCenters = [.. binCenters.Select(v => (v * EnergyCalibrationSlope) + EnergyCalibrationIntercept)];
+                            }
+                        }
+
+                        // Perform Fits Here (UI Thread - Can be slow, but this is for 'Refresh' only)
                         var fitResults = new Dictionary<string, ChannelViewModel.FitData>();
 
                         if (ShowGaussianFit)
@@ -143,8 +214,13 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             double mu = 0, sigma = 0, peak = 0;
             double fwhm = 0, resolution = 0;
 
-
             // Use Primary Fit for Statistics (Priority: HEMG-D > HEMG-S > Gaussian)
+            // FittingResult? primaryStats = null;
+            // NOTE: We don't have the full FittingResult object passed here in the dictionary, only the curve.
+            // For now, we recalculate moments if we want generic stats, OR we should pass the full stats object.
+            // As a quick optimization, let's use Method of Moments for the text label if stats aren't explicitly passed,
+            // OR we calculate FWHM from the curve we have.
+
             // Fallback: Calculate basic moments from data
             var moments = _mathService.CalculateMoments(binCenters, counts);
             mu = moments.mean;
@@ -200,17 +276,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             chVM.StatsText = $"μ={mu:F2}, σ={sigma:F2}, FWHM={fwhm:F2}, Res={resolution:F2}%";
 
             // Trigger Plot Refresh
-            var figBg = ToDrawingColor(GraphFigureColor);
-            var dataBg = ToDrawingColor(GraphDataColor);
-            var foreColor = ToDrawingColor(GraphTextColor);
-            var seriesColor = ToDrawingColor(GraphSeriesColor);
+            var figBg = ColorHelper.ToDrawingColor(GraphFigureColor);
+            var dataBg = ColorHelper.ToDrawingColor(GraphDataColor);
+            var foreColor = ColorHelper.ToDrawingColor(GraphTextColor);
+            var seriesColor = ColorHelper.ToDrawingColor(GraphSeriesColor);
 
             chVM.RenderPlot(figBg, dataBg, foreColor, seriesColor);
-        }
-
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
-        {
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
         }
 
         private static (double fwhm, double resolution) CalculateFWHM(double[] binCenters, double[] fitCurve, double mu)
@@ -253,7 +324,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
 
         // Helper function - Interpolate fit curve to match bin centers
-        private double[] InterpolateFitCurve(double[] fitBins, double[] fitCurve, double[] targetBins)
+        private static double[] InterpolateFitCurve(double[] fitBins, double[] fitCurve, double[] targetBins)
         {
             if (fitBins.Length != fitCurve.Length || fitBins.Length == 0)
                 return fitCurve;
@@ -335,8 +406,13 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 for (int i = 1; i <= 16; i++)
                     table.Columns.Add($"Ch {i}", typeof(double));
 
-
-                var selector = GetLayerSelector();
+                Func<BaselineData, float[]> selector = SelectedLayerIndex switch
+                {
+                    1 => (d) => d.L2,
+                    2 => (d) => d.L6,
+                    3 => (d) => d.L7,
+                    _ => (d) => d.L1
+                };
 
                 // Apply Pagination
                 int skip = (CurrentPage - 1) * PageSize;

@@ -1,6 +1,6 @@
-using System;
+using System.Runtime.CompilerServices;
 
-namespace BaselineMode.WPF.Infrastructure.Services.Observation
+namespace BaselineMode.WPF.Infrastructure.Services
 {
     public class KalmanFilter(double A, double H, double Q, double R, double initial_P, double initial_x)
     {
@@ -11,26 +11,19 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
         private double P = initial_P;
         private double x = initial_x;
 
-        public void SetR(double R)
-        {
-            this.R = R;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetR(double R) => this.R = R;
 
-        public double GetR()
-        {
-            return this.R;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public double GetR() => this.R;
 
-        public void SetQ(double Q)
-        {
-            this.Q = Q;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetQ(double Q) => this.Q = Q;
 
-        public double GetQ()
-        {
-            return this.Q;
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public double GetQ() => this.Q;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public double Output(double input)
         {
             // Time update - prediction

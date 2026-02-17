@@ -2,6 +2,7 @@ using System.Windows;
 using BaselineMode.WPF.Presentation.ViewModels;
 using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
+using BaselineMode.WPF.Core.Helpers;
 
 namespace BaselineMode.WPF.Views.Baseline
 {
@@ -21,10 +22,10 @@ namespace BaselineMode.WPF.Views.Baseline
             {
                 if (MainVM != null)
                 {
-                    var figBg = ToDrawingColor(MainVM.GraphFigureColor);
-                    var dataBg = ToDrawingColor(MainVM.GraphDataColor);
-                    var foreColor = ToDrawingColor(MainVM.GraphTextColor);
-                    var seriesColor = ToDrawingColor(MainVM.GraphSeriesColor);
+                    var figBg = ColorHelper.ToDrawingColor(MainVM.GraphFigureColor);
+                    var dataBg = ColorHelper.ToDrawingColor(MainVM.GraphDataColor);
+                    var foreColor = ColorHelper.ToDrawingColor(MainVM.GraphTextColor);
+                    var seriesColor = ColorHelper.ToDrawingColor(MainVM.GraphSeriesColor);
                     vm.RenderTo(DetailPlot, figBg, dataBg, foreColor, seriesColor);
                 }
                 else
@@ -35,9 +36,6 @@ namespace BaselineMode.WPF.Views.Baseline
             }
         }
 
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
-        {
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
-        }
+
     }
 }

@@ -13,6 +13,8 @@ using BaselineMode.WPF.Infrastructure.Services.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Models;
+using BaselineMode.WPF.Core.Helpers;
+using BaselineMode.WPF.Infrastructure.Services;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using ScottPlot;
@@ -121,7 +123,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
         }
 
-        private void BtnReadData_Click(object sender, RoutedEventArgs e)
+        private async void BtnReadData_Click(object sender, RoutedEventArgs e)
         {
             string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
             string folderPath = Path.Combine(projectDirectory, AppConstants.SourceFolderName);
@@ -129,7 +131,7 @@ namespace BaselineMode.WPF.Views.Observation
 
             if (!File.Exists(fileName))
             {
-                MessageBox.Show("The specified file does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show("The specified file does not exist.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
@@ -188,14 +190,18 @@ namespace BaselineMode.WPF.Views.Observation
                 RefreshBGOPlots();
 
                 // Save results
-                _lastSavedFilePath = _excelHelper.SaveAllResultsToExcel(TxtOutputFileName.Text, _viewModel.DataProcessor.AllResults);
+                var saveResult = await _excelHelper.SaveAllResultsToExcelAsync(TxtOutputFileName.Text, _viewModel.DataProcessor.AllResults);
+                if (saveResult.IsSuccess)
+                {
+                    _lastSavedFilePath = saveResult.Value;
+                }
                 _viewModel.DataProcessor.AllResults.Clear();
 
                 UpdateStatus("Processing complete");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -237,7 +243,7 @@ namespace BaselineMode.WPF.Views.Observation
 
             if (!File.Exists(fileName))
             {
-                MessageBox.Show("File not found!", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBoxService.Show("File not found!", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -267,7 +273,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -279,7 +285,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
             else
             {
-                MessageBox.Show("No result file found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show("No result file found.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -487,7 +493,7 @@ namespace BaselineMode.WPF.Views.Observation
             // 3. Plot Bar
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = 1; // ความกว้างเท่ากับ 1 Channel
-            bar.FillColor = ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+            bar.FillColor = ColorHelper.ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
             bar.BorderLineWidth = 0;
 
@@ -508,14 +514,14 @@ namespace BaselineMode.WPF.Views.Observation
 
                     if (len > 3)
                     {
-                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+                        double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
+                        double[] yFit = [.. hist.Skip(start).Take(len)];
 
                         var fitResult = selectedFit == "Lorentzian"
                             ? _viewModel.MathProvider.LorentzianFit(xFit, yFit)
                             : _viewModel.MathProvider.GaussianFit(xFit, yFit);
 
-                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        if (fitResult != null && fitResult.IsValid && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
                         {
                             if (!fitResult.FitCurve.Any(double.IsNaN))
                             {
@@ -612,7 +618,7 @@ namespace BaselineMode.WPF.Views.Observation
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = 1;
-            bar.FillColor = ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+            bar.FillColor = ColorHelper.ToDrawingColor(_viewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
             plot.Plot.Title(title);
 
@@ -627,7 +633,7 @@ namespace BaselineMode.WPF.Views.Observation
                         ? _viewModel.MathProvider.LorentzianFit(binMidpoints, hist)
                         : _viewModel.MathProvider.GaussianFit(binMidpoints, hist);
 
-                    if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == binMidpoints.Length)
+                    if (fitResult != null && fitResult.IsValid && fitResult.FitCurve != null && fitResult.FitCurve.Length == binMidpoints.Length)
                     {
                         if (!fitResult.FitCurve.Any(double.IsNaN))
                         {
@@ -690,7 +696,7 @@ namespace BaselineMode.WPF.Views.Observation
             if (ChkBGOFit != null && ChkKalman?.IsChecked == true && filteredData.Length > 0)
             {
                 // Use default parameters from legacy: A=1, H=1, Q=1, R=1, P=1, x=0
-                var kalman = new BaselineMode.WPF.Infrastructure.Services.MathService.KalmanFilter(1, 1, 1, 1, 1, 0);
+                var kalman = new KalmanFilter(1, 1, 1, 1, 1, 0);
                 for (int i = 0; i < filteredData.Length; i++)
                 {
                     filteredData[i] = kalman.Output(filteredData[i]);
@@ -712,7 +718,7 @@ namespace BaselineMode.WPF.Views.Observation
                     else deviation = 0;
 
                     // Legacy logic: keep values > mean + k*sigma
-                    filteredData = filteredData.Where(v => v > (mean + k * deviation)).ToArray();
+                    filteredData = [.. filteredData.Where(v => v > (mean + k * deviation))];
                 }
             }
 
@@ -763,7 +769,7 @@ namespace BaselineMode.WPF.Views.Observation
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = 1;
-            bar.FillColor = ToDrawingColor(_viewModel.SelectedBGOColor, System.Drawing.Color.Orange);
+            bar.FillColor = ColorHelper.ToDrawingColor(_viewModel.SelectedBGOColor, System.Drawing.Color.Orange);
             bar.BorderColor = bar.FillColor;
 
             if (ChkBGOFit?.IsChecked == true)
@@ -782,14 +788,14 @@ namespace BaselineMode.WPF.Views.Observation
 
                     if (len > 3)
                     {
-                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+                        double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
+                        double[] yFit = [.. hist.Skip(start).Take(len)];
 
                         var fitResult = selectedBGOFit == "Lorentzian"
                             ? _viewModel.MathProvider.LorentzianFit(xFit, yFit)
                             : _viewModel.MathProvider.GaussianFit(xFit, yFit);
 
-                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        if (fitResult != null && fitResult.IsValid && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
                         {
                             if (!fitResult.FitCurve.Any(double.IsNaN))
                             {
@@ -834,7 +840,7 @@ namespace BaselineMode.WPF.Views.Observation
 
         private void OnObservationPlotUpdate(object? sender, EventArgs e)
         {
-            var bgColor = ToDrawingColor(_viewModel.SelectedGraphBackground, System.Drawing.Color.White);
+            var bgColor = ColorHelper.ToDrawingColor(_viewModel.SelectedGraphBackground, System.Drawing.Color.White);
             var allPlots = GetAllPlots();
             foreach (var plot in allPlots)
             {
@@ -853,14 +859,7 @@ namespace BaselineMode.WPF.Views.Observation
             }
         }
 
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor, System.Drawing.Color? fallback = null)
-        {
-            if (mediaColor.A == 0 && mediaColor.R == 0 && mediaColor.G == 0 && mediaColor.B == 0)
-            {
-                return fallback ?? System.Drawing.Color.Gray;
-            }
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
-        }
+
 
         #endregion
     }

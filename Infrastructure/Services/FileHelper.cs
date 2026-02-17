@@ -14,7 +14,14 @@ namespace BaselineMode.WPF.Infrastructure.Services
     public class FileHelper : IFileHelper
     {
         private const string AppFolderName = "DSSD_Analysis";
-        private const string SourceFolderName = "Source"; // For raw excel files
+        private const string SourceFolderName = "Source";
+        private readonly ILoggerService _logger;
+
+        public FileHelper(ILoggerService logger)
+        {
+            _logger = logger;
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        }
 
         public string GetDocumentsFolder()
         {
@@ -39,148 +46,190 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return appFolderPath;
         }
 
-        public string CombineFiles(string[] filePaths, string outputFileName)
+        public async Task<Result<string>> CombineFilesAsync(string[] filePaths, string outputFileName)
         {
             if (filePaths == null || filePaths.Length == 0)
-                throw new ArgumentException("No files selected for combination.");
+                return Result.Failure<string>("No files selected for combination.");
 
-            // Create output directory if it doesn't exist
-            string outputFolder = GetOutputFolder("CombinedData");
-            string outputPath = Path.Combine(outputFolder, outputFileName);
-
-            // Ensure unique filename
-            // outputPath = GetUniqueFilePath(outputPath);
-
-            using var outputStream = File.Create(outputPath);
-            foreach (var filePath in filePaths)
+            try
             {
-                using var inputStream = File.OpenRead(filePath);
-                inputStream.CopyTo(outputStream);
-                // Optional: Add a newline between files if needed
-                // outputStream.WriteByte((byte)'\n'); 
-            }
+                // Create output directory if it doesn't exist
+                string outputFolder = GetOutputFolder("CombinedData");
+                string outputPath = Path.Combine(outputFolder, outputFileName);
 
-            return outputPath;
-        }
-
-        public void SaveToExcel(List<string> data, string fileName, string subFolder = "")
-        {
-            string fullPath;
-
-            // Check if fileName is already a full path
-            if (Path.IsPathRooted(fileName))
-            {
-                fullPath = fileName;
-                // Ensure directory exists
-                string? directory = Path.GetDirectoryName(fullPath);
-                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                using var outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, useAsync: true);
+                foreach (var filePath in filePaths)
                 {
-                    Directory.CreateDirectory(directory);
-                }
-            }
-            else
-            {
-                // Legacy behavior: relative path logic
-                // Ensure the file name is valid
-                fileName = Path.GetFileName(fileName);
-                if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains))
-                {
-                    throw new ArgumentException("Invalid file name. Please use a valid name.");
+                    using var inputStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+                    await inputStream.CopyToAsync(outputStream);
                 }
 
-                // Ensure .xlsx extension
-                if (!fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                _logger.LogInfo($"Successfully combined {filePaths.Length} files into {outputPath}");
+                return Result.Success(outputPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, "Error combining files");
+                return Result.Failure<string>($"Failed to combine files: {ex.Message}");
+            }
+        }
+
+        public async Task<Result> SaveToExcelAsync(List<string> data, string fileName, string subFolder = "")
+        {
+            try
+            {
+                string fullPath;
+
+                // Check if fileName is already a full path
+                if (Path.IsPathRooted(fileName))
                 {
-                    fileName += ".xlsx";
+                    fullPath = fileName;
+                    // Ensure directory exists
+                    string? directory = Path.GetDirectoryName(fullPath);
+                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+                }
+                else
+                {
+                    // Legacy behavior: relative path logic
+                    // Ensure the file name is valid
+                    fileName = Path.GetFileName(fileName);
+                    if (string.IsNullOrWhiteSpace(fileName) || Path.GetInvalidFileNameChars().Any(fileName.Contains))
+                    {
+                        return Result.Failure("Invalid file name. Please use a valid name.");
+                    }
+
+                    // Ensure .xlsx extension
+                    if (!fileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fileName += ".xlsx";
+                    }
+
+                    string folderName = string.IsNullOrWhiteSpace(subFolder) ? SourceFolderName : subFolder;
+                    string saveDirectory = GetOutputFolder(folderName);
+                    fullPath = Path.Combine(saveDirectory, fileName);
                 }
 
-                string folderName = string.IsNullOrWhiteSpace(subFolder) ? SourceFolderName : subFolder;
-                string saveDirectory = GetOutputFolder(folderName);
-                fullPath = Path.Combine(saveDirectory, fileName);
-            }
-
-            using var package = new ExcelPackage();
-            WriteListToExcelSheet(package, data, "Processed Data");
-            package.SaveAs(new FileInfo(fullPath));
-        }
-
-        public string SaveResultsToExcel(string folderName, List<Dictionary<string, object>> results)
-        {
-            if (results == null || results.Count == 0)
-                return string.Empty;
-
-            string saveDirectory;
-            if (Path.IsPathRooted(folderName))
-            {
-                // If folderName is a full path, use it directly
-                saveDirectory = folderName;
-            }
-            else
-            {
-                // Legacy: use default output folder structure
-                saveDirectory = GetOutputFolder(folderName);
-            }
-
-            if (!Directory.Exists(saveDirectory))
-            {
-                Directory.CreateDirectory(saveDirectory);
-            }
-
-            string fileName = $"AnalysisResults_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
-            string filePath = Path.Combine(saveDirectory, fileName);
-
-            using var package = new ExcelPackage(new FileInfo(filePath));
-            WriteResultsToExcelSheet(package, results, "ParticleData");
-
-            package.Save();
-            return filePath;
-        }
-
-        public string? SaveToExcelWithDialog(List<string> data, string defaultFileName)
-        {
-            var dialog = new SaveFileDialog
-            {
-                Filter = "Excel Files (*.xlsx)|*.xlsx",
-                DefaultExt = ".xlsx",
-                FileName = defaultFileName
-            };
-
-            if (dialog.ShowDialog() == true)
-            {
-                string fullPath = dialog.FileName;
                 using var package = new ExcelPackage();
                 WriteListToExcelSheet(package, data, "Processed Data");
-                package.SaveAs(new FileInfo(fullPath));
-                return fullPath;
-            }
+                await package.SaveAsAsync(new FileInfo(fullPath));
 
-            return null;
+                _logger.LogInfo($"Successfully saved list to Excel: {fullPath}");
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, $"Error saving list to Excel: {fileName}");
+                return Result.Failure($"Failed to save Excel file: {ex.Message}");
+            }
         }
 
-        public string? SaveResultsToExcelWithDialog(string defaultFileName, List<Dictionary<string, object>> results)
+        public async Task<Result<string>> SaveResultsToExcelAsync(string folderName, List<Dictionary<string, object>> results)
         {
-            var dialog = new SaveFileDialog
-            {
-                Filter = "Excel Files (*.xlsx)|*.xlsx",
-                DefaultExt = ".xlsx",
-                FileName = defaultFileName
-            };
+            if (results == null || results.Count == 0)
+                return Result.Failure<string>("No results to save.");
 
-            if (dialog.ShowDialog() == true)
+            try
             {
-                string fullPath = dialog.FileName;
-                using var package = new ExcelPackage();
-
-                if (results.Count > 0)
+                string saveDirectory;
+                if (Path.IsPathRooted(folderName))
                 {
-                    WriteResultsToExcelSheet(package, results, "ParticleData");
+                    // If folderName is a full path, use it directly
+                    saveDirectory = folderName;
+                }
+                else
+                {
+                    // Legacy: use default output folder structure
+                    saveDirectory = GetOutputFolder(folderName);
                 }
 
-                package.SaveAs(new FileInfo(fullPath));
-                return fullPath;
-            }
+                if (!Directory.Exists(saveDirectory))
+                {
+                    Directory.CreateDirectory(saveDirectory);
+                }
 
-            return null;
+                string fileName = $"AnalysisResults_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                string filePath = Path.Combine(saveDirectory, fileName);
+
+                using var package = new ExcelPackage(new FileInfo(filePath));
+                WriteResultsToExcelSheet(package, results, "ParticleData");
+
+                await package.SaveAsync();
+                _logger.LogInfo($"Successfully saved analysis results: {filePath}");
+                return Result.Success(filePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, $"Error saving results to Excel in folder: {folderName}");
+                return Result.Failure<string>($"Failed to save analysis results: {ex.Message}");
+            }
+        }
+
+        public async Task<Result<string>> SaveToExcelWithDialogAsync(List<string> data, string defaultFileName)
+        {
+            try
+            {
+                var dialog = new SaveFileDialog
+                {
+                    Filter = "Excel Files (*.xlsx)|*.xlsx",
+                    DefaultExt = ".xlsx",
+                    FileName = defaultFileName
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    string fullPath = dialog.FileName;
+                    using var package = new ExcelPackage();
+                    WriteListToExcelSheet(package, data, "Processed Data");
+                    await package.SaveAsAsync(new FileInfo(fullPath));
+                    _logger.LogInfo($"Successfully saved to Excel via dialog: {fullPath}");
+                    return Result.Success(fullPath);
+                }
+
+                return Result.Failure<string>("Save cancelled by user.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, "Error saving to Excel via dialog");
+                return Result.Failure<string>($"Failed to save: {ex.Message}");
+            }
+        }
+
+        public async Task<Result<string>> SaveResultsToExcelWithDialogAsync(string defaultFileName, List<Dictionary<string, object>> results)
+        {
+            try
+            {
+                var dialog = new SaveFileDialog
+                {
+                    Filter = "Excel Files (*.xlsx)|*.xlsx",
+                    DefaultExt = ".xlsx",
+                    FileName = defaultFileName
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    string fullPath = dialog.FileName;
+                    using var package = new ExcelPackage();
+
+                    if (results.Count > 0)
+                    {
+                        WriteResultsToExcelSheet(package, results, "ParticleData");
+                    }
+
+                    await package.SaveAsAsync(new FileInfo(fullPath));
+                    _logger.LogInfo($"Successfully saved results to Excel via dialog: {fullPath}");
+                    return Result.Success(fullPath);
+                }
+
+                return Result.Failure<string>("Save cancelled by user.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, "Error saving results to Excel via dialog");
+                return Result.Failure<string>($"Failed to save: {ex.Message}");
+            }
         }
 
         private static void WriteListToExcelSheet(ExcelPackage package, List<string> data, string sheetName)

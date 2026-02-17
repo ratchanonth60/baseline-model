@@ -1,17 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Xunit;
-using BaselineMode.WPF.Services;
-using BaselineMode.WPF.Models;
-using System.Collections.Generic;
+using BaselineMode.WPF.Core.Models.Baseline;
+using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Infrastructure.Services.Baseline;
 
 namespace BaselineMode.WPF.Tests
 {
     public class OffsetVerificationTest
     {
         [Fact]
-        public void ProcessFileStream_ShouldUseCorrectOffsets()
+        public async Task ProcessFileStream_ShouldUseCorrectOffsets()
         {
             // Arrange
             // Create a fake hex string where we know exactly what values should be at the "correct" offsets vs "incorrect" offsets.
@@ -53,12 +55,13 @@ namespace BaselineMode.WPF.Tests
             string tempFilePath = Path.GetTempFileName();
             File.WriteAllText(tempFilePath, fileContent);
 
-            var service = new FileService();
+            var service = new BaselineFileService(new LoggerService());
 
             try
             {
                 // Act
-                List<BaselineData> result = service.ProcessFileStream(tempFilePath);
+                var res = await service.ProcessFileStreamAsync(tempFilePath, null);
+                List<BaselineData> result = res.IsSuccess ? res.Value : new List<BaselineData>();
 
                 // Assert
                 Assert.True(result.Count > 0, "Should have processed at least one segment");

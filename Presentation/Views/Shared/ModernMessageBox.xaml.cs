@@ -53,7 +53,7 @@ namespace BaselineMode.WPF.Views.Shared
             var primaryColor = (SolidColorBrush)Application.Current.Resources["PrimaryColor"];
             var dangerColor = (SolidColorBrush)Application.Current.Resources["DangerColor"];
             var warningColor = (SolidColorBrush)Application.Current.Resources["WarningColor"];
-            var successColor = (SolidColorBrush)Application.Current.Resources["AccentColor"];
+            _ = (SolidColorBrush)Application.Current.Resources["AccentColor"];
 
             switch (image)
             {

@@ -25,10 +25,12 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
         // RegexShared from RegexPatterns
         private static readonly Regex WhitespaceRegex = RegexPatterns.Whitespace();
 
+        private readonly ILoggerService _logger;
         private bool _disposed = false;
 
-        public BaselineFileService()
+        public BaselineFileService(ILoggerService logger)
         {
+            _logger = logger;
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         }
 
@@ -36,76 +38,85 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
         // 1. Parsing + Processing Streaming (True Zero-Allocation Logic)
         // ---------------------------------------------------------
 
-        public List<BaselineData> ProcessFileStream(string filePath, IProgress<double>? progress = null)
+        public async Task<Result<List<BaselineData>>> ProcessFileStreamAsync(string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(BaselineFileService));
+                return Result.Failure<List<BaselineData>>("BaselineFileService is disposed.");
 
             if (string.IsNullOrWhiteSpace(filePath))
-                throw new ArgumentNullException(nameof(filePath));
+                return Result.Failure<List<BaselineData>>("File path is empty.");
 
             if (!File.Exists(filePath))
-                throw new FileNotFoundException("File not found", filePath);
+                return Result.Failure<List<BaselineData>>($"File not found: {filePath}");
 
-            // Estimate initial capacity to reduce List resizing
-            long fileSize = new FileInfo(filePath).Length;
-            int estimatedCapacity = (int)Math.Min(fileSize / (CHUNK_SIZE * 2), 100000);
-            var results = new List<BaselineData>(estimatedCapacity);
-
-            // Use StreamReader
-            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 131072))
-            using (var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 131072))
+            try
             {
-                char[] fileBuffer = new char[131072];
-                StringBuilder hexAccumulator = new(CHUNK_SIZE * 4);
+                // Estimate initial capacity to reduce List resizing
+                long fileSize = new FileInfo(filePath).Length;
+                int estimatedCapacity = (int)Math.Min(fileSize / (CHUNK_SIZE * 2), 100000);
+                var results = new List<BaselineData>(estimatedCapacity);
 
-                int charsRead;
-                long totalBytes = fs.Length;
-                long processedBytes = 0;
-
-                var arrayPool = System.Buffers.ArrayPool<int>.Shared;
-                int[] l1l2Dec = arrayPool.Rent(BUFFER_SIZE);
-                int[] l6l7Dec = arrayPool.Rent(BUFFER_SIZE);
-
-                try
+                // Use StreamReader
+                using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 131072, useAsync: true))
+                using (var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false, bufferSize: 131072))
                 {
-                    while ((charsRead = sr.Read(fileBuffer, 0, fileBuffer.Length)) > 0)
-                    {
-                        processedBytes += charsRead;
+                    char[] fileBuffer = new char[131072];
+                    StringBuilder hexAccumulator = new(CHUNK_SIZE * 4);
 
-                        for (int i = 0; i < charsRead; i++)
+                    int charsRead;
+                    long totalBytes = fs.Length;
+                    long processedBytes = 0;
+
+                    var arrayPool = System.Buffers.ArrayPool<int>.Shared;
+                    int[] l1l2Dec = arrayPool.Rent(BUFFER_SIZE);
+                    int[] l6l7Dec = arrayPool.Rent(BUFFER_SIZE);
+
+                    try
+                    {
+                        while ((charsRead = await sr.ReadAsync(fileBuffer, 0, fileBuffer.Length)) > 0)
                         {
-                            char c = fileBuffer[i];
-                            if (IsHexChar(c))
+                            processedBytes += charsRead;
+
+                            for (int i = 0; i < charsRead; i++)
                             {
-                                hexAccumulator.Append(c);
+                                char c = fileBuffer[i];
+                                if (IsHexChar(c))
+                                {
+                                    hexAccumulator.Append(c);
+                                }
+                            }
+
+                            ProcessAccumulatedHex(hexAccumulator, results, l1l2Dec, l6l7Dec);
+
+                            if (progress != null && results.Count % 1000 == 0)
+                            {
+                                progress.Report((double)processedBytes / totalBytes * 100);
                             }
                         }
 
-                        ProcessAccumulatedHex(hexAccumulator, results, l1l2Dec, l6l7Dec);
-
-                        if (progress != null && results.Count % 1000 == 0)
-                        {
-                            progress.Report((double)processedBytes / totalBytes * 100);
-                        }
+                        ProcessAccumulatedHex(hexAccumulator, results, l1l2Dec, l6l7Dec, force: true);
                     }
+                    finally
+                    {
+                        Array.Clear(l1l2Dec, 0, l1l2Dec.Length);
+                        Array.Clear(l6l7Dec, 0, l6l7Dec.Length);
+                        Array.Clear(fileBuffer, 0, fileBuffer.Length);
 
-                    ProcessAccumulatedHex(hexAccumulator, results, l1l2Dec, l6l7Dec, force: true);
+                        arrayPool.Return(l1l2Dec);
+                        arrayPool.Return(l6l7Dec);
+
+                        hexAccumulator.Clear();
+                    }
                 }
-                finally
-                {
-                    Array.Clear(l1l2Dec, 0, l1l2Dec.Length);
-                    Array.Clear(l6l7Dec, 0, l6l7Dec.Length);
-                    Array.Clear(fileBuffer, 0, fileBuffer.Length);
 
-                    arrayPool.Return(l1l2Dec);
-                    arrayPool.Return(l6l7Dec);
-
-                    hexAccumulator.Clear();
-                }
+                _logger.LogInfo($"Successfully processed file stream: {filePath}. Count: {results.Count}");
+                return Result.Success(results);
             }
-
-            return results;
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, $"Error processing file stream: {filePath}");
+                return Result.Failure<List<BaselineData>>($"Processing failed: {ex.Message}");
+            }
         }
 
         private static void ProcessAccumulatedHex(StringBuilder sb, List<BaselineData> results, int[] l1l2Dec, int[] l6l7Dec, bool force = false)
@@ -236,67 +247,79 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             }
         }
 
-        public void SaveToExcel(List<BaselineData> dataList, string filePath, IProgress<double>? progress = null)
+        public async Task<Result> SaveToExcelAsync(List<BaselineData> dataList, string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(BaselineFileService));
+                return Result.Failure("BaselineFileService is disposed.");
 
-            ArgumentNullException.ThrowIfNull(dataList);
+            if (dataList == null)
+                return Result.Failure("Data list is null.");
 
             if (string.IsNullOrWhiteSpace(filePath))
-                throw new ArgumentNullException(nameof(filePath));
+                return Result.Failure("File path is empty.");
 
-            var dir = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            try
             {
-                Directory.CreateDirectory(dir);
-            }
-
-            if (File.Exists(filePath))
-            {
-                try
+                var dir = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 {
-                    File.Delete(filePath);
+                    Directory.CreateDirectory(dir);
                 }
-                catch
+
+                if (File.Exists(filePath))
                 {
-                    // File might be locked
-                }
-            }
-
-            using var package = new ExcelPackage(new FileInfo(filePath));
-            var ws = package.Workbook.Worksheets.Add("Processed Data");
-
-            WriteHeaders(ws);
-
-            int rowCount = dataList.Count;
-            if (rowCount > 0)
-            {
-                int colCount = 2 + (AppConstants.ChannelsPerLayer * 4);
-                object[,] dataArray = new object[rowCount, colCount];
-
-                for (int i = 0; i < rowCount; i++)
-                {
-                    var item = dataList[i];
-                    dataArray[i, 0] = item.SamplingPacketNo;
-                    dataArray[i, 1] = item.SamplingNo;
-
-                    int c = 2;
-                    for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L1[j];
-                    for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L2[j];
-                    for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L6[j];
-                    for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L7[j];
-
-                    if (progress != null && i % 1000 == 0)
+                    try
                     {
-                        progress.Report(((double)i / rowCount) * 100);
+                        File.Delete(filePath);
+                    }
+                    catch (IOException ioEx)
+                    {
+                        _logger.LogWarning($"File locked or inaccessible: {filePath}. {ioEx.Message}");
+                        return Result.Failure($"File is in use and cannot be overwritten: {filePath}");
                     }
                 }
 
-                ws.Cells[2, 1].LoadFromArrays(ConvertArrayToEnumerable(dataArray));
-            }
+                using var package = new ExcelPackage(new FileInfo(filePath));
+                var ws = package.Workbook.Worksheets.Add("Processed Data");
 
-            package.Save();
+                WriteHeaders(ws);
+
+                int rowCount = dataList.Count;
+                if (rowCount > 0)
+                {
+                    int colCount = 2 + (AppConstants.ChannelsPerLayer * 4);
+                    object[,] dataArray = new object[rowCount, colCount];
+
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        var item = dataList[i];
+                        dataArray[i, 0] = item.SamplingPacketNo;
+                        dataArray[i, 1] = item.SamplingNo;
+
+                        int c = 2;
+                        for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L1[j];
+                        for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L2[j];
+                        for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L6[j];
+                        for (int j = 0; j < AppConstants.ChannelsPerLayer; j++) dataArray[i, c++] = item.L7[j];
+
+                        if (progress != null && i % 1000 == 0)
+                        {
+                            progress.Report(((double)i / rowCount) * 100);
+                        }
+                    }
+
+                    ws.Cells[2, 1].LoadFromArrays(ConvertArrayToEnumerable(dataArray));
+                }
+
+                await package.SaveAsync();
+                _logger.LogInfo($"Successfully saved data to Excel: {filePath}");
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, $"Error saving to Excel: {filePath}");
+                return Result.Failure($"Failed to save Excel file: {ex.Message}");
+            }
         }
 
         private static IEnumerable<object[]> ConvertArrayToEnumerable(object[,] array)
@@ -340,85 +363,95 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             }
         }
 
-        public List<BaselineData> ReadExcelFile(string filePath, IProgress<double>? progress = null)
+        public async Task<Result<List<BaselineData>>> ReadExcelFileAsync(string filePath, IProgress<double>? progress = null)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(BaselineFileService));
+                return Result.Failure<List<BaselineData>>("BaselineFileService is disposed.");
 
             if (string.IsNullOrWhiteSpace(filePath))
-                throw new ArgumentNullException(nameof(filePath));
+                return Result.Failure<List<BaselineData>>("File path is empty.");
 
             if (!File.Exists(filePath))
-                throw new FileNotFoundException("Excel file not found", filePath);
+                return Result.Failure<List<BaselineData>>($"Excel file not found: {filePath}");
 
-            using var package = new ExcelPackage(new FileInfo(filePath));
-            var ws = package.Workbook.Worksheets[0];
-            if (ws.Dimension == null) return [];
-
-            int rowCount = ws.Dimension.Rows;
-            int colCount = ws.Dimension.Columns;
-            int dataRows = rowCount - 1;
-
-            if (dataRows <= 0)
+            try
             {
-                MessageBoxService.Show($"Excel file found but appears empty (Rows: {rowCount}).", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-                return [];
-            }
+                using var package = new ExcelPackage(new FileInfo(filePath));
+                await package.LoadAsync(new FileInfo(filePath));
+                var ws = package.Workbook.Worksheets[0];
+                if (ws.Dimension == null) return Result.Success(new List<BaselineData>());
 
-            if (ws.Cells[2, 1, rowCount, colCount].Value is not object[,] rawValues)
+                int rowCount = ws.Dimension.Rows;
+                int colCount = ws.Dimension.Columns;
+                int dataRows = rowCount - 1;
+
+                if (dataRows <= 0)
+                {
+                    _logger.LogWarning($"Excel file empty: {filePath}");
+                    return Result.Failure<List<BaselineData>>("Excel file found but appears empty.");
+                }
+
+                if (ws.Cells[2, 1, rowCount, colCount].Value is not object[,] rawValues)
+                {
+                    _logger.LogWarning($"Unable to read Excel data (null values): {filePath}");
+                    return Result.Failure<List<BaselineData>>("Unable to read Excel data.");
+                }
+
+                var results = new List<BaselineData>(dataRows);
+
+                for (int r = 0; r < dataRows; r++)
+                {
+                    var data = new BaselineData
+                    {
+                        SamplingPacketNo = rawValues[r, 0] != null ? Convert.ToInt32(rawValues[r, 0]) : 0,
+                        SamplingNo = rawValues[r, 1] != null ? Convert.ToInt32(rawValues[r, 1]) : 0
+                    };
+
+                    int c = 2;
+                    for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
+                    {
+                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
+                        data.L1[i] = val;
+                        data.L1_Voltage[i] = val * VOLTAGE_FACTOR;
+                        c++;
+                    }
+                    for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
+                    {
+                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
+                        data.L2[i] = val;
+                        data.L2_Voltage[i] = val * VOLTAGE_FACTOR;
+                        c++;
+                    }
+                    for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
+                    {
+                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
+                        data.L6[i] = val;
+                        data.L6_Voltage[i] = val * VOLTAGE_FACTOR;
+                        c++;
+                    }
+                    for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
+                    {
+                        int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
+                        data.L7[i] = val;
+                        data.L7_Voltage[i] = val * VOLTAGE_FACTOR;
+                        c++;
+                    }
+
+                    results.Add(data);
+
+                    if (progress != null && (r % 1000 == 0))
+                    {
+                        progress.Report(((double)(r) / dataRows) * 100);
+                    }
+                }
+                _logger.LogInfo($"Successfully read Excel file: {filePath}. Count: {results.Count}");
+                return Result.Success(results);
+            }
+            catch (Exception ex)
             {
-                MessageBoxService.Show("Unable to read Excel data.", "Read Excel Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
-                return [];
+                _logger.LogException(ex, $"Error reading Excel file: {filePath}");
+                return Result.Failure<List<BaselineData>>($"Failed to read Excel file: {ex.Message}");
             }
-
-            var results = new List<BaselineData>(dataRows);
-
-            for (int r = 0; r < dataRows; r++)
-            {
-                var data = new BaselineData
-                {
-                    SamplingPacketNo = rawValues[r, 0] != null ? Convert.ToInt32(rawValues[r, 0]) : 0,
-                    SamplingNo = rawValues[r, 1] != null ? Convert.ToInt32(rawValues[r, 1]) : 0
-                };
-
-                int c = 2;
-                for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
-                {
-                    int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
-                    data.L1[i] = val;
-                    data.L1_Voltage[i] = val * VOLTAGE_FACTOR;
-                    c++;
-                }
-                for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
-                {
-                    int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
-                    data.L2[i] = val;
-                    data.L2_Voltage[i] = val * VOLTAGE_FACTOR;
-                    c++;
-                }
-                for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
-                {
-                    int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
-                    data.L6[i] = val;
-                    data.L6_Voltage[i] = val * VOLTAGE_FACTOR;
-                    c++;
-                }
-                for (int i = 0; i < AppConstants.ChannelsPerLayer; i++)
-                {
-                    int val = rawValues[r, c] != null ? Convert.ToInt32(rawValues[r, c]) : 0;
-                    data.L7[i] = val;
-                    data.L7_Voltage[i] = val * VOLTAGE_FACTOR;
-                    c++;
-                }
-
-                results.Add(data);
-
-                if (progress != null && (r % 1000 == 0))
-                {
-                    progress.Report(((double)(r) / dataRows) * 100);
-                }
-            }
-            return results;
         }
 
         protected virtual void Dispose(bool disposing)

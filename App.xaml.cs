@@ -28,9 +28,11 @@ public partial class App : Application
         ServiceProvider = services.BuildServiceProvider();
     }
 
-    private void ConfigureServices(ServiceCollection services)
+    private static void ConfigureServices(ServiceCollection services)
     {
-        // Core Services
+        // Core Services (order: Logger first, then HEMG and Math depend on it)
+        services.AddSingleton<ILoggerService, LoggerService>();
+        services.AddSingleton<IHemgFittingService, HemgFittingService>();
         services.AddSingleton<IMathService, MathService>();
         services.AddSingleton<IFileService, BaselineFileService>(); // Updated
         services.AddSingleton<IObservationDataProcessor, ObservationDataProcessor>();
@@ -59,7 +61,10 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
             var ex = args.ExceptionObject as Exception;
-            MessageBox.Show($"Critical Error: {ex?.Message}\n\nStack Trace:\n{ex?.StackTrace}", "Application Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            var logger = ServiceProvider.GetRequiredService<ILoggerService>();
+            logger.LogException(ex ?? new Exception("Unknown error"), "Global Handled Exception");
+
+            MessageBoxService.Show($"Critical Error: {ex?.Message}\n\nStack Trace:\n{ex?.StackTrace}", "Application Error", MessageBoxButton.OK, MessageBoxImage.Error);
         };
 
         try
@@ -69,7 +74,10 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Startup Error: {ex.Message}\n\nInner Exception: {ex.InnerException?.Message}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            var logger = ServiceProvider.GetService<ILoggerService>();
+            logger?.LogException(ex, "Startup Failure");
+
+            MessageBoxService.Show($"Startup Error: {ex.Message}\n\nInner Exception: {ex.InnerException?.Message}", "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
         }
     }

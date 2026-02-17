@@ -20,6 +20,8 @@ using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Views.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
+using BaselineMode.WPF.Core.Helpers;
+using BaselineMode.WPF.Infrastructure.Services;
 
 namespace BaselineMode.WPF.Views.Shared
 {
@@ -44,6 +46,7 @@ namespace BaselineMode.WPF.Views.Shared
             _observationViewModel = observationViewModel;
 
             DataContext = mainViewModel;
+            mainViewModel.ObservationVM = observationViewModel;
 
             if (ViewBaseline != null) ViewBaseline.DataContext = mainViewModel;
             if (ViewObservation != null) ViewObservation.DataContext = observationViewModel;
@@ -150,7 +153,7 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void BtnSettings_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Theme settings will be available in a future update.", "Theme Settings", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBoxService.Show("Theme settings will be available in a future update.", "Theme Settings", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void SwitchToBaselineMode()
@@ -217,10 +220,10 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void UpdatePlot(WpfPlot wpfPlot, ChannelViewModel channelVm)
         {
-            var figBg = ToDrawingColor(_mainViewModel.GraphFigureColor);
-            var dataBg = ToDrawingColor(_mainViewModel.GraphDataColor);
-            var foreColor = ToDrawingColor(_mainViewModel.GraphTextColor);
-            var seriesColor = ToDrawingColor(_mainViewModel.GraphSeriesColor);
+            var figBg = ColorHelper.ToDrawingColor(_mainViewModel.GraphFigureColor);
+            var dataBg = ColorHelper.ToDrawingColor(_mainViewModel.GraphDataColor);
+            var foreColor = ColorHelper.ToDrawingColor(_mainViewModel.GraphTextColor);
+            var seriesColor = ColorHelper.ToDrawingColor(_mainViewModel.GraphSeriesColor);
 
             channelVm.RenderTo(wpfPlot, figBg, dataBg, foreColor, seriesColor);
         }
@@ -229,10 +232,10 @@ namespace BaselineMode.WPF.Views.Shared
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                var figBg = ToDrawingColor(_mainViewModel.GraphFigureColor);
-                var dataBg = ToDrawingColor(_mainViewModel.GraphDataColor);
-                var foreColor = ToDrawingColor(_mainViewModel.GraphTextColor);
-                var seriesColor = ToDrawingColor(_mainViewModel.GraphSeriesColor);
+                var figBg = ColorHelper.ToDrawingColor(_mainViewModel.GraphFigureColor);
+                var dataBg = ColorHelper.ToDrawingColor(_mainViewModel.GraphDataColor);
+                var foreColor = ColorHelper.ToDrawingColor(_mainViewModel.GraphTextColor);
+                var seriesColor = ColorHelper.ToDrawingColor(_mainViewModel.GraphSeriesColor);
 
                 foreach (var channel in _mainViewModel.Channels)
                 {
@@ -312,7 +315,7 @@ namespace BaselineMode.WPF.Views.Shared
         {
             if (_observationViewModel.InputFileList == null || _observationViewModel.InputFileList.Length == 0)
             {
-                MessageBox.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBoxService.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -361,7 +364,7 @@ namespace BaselineMode.WPF.Views.Shared
         {
             if (_observationViewModel.InputFileList == null || _observationViewModel.InputFileList.Length == 0)
             {
-                MessageBox.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBoxService.Show("Please select files first.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -403,7 +406,7 @@ namespace BaselineMode.WPF.Views.Shared
                 ObsProgressBar.IsIndeterminate = false;
                 ObsTxtStatus.Text = "ERROR";
                 ObsTxtStatus.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xF4, 0x43, 0x36));
-                MessageBox.Show($"Processing error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show($"Processing error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -417,7 +420,7 @@ namespace BaselineMode.WPF.Views.Shared
             string? fileName = _observationViewModel.FileHelper.FindExcelFile(outputName);
             if (fileName != null) return;
 
-            var result = MessageBox.Show(
+            var result = MessageBoxService.Show(
                 $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
                 "File Not Found",
                 MessageBoxButton.YesNo,
@@ -441,8 +444,10 @@ namespace BaselineMode.WPF.Views.Shared
             _obsCts = new CancellationTokenSource();
             var progress = new Progress<ObservationProcessReport>(report =>
             {
-                ObsProgressBar.Maximum = report.TotalSteps;
-                ObsProgressBar.Value = report.CurrentStep;
+                ObsProgressBar.Maximum = 100;
+                ObsProgressBar.Value = report.TotalSteps > 0
+                    ? (double)report.CurrentStep / report.TotalSteps * 100.0
+                    : 0;
                 ObsTxtProgress.Text = report.Message;
                 ObsTxtDataCount.Text = $"{report.TotalSteps}";
                 ObsTxtParticleCount.Text = $"{report.TotalSteps * 5}";
@@ -488,8 +493,12 @@ namespace BaselineMode.WPF.Views.Shared
                 if (!_obsCts.IsCancellationRequested)
                 {
                     // Re-save logic from original code:
-                    _lastSavedFilePath = _observationViewModel.ExcelHelper.SaveAllResultsToExcel(
+                    var saveResult = await _observationViewModel.ExcelHelper.SaveAllResultsToExcelAsync(
                        ObsTxtOutputFileName.Text, _observationViewModel.DataProcessor.AllResults);
+                    if (saveResult.IsSuccess)
+                    {
+                        _lastSavedFilePath = saveResult.Value;
+                    }
                     _observationViewModel.DataProcessor.AllResults.Clear();
                     UpdateObsStatus("Processing and saving complete");
                 }
@@ -500,7 +509,7 @@ namespace BaselineMode.WPF.Views.Shared
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBoxService.Show($"Error: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 UpdateObsStatus("Error");
             }
         }
@@ -517,6 +526,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             ObsTxtOutputFileName.Text = "";
             ObsTxtProgress.Text = "Ready";
+            ObsProgressBar.Maximum = 100;
             ObsProgressBar.Value = 0;
             ObsProgressBar.IsIndeterminate = false;
             ObsTxtStatus.Text = "READY";
@@ -546,7 +556,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             if (fileName == null)
             {
-                MessageBox.Show($"File '{outputName}' not found.", "File Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBoxService.Show($"File '{outputName}' not found.", "File Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -588,7 +598,7 @@ namespace BaselineMode.WPF.Views.Shared
                     if (Directory.Exists(folderPath))
                         Process.Start("explorer.exe", folderPath);
                     else
-                        MessageBox.Show("No result file or output folder found.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBoxService.Show("No result file or output folder found.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
         }
@@ -697,22 +707,9 @@ namespace BaselineMode.WPF.Views.Shared
 
         #region Plot Helpers
 
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor)
-        {
-            if (mediaColor.A == 0 && mediaColor.R == 0 && mediaColor.G == 0 && mediaColor.B == 0)
-                return System.Drawing.Color.Orange; // Fallback
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
-        }
-
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color mediaColor, System.Drawing.Color fallback)
-        {
-            if (mediaColor.A == 0) return fallback;
-            return System.Drawing.Color.FromArgb(mediaColor.A, mediaColor.R, mediaColor.G, mediaColor.B);
-        }
-
         private System.Drawing.Color GetBackgroundColor()
         {
-            return ToDrawingColor(_observationViewModel.SelectedGraphBackground, System.Drawing.Color.Gray);
+            return ColorHelper.ToDrawingColor(_observationViewModel.SelectedGraphBackground, System.Drawing.Color.Gray);
         }
 
         private System.Drawing.Color GetForegroundColor()
@@ -781,7 +778,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = (binEdges[1] - binEdges[0]) * _observationViewModel.BarWidthMultiplier;
-            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+            bar.FillColor = ColorHelper.ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
 
             // Calculate basic stats manually first
             if (peakLabel != null) peakLabel.Text = $"{hist.Max()}";
@@ -797,12 +794,18 @@ namespace BaselineMode.WPF.Views.Shared
             {
                 try
                 {
-                    var selectedFit = (ObsCmbDSSDFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
+                    // Define fit tasks
+                    var fitConfigs = new List<(bool isEnabled, string label, System.Drawing.Color color, Func<double[], double[], BaselineMode.WPF.Core.Models.Baseline.FittingResult> fitFunc)>
+                    {
+                        (_observationViewModel.ShowGaussianFitDSSD, "Gaussian", System.Drawing.Color.Red, _observationViewModel.MathProvider.GaussianFit),
+                        (_observationViewModel.ShowLorentzianFitDSSD, "Lorentzian", System.Drawing.Color.Cyan, _observationViewModel.MathProvider.LorentzianFit),
+                        (_observationViewModel.ShowHemgFitDSSD, "HEMG", System.Drawing.Color.Lime, _observationViewModel.MathProvider.HemgDoubleSidedFit)
+                    };
 
-                    // --- 4.1 Crop around peak for better convergence ---
+                    // Crop area around peak
                     double maxVal = hist.Max();
                     int peakIdx = Array.IndexOf(hist, maxVal);
-                    int win = 100; // window around peak
+                    int win = 100;
                     int start = Math.Max(0, peakIdx - win);
                     int end = Math.Min(hist.Length - 1, peakIdx + win);
                     int len = end - start;
@@ -812,17 +815,15 @@ namespace BaselineMode.WPF.Views.Shared
                         double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
                         double[] yFit = [.. hist.Skip(start).Take(len)];
 
-                        var fitResult = selectedFit == "Lorentzian"
-                            ? _observationViewModel.MathProvider.LorentzianFit(xFit, yFit)
-                            : _observationViewModel.MathProvider.GaussianFit(xFit, yFit);
-
-                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        foreach (var (isEnabled, label, color, fitFunc) in fitConfigs.Where(c => c.isEnabled))
                         {
-                            if (!fitResult.FitCurve.Any(double.IsNaN))
+                            var fitResult = fitFunc(xFit, yFit);
+                            if (fitResult?.IsValid == true && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length && !fitResult.FitCurve.Any(double.IsNaN))
                             {
-                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
-                                plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+                                var scatter = plot.Plot.AddScatter(xFit, fitResult.FitCurve, color, lineWidth: 2, label: label);
+                                plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 6);
 
+                                // Update statistics labels with THIS result
                                 if (peakLabel != null) peakLabel.Text = $"{fitResult.Peak:F2}";
                                 if (meanLabel != null) meanLabel.Text = $"{fitResult.Mu:F2}";
                                 if (rmsLabel != null) rmsLabel.Text = $"{fitResult.Sigma:F2}";
@@ -830,6 +831,9 @@ namespace BaselineMode.WPF.Views.Shared
                                 if (resLabel != null) resLabel.Text = $"{fitResult.Resolution:F2}%";
                             }
                         }
+
+                        // Show legend if more than one fit
+                        if (fitConfigs.Count(c => c.isEnabled) > 1) plot.Plot.Legend(location: ScottPlot.Alignment.UpperRight);
                     }
                 }
                 catch (Exception ex)
@@ -903,7 +907,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             var bar = plot.Plot.AddBar(hist, binMidpoints);
             bar.BarWidth = (binEdges[1] - binEdges[0]) * _observationViewModel.BarWidthMultiplier;
-            bar.FillColor = ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
+            bar.FillColor = ColorHelper.ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
 
             if (peak != null) peak.Text = $"{hist.Max()}";
             if (mean != null) mean.Text = $"{filteredData.Average():F2}";
@@ -922,9 +926,14 @@ namespace BaselineMode.WPF.Views.Shared
             {
                 try
                 {
-                    var selectedBGOFit = (ObsCmbBGOFitMethod?.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString();
+                    // Define fit tasks
+                    var fitConfigs = new List<(bool isEnabled, string label, System.Drawing.Color color, Func<double[], double[], BaselineMode.WPF.Core.Models.Baseline.FittingResult> fitFunc)>
+                    {
+                        (_observationViewModel.ShowGaussianFitBGO, "Gaussian", System.Drawing.Color.Red, _observationViewModel.MathProvider.GaussianFit),
+                        (_observationViewModel.ShowLorentzianFitBGO, "Lorentzian", System.Drawing.Color.Cyan, _observationViewModel.MathProvider.LorentzianFit),
+                        (_observationViewModel.ShowHemgFitBGO, "HEMG", System.Drawing.Color.Lime, _observationViewModel.MathProvider.HemgDoubleSidedFit)
+                    };
 
-                    // --- 4.1 Crop around peak for better convergence ---
                     double maxVal = hist.Max();
                     int peakIdx = Array.IndexOf(hist, maxVal);
                     int win = 100;
@@ -937,16 +946,13 @@ namespace BaselineMode.WPF.Views.Shared
                         double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
                         double[] yFit = [.. hist.Skip(start).Take(len)];
 
-                        var fitResult = selectedBGOFit == "Lorentzian"
-                            ? _observationViewModel.MathProvider.LorentzianFit(xFit, yFit)
-                            : _observationViewModel.MathProvider.GaussianFit(xFit, yFit);
-
-                        if (fitResult != null && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
+                        foreach (var (isEnabled, label, color, fitFunc) in fitConfigs.Where(c => c.isEnabled))
                         {
-                            if (!fitResult.FitCurve.Any(double.IsNaN))
+                            var fitResult = fitFunc(xFit, yFit);
+                            if (fitResult?.IsValid == true && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length && !fitResult.FitCurve.Any(double.IsNaN))
                             {
-                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, System.Drawing.Color.Red, lineWidth: 2);
-                                plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 8);
+                                plot.Plot.AddScatter(xFit, fitResult.FitCurve, color, lineWidth: 2, label: label);
+                                plot.Plot.AddPoint(fitResult.Mu, fitResult.Peak, color: System.Drawing.Color.Yellow, size: 6);
 
                                 if (peak != null) peak.Text = $"{fitResult.Peak:F2}";
                                 if (mean != null) mean.Text = $"{fitResult.Mu:F2}";
@@ -955,6 +961,8 @@ namespace BaselineMode.WPF.Views.Shared
                                 if (res != null) res.Text = $"{fitResult.Resolution:F2}%";
                             }
                         }
+
+                        if (fitConfigs.Count(c => c.isEnabled) > 1) plot.Plot.Legend(location: ScottPlot.Alignment.UpperRight);
                     }
                 }
                 catch (Exception ex)
@@ -1080,14 +1088,30 @@ namespace BaselineMode.WPF.Views.Shared
             detailWindow.SetColorTheme(bg, bg, fg);
 
             System.Drawing.Color? barColor = null;
-            if (tag.Contains("BGO")) barColor = ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
-            else barColor = ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
+            if (tag.Contains("BGO")) barColor = ColorHelper.ToDrawingColor(_observationViewModel.SelectedBGOColor, System.Drawing.Color.Cyan);
+            else barColor = ColorHelper.ToDrawingColor(_observationViewModel.SelectedDSSDColor, System.Drawing.Color.Orange);
 
             // Ensure Opacity
             if (barColor.HasValue)
                 barColor = System.Drawing.Color.FromArgb(255, barColor.Value);
 
-            detailWindow.ShowHistogram(data, title, showFit, barColor);
+            double xMin = 0;
+            double xMax = 4096;
+            if (tag.Contains("BGO"))
+            {
+                if (double.TryParse(ObsTxtBGOXMax?.Text, out double _bMax)) xMax = _bMax;
+            }
+            else
+            {
+                if (double.TryParse(ObsTxtDSSDXMin?.Text, out double _dMin)) xMin = _dMin;
+                if (double.TryParse(ObsTxtDSSDXMax?.Text, out double _dMax)) xMax = _dMax;
+            }
+
+            int binCount = (int)xMax;
+            if (binCount > 8192) binCount = 8192;
+            if (binCount < 100) binCount = 100;
+
+            detailWindow.ShowHistogram(data, title, showFit, barColor, xMin, xMax, binCount, _observationViewModel.BarWidthMultiplier);
             detailWindow.Show();
         }
         #endregion
