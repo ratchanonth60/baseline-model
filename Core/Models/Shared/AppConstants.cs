@@ -10,6 +10,8 @@ namespace BaselineMode.WPF.Core.Models.Shared
         public const string HeaderStart = "E225";
         public const int PacketLength = 256;      // Total hex bytes per line (Header+Data+Checksum)
         public const int PacketHexLength = PacketLength * 2; // Total hex characters
+        /// <summary>E225 segment size: 2064 bytes = 4128 hex chars (used in Flux/Calibration raw processing).</summary>
+        public const int SegmentHexLength = 4128;
         public const int HeaderOffset = 16;       // bytes to skip before particle data
         public const int ParticlesPerLine = 5;    // number of particles per data packet
 
