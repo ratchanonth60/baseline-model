@@ -102,6 +102,18 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         partial void OnShowLorentzianFitBGOChanged(bool value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
         partial void OnShowHemgFitBGOChanged(bool value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
 
+        // --- X-Axis & Calibration Settings ---
+        [ObservableProperty]
+        private int _selectedXAxisIndex = 0; // 0=ADC, 1=Voltage, 2=Energy
+
+        [ObservableProperty]
+        private double _energyCalibrationSlope = 0.000427; // Placeholder
+
+        [ObservableProperty]
+        private double _energyCalibrationIntercept = 0.0;
+
+        partial void OnSelectedXAxisIndexChanged(int value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+
         public Dictionary<string, int[]>? HistogramData { get; private set; }
 
         public event EventHandler? RequestPlotUpdate;

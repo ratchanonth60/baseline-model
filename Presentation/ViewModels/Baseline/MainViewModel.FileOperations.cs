@@ -444,7 +444,6 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             try
             {
                 string outputDir = GetDailyOutputDirectory();
-                string fullPath = Path.Combine(outputDir, layerFile);
                 if (File.Exists(fullPath))
                 {
                     var lines = File.ReadAllLines(fullPath);

@@ -150,6 +150,15 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private int _selectedBaselineMode = 0; // 0=Before, 1=After, 2=Before log, 3=After log
 
         [ObservableProperty]
+        private double _xAxisMin = 0;
+
+        [ObservableProperty]
+        private double _xAxisMax = 16383;
+
+        partial void OnXAxisMinChanged(double value) => RefreshChannelPlots();
+        partial void OnXAxisMaxChanged(double value) => RefreshChannelPlots();
+
+        [ObservableProperty]
         private double _energyCalibrationSlope = 0.000427; // Placeholder: 7 MeV / 16384 channels
 
         [ObservableProperty]
@@ -327,8 +336,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             }
             else
             {
-                minVal = 0;
-                maxVal = 16383;
+                minVal = XAxisMin;
+                maxVal = XAxisMax;
             }
 
             var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(

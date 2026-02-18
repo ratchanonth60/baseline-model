@@ -15,38 +15,105 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="300"/>
+        </Grid.ColumnDefinitions>
 
-        <!-- Title -->
-        <Border Background="#252526" Padding="16,12">
-            <TextBlock x:Name="TitleText" Text="" 
-                       FontSize="18" FontWeight="SemiBold" 
-                       Foreground="#4EC9B0"/>
+        <Border Grid.ColumnSpan="2" Background="#F8FAFC" Padding="16">
+            <TextBlock Text="{Binding Title}" 
+                       FontSize="20" 
+                       FontWeight="Bold" 
+                       Foreground="#334155"/>
         </Border>
 
-        <!-- Plot -->
-        <scott:WpfPlot x:Name="DetailPlot" Grid.Row="1" Margin="12"/>
+        <Grid Grid.Row="1" Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="150"/>
+            </Grid.RowDefinitions>
+            <scott:WpfPlot Grid.Row="0" x:Name="DetailPlot" Margin="8,8,8,0"/>
+            <scott:WpfPlot Grid.Row="1" x:Name="ResidualPlot" Margin="8,0,8,8"/>
+        </Grid>
 
-        <!-- Stats Footer -->
-        <Border Grid.Row="2" Background="#252526" Padding="16,12">
-            <WrapPanel>
-                <TextBlock Text="Peak:" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TxtPeak" Text="-" Foreground="#FF5252" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                <TextBlock Text="Counts:" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TxtCounts" Text="-" Foreground="#B388FF" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                <TextBlock Text="Mean (μ):" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TxtMean" Text="-" Foreground="#69F0AE" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                <TextBlock Text="RMS (σ):" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TxtRMS" Text="-" Foreground="#FFD740" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                <TextBlock Text="FWHM:" Foreground="#858585" FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TxtFWHM" Text="-" Foreground="#40C4FF" FontSize="12" FontWeight="Bold" Margin="0,0,16,0" VerticalAlignment="Center"/>
-                <TextBlock x:Name="TxtResolution" Text="-" Foreground="#FF80AB" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0"/>
-                
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
-                    <CheckBox x:Name="ChkShowGauss" Content="G" ToolTip="Gaussian" IsChecked="True" Foreground="#FF5252" Margin="0,0,8,0"/>
-                    <CheckBox x:Name="ChkShowLorentz" Content="L" ToolTip="Lorentzian" IsChecked="False" Foreground="#40C4FF" Margin="0,0,8,0"/>
-                    <CheckBox x:Name="ChkShowHemg" Content="H" ToolTip="HEMG" IsChecked="False" Foreground="#69F0AE" Margin="0,0,8,0"/>
+        <!-- Manual Controls -->
+        <Border Grid.Row="1" Grid.Column="1" Background="#F1F5F9" Padding="10" Margin="5" CornerRadius="5">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="Manual Fit Tuning" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <CheckBox Content="Enable Manual Mode" IsChecked="{Binding IsManualMode}" Margin="0,0,0,10"/>
+
+                    <Grid IsEnabled="{Binding IsManualMode}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- A -->
+                        <TextBlock Text="A:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"/>
+                        <Slider Grid.Row="0" Grid.Column="1" Minimum="1" Maximum="100000" Value="{Binding ManualA}" Margin="5"/>
+                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding ManualA, StringFormat=F0}" Margin="2"/>
+                        <CheckBox Grid.Row="0" Grid.Column="3" IsChecked="{Binding IsLockedA}" ToolTip="Lock A" VerticalAlignment="Center" Margin="2"/>
+
+                        <!-- Mu -->
+                        <TextBlock Text="Mu:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"/>
+                        <Slider Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="16384" Value="{Binding ManualMu}" Margin="5"/>
+                        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding ManualMu, StringFormat=F1}" Margin="2"/>
+                        <CheckBox Grid.Row="1" Grid.Column="3" IsChecked="{Binding IsLockedMu}" ToolTip="Lock Mu" VerticalAlignment="Center" Margin="2"/>
+
+                        <!-- Sigma -->
+                        <TextBlock Text="Sig:" Grid.Row="2" Grid.Column="0" VerticalAlignment="Center"/>
+                        <Slider Grid.Row="2" Grid.Column="1" Minimum="0.1" Maximum="100" Value="{Binding ManualSigma}" Margin="5"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding ManualSigma, StringFormat=F2}" Margin="2"/>
+                        <CheckBox Grid.Row="2" Grid.Column="3" IsChecked="{Binding IsLockedSigma}" ToolTip="Lock Sigma" VerticalAlignment="Center" Margin="2"/>
+
+                        <!-- TauL -->
+                        <TextBlock Text="TL:" Grid.Row="3" Grid.Column="0" VerticalAlignment="Center"/>
+                        <Slider Grid.Row="3" Grid.Column="1" Minimum="0.1" Maximum="200" Value="{Binding ManualTauL}" Margin="5"/>
+                        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding ManualTauL, StringFormat=F2}" Margin="2"/>
+                        <CheckBox Grid.Row="3" Grid.Column="3" IsChecked="{Binding IsLockedTauL}" ToolTip="Lock TauLeft" VerticalAlignment="Center" Margin="2"/>
+
+                        <!-- TauR -->
+                        <TextBlock Text="TR:" Grid.Row="4" Grid.Column="0" VerticalAlignment="Center"/>
+                        <Slider Grid.Row="4" Grid.Column="1" Minimum="0.1" Maximum="200" Value="{Binding ManualTauR}" Margin="5"/>
+                        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding ManualTauR, StringFormat=F2}" Margin="2"/>
+                        <CheckBox Grid.Row="4" Grid.Column="3" IsChecked="{Binding IsLockedTauR}" ToolTip="Lock TauRight" VerticalAlignment="Center" Margin="2"/>
+
+                        <!-- EtaL -->
+                        <TextBlock Text="EL:" Grid.Row="5" Grid.Column="0" VerticalAlignment="Center"/>
+                        <Slider Grid.Row="5" Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding ManualEtaL}" Margin="5"/>
+                        <TextBox Grid.Row="5" Grid.Column="2" Text="{Binding ManualEtaL, StringFormat=F3}" Margin="2"/>
+                        <CheckBox Grid.Row="5" Grid.Column="3" IsChecked="{Binding IsLockedEtaL}" ToolTip="Lock EtaLeft" VerticalAlignment="Center" Margin="2"/>
+
+                        <!-- EtaR -->
+                        <TextBlock Text="ER:" Grid.Row="6" Grid.Column="0" VerticalAlignment="Center"/>
+                        <Slider Grid.Row="6" Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding ManualEtaR}" Margin="5"/>
+                        <TextBox Grid.Row="6" Grid.Column="2" Text="{Binding ManualEtaR, StringFormat=F3}" Margin="2"/>
+                        <CheckBox Grid.Row="6" Grid.Column="3" IsChecked="{Binding IsLockedEtaR}" ToolTip="Lock EtaRight" VerticalAlignment="Center" Margin="2"/>
+
+                        <Button Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="4" Content="Refit from Manual" Command="{Binding OptimizeManualCommand}" Margin="5,10,5,5" Padding="5"/>
+                    </Grid>
                 </StackPanel>
-            </WrapPanel>
+            </ScrollViewer>
+        </Border>
+
+        <Border Grid.Row="2" Grid.ColumnSpan="2" Background="#F1F5F9" Padding="12">
+            <TextBlock Text="{Binding StatsText}" 
+                       HorizontalAlignment="Center" 
+                       FontSize="14" 
+                       Foreground="#64748B"/>
         </Border>
     </Grid>
 </Window>

@@ -262,8 +262,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
                             if (filteredData.Length > 0)
                             {
-                                double hMin = 0;
-                                double hMax = 16384;
+                                double hMin = XAxisMin;
+                                double hMax = XAxisMax;
 
                                 // ScottPlot Histogram
                                 var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: hMin, max: hMax, binCount: 16384);

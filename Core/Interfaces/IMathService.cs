@@ -63,5 +63,15 @@ namespace BaselineMode.WPF.Core.Interfaces
         /// Hyper-EMG Double-Sided fitting with raw data for better initialization
         /// </summary>
         BaselineMode.WPF.Core.Models.Baseline.FittingResult HemgDoubleSidedFit(double[] xData, double[] yData, double[] rawData);
+
+        /// <summary>
+        /// Hyper-EMG Double-Sided fitting with explicit initial parameters and optional modification locks
+        /// </summary>
+        BaselineMode.WPF.Core.Models.Baseline.FittingResult HemgDoubleSidedFitManual(double[] xData, double[] yData, double[]? initialGuess, bool[]? fixedParams = null);
+
+        /// <summary>
+        /// Generate HEMG curve from parameters
+        /// </summary>
+        double[] GenerateHemgCurve(double[] x, double[] parameters);
     }
 }

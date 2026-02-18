@@ -396,6 +396,25 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Range Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <TextBlock Text="Min:" Foreground="#CCCCCC" FontSize="11" Width="30" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding XAxisMin, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Style="{StaticResource RibbonInput}" Width="60" Margin="4,0,0,0"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="Max:" Foreground="#CCCCCC" FontSize="11" Width="30" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding XAxisMax, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Style="{StaticResource RibbonInput}" Width="60" Margin="4,0,0,0"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Range" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- View Group (X-Axis) -->
                         <Border Padding="12,0">
                             <StackPanel>
@@ -403,7 +422,7 @@
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                         <TextBlock Text="X-Axis:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                         <ComboBox SelectedIndex="{Binding SelectedXAxisIndex}" Width="120" Style="{StaticResource RibbonCombo}">
-                                            <ComboBoxItem Content="ADC Channel (0-16383)"/>
+                                            <ComboBoxItem Content="ADC Channel"/>
                                             <ComboBoxItem Content="Voltage (mV)"/>
                                             <ComboBoxItem Content="Energy (MeV)"/>
                                         </ComboBox>
@@ -492,6 +511,21 @@
                                     </StackPanel>
                                 </StackPanel>
                                 <TextBlock Text="DSSD View" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- View Group (X-Axis) -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <TextBlock Text="X-Axis" Foreground="#faf9f9ff" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,4"/>
+                                    <ComboBox Width="110" SelectedIndex="{Binding ObservationVM.SelectedXAxisIndex}" VerticalAlignment="Center" Style="{StaticResource RibbonCombo}">
+                                        <ComboBoxItem Content="ADC Channel"/>
+                                        <ComboBoxItem Content="Voltage (mV)"/>
+                                        <ComboBoxItem Content="Energy (MeV)"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <TextBlock Text="Views" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
                             </StackPanel>
                         </Border>
 

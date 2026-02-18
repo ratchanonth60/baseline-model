@@ -20,6 +20,20 @@ namespace BaselineMode.WPF.Views.Baseline
         {
             if (DataContext is ChannelViewModel vm)
             {
+                vm.PlotControl = DetailPlot;
+                vm.ResidualPlotControl = ResidualPlot;
+
+                // UX: Shift+Click to Lock Peak
+                DetailPlot.MouseDown += (s, e) =>
+                {
+                    if (System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Shift && vm.IsManualMode)
+                    {
+                        var (mouseX, mouseY) = DetailPlot.GetMouseCoordinates();
+                        vm.ManualMu = mouseX;
+                        vm.IsLockedMu = true;
+                    }
+                };
+
                 if (MainVM != null)
                 {
                     var figBg = ColorHelper.ToDrawingColor(MainVM.GraphFigureColor);

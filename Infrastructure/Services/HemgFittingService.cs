@@ -32,55 +32,69 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
         }
 
+        public double[] GenerateHemgCurve(double[] x, double[] p)
+        {
+            if (x == null || p == null || p.Length < 7) return [];
+            double[] y = new double[x.Length];
+            Parallel.For(0, x.Length, i =>
+            {
+                y[i] = HyperEmgKernel(x[i], p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
+            });
+            return y;
+        }
+
         public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] binCenters, double[] counts)
+        {
+            return HemgDoubleSidedFit(binCenters, counts, null);
+        }
+
+        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] binCenters, double[] counts, double[]? initialGuess = null, bool[]? fixedParams = null)
         {
             if (binCenters == null || counts == null || binCenters.Length < 10)
                 return (new double[binCenters?.Length ?? 0], new double[7]);
 
             try
             {
-                // 1. Peak Detection
-                var (mu0, sigma0, height0) = FindPeakParameters(binCenters, counts);
+                double[] p0;
+                if (initialGuess != null && initialGuess.Length >= 7)
+                {
+                    p0 = (double[])initialGuess.Clone();
+                }
+                else
+                {
+                    // 1. Peak Detection
+                    var (mu0, sigma0, height0) = FindPeakParameters(binCenters, counts);
 
-                // 2. Initial Guess
-                double tauL0 = sigma0 * 1.0;
-                double tauR0 = sigma0 * 2.0;
+                    // 2. Initial Guess
+                    double tauL0 = sigma0 * 0.5;
+                    double tauR0 = sigma0 * 0.5;
+                    double modelAtPeak = HyperEmgKernel(mu0, 1.0, mu0, sigma0, tauL0, tauR0, 0.05, 0.05);
+                    double A0 = (modelAtPeak > 1e-15) ? height0 / modelAtPeak : height0;
+                    p0 = [A0, mu0, sigma0, tauL0, tauR0, 0.05, 0.05];
+                }
 
-                // Estimate Amplitude
-                // เรียก Kernel โดยตรง ไม่ต้องสร้าง array ใหม่
-                double modelAtPeak = HyperEmgKernel(mu0, 1.0, mu0, sigma0, tauL0, tauR0, 0.4, 0.4);
-                double A0 = (modelAtPeak > 1e-15) ? height0 / modelAtPeak : height0;
-
-                // [A, mu, sigma, tauL, tauR, etaL, etaR]
-                double[] p0 = { A0, mu0, sigma0, tauL0, tauR0, 0.4, 0.4 };
-
-                // 3. ROI Extraction (Optimized: Single Pass)
+                // 3. ROI Extraction
                 int startBin = 0, endBin = binCenters.Length - 1;
-                double fitRange = sigma0 * 8;
-                double minX = mu0 - fitRange;
-                double maxX = mu0 + fitRange;
+                double fitRange = p0[2] * 8;
+                double minX = p0[1] - fitRange;
+                double maxX = p0[1] + fitRange;
 
-                // Binary search or simple scan (Scan is fast enough for sorted array)
                 for (int i = 0; i < binCenters.Length; i++) { if (binCenters[i] >= minX) { startBin = i; break; } }
                 for (int i = binCenters.Length - 1; i >= 0; i--) { if (binCenters[i] <= maxX) { endBin = i; break; } }
 
                 int roiLen = endBin - startBin + 1;
-                if (roiLen < 5) return (new double[binCenters.Length], p0);
+                if (roiLen < 5) return (GenerateHemgCurve(binCenters, p0), p0);
 
                 double[] xRoi = new double[roiLen];
                 double[] yRoi = new double[roiLen];
                 Array.Copy(binCenters, startBin, xRoi, 0, roiLen);
                 Array.Copy(counts, startBin, yRoi, 0, roiLen);
 
-                // 4. Optimization (Fast Levenberg-Marquardt)
-                double[] pFit = FitLevenbergMarquardtParallel(p0, xRoi, yRoi);
+                // 4. Optimization (Fast Levenberg-Marquardt with Locks)
+                double[] pFit = FitLevenbergMarquardtParallel(p0, xRoi, yRoi, fixedParams);
 
-                // 5. Generate Curve (Parallel Generation)
-                double[] fitCurve = new double[binCenters.Length];
-                Parallel.For(0, binCenters.Length, i =>
-                {
-                    fitCurve[i] = HyperEmgKernel(binCenters[i], pFit[0], pFit[1], pFit[2], pFit[3], pFit[4], pFit[5], pFit[6]);
-                });
+                // 5. Generate Curve
+                double[] fitCurve = GenerateHemgCurve(binCenters, pFit);
 
                 return (fitCurve, pFit);
             }
@@ -91,36 +105,37 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
         }
 
-        private double[] FitLevenbergMarquardtParallel(double[] p0, double[] x, double[] y)
+        private static double[] FitLevenbergMarquardtParallel(double[] p0, double[] x, double[] y, bool[]? fixedParams = null)
         {
             int n = p0.Length; // 7 parameters
             int m = x.Length;
             double[] p = (double[])p0.Clone();
 
-            // Pre-allocate buffers to reduce GC pressure
-            double[] J_flat = new double[m * n]; // Flattened Jacobian
+            // If fixedParams is null, treat all as false (unlocked)
+            bool[] locks = fixedParams ?? new bool[n];
+
+            // Pre-allocate buffers
+            double[] J_flat = new double[m * n];
             double[] residuals = new double[m];
             double[] pNew = new double[n];
-            double[] JtJ = new double[n * n]; // Flattened Hessian
+            double[] JtJ = new double[n * n];
             double[] JtRes = new double[n];
             double[] delta = new double[n];
 
             double lambda = 0.01;
-            const int maxIter = 30; // ลดรอบลง เพราะ Converge ไวขึ้น
+            const int maxIter = 30;
 
             double currentError = CalculateErrorParallel(p, x, y, residuals);
 
             for (int iter = 0; iter < maxIter; iter++)
             {
-                // 1. Calculate Jacobian (Parallel)
-                CalculateJacobianParallel(p, x, y, residuals, J_flat);
+                // 1. Calculate Jacobian (Parallel) with Locks
+                CalculateJacobianParallel(p, x, y, residuals, J_flat, locks);
 
                 // 2. Compute JtJ and JtRes (Matrix Multiplication)
                 Array.Clear(JtJ, 0, JtJ.Length);
                 Array.Clear(JtRes, 0, JtRes.Length);
 
-                // Build Normal Equations (Small 7x7 matrix, single thread is fine or lightly parallel)
-                // Using flattened arrays for speed
                 for (int i = 0; i < m; i++)
                 {
                     double res = residuals[i];
@@ -128,43 +143,58 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
                     for (int j = 0; j < n; j++)
                     {
+                        // If locked, J is 0, so no contribution to JtRes or JtJ (except diagonal)
+                        if (locks[j]) continue;
+
                         double valJ = J_flat[rowOffset + j];
                         JtRes[j] += valJ * res;
 
-                        // Fill Upper Triangle of Hessian
                         for (int k = j; k < n; k++)
                         {
+                            if (locks[k]) continue;
                             JtJ[j * n + k] += valJ * J_flat[rowOffset + k];
                         }
                     }
                 }
 
-                // Fill Lower Triangle (Symmetric)
                 for (int j = 0; j < n; j++)
                     for (int k = 0; k < j; k++)
                         JtJ[j * n + k] = JtJ[k * n + j];
-                // Try with current Lambda
-                // Backup Diagonal for restoration
-                double[] diagBackup = new double[n];
-                for (int i = 0; i < n; i++) diagBackup[i] = JtJ[i * n + i];
 
-                // Damping
-                for (int i = 0; i < n; i++) JtJ[i * n + i] += lambda * (diagBackup[i] + 1e-5); // Add epsilon to avoid singularity
+                double[] diagBackup = new double[n];
+                for (int i = 0; i < n; i++)
+                {
+                    // If locked, diagonal = 1 (to ensure det != 0 for inversion), and JtRes = 0 -> delta = 0
+                    if (locks[i])
+                    {
+                        JtJ[i * n + i] = 1.0;
+                        JtRes[i] = 0.0;
+                    }
+                    else
+                    {
+                        diagBackup[i] = JtJ[i * n + i];
+                        JtJ[i * n + i] += lambda * (diagBackup[i] + 1e-5);
+                    }
+                }
 
                 if (SolveLinearSystemGaussian(JtJ, JtRes, delta, n))
                 {
-                    for (int i = 0; i < n; i++) pNew[i] = p[i] + delta[i];
+                    for (int i = 0; i < n; i++)
+                    {
+                        // Update only if not locked
+                        pNew[i] = !locks[i] ? p[i] + delta[i] : p[i];
+                    }
                     EnforceConstraints(pNew);
+                    // Ensure locked params are reset exactly (constraints might have shifted them if logic was loose)
+                    for (int i = 0; i < n; i++) if (locks[i]) pNew[i] = p[i];
 
-                    double newError = CalculateErrorParallel(pNew, x, y, null); // Pass null for residuals, just get sum
+                    double newError = CalculateErrorParallel(pNew, x, y, null);
 
                     if (newError < currentError)
                     {
                         lambda /= 10.0;
                         currentError = newError;
                         Array.Copy(pNew, p, n);
-
-                        // Check convergence
                         if (Math.Abs(currentError - newError) < 1e-6 * currentError) break;
                     }
                     else
@@ -174,63 +204,44 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 }
                 else
                 {
-                    lambda *= 10.0; // Matrix solve failed
+                    lambda *= 10.0;
                 }
 
-                // If lambda gets too huge, break
                 if (lambda > 1e10) break;
             }
 
             return p;
         }
 
-        // Parallel Jacobian using Forward Difference (Faster than Central)
-        private void CalculateJacobianParallel(double[] p, double[] x, double[] y, double[] preCalcResiduals, double[] J_flat)
+        private static void CalculateJacobianParallel(double[] p, double[] x, double[] y, double[] preCalcResiduals, double[] J_flat, bool[] locks)
         {
             int n = p.Length;
             int m = x.Length;
             double eps = 1e-5;
 
-            // residuals = y - model(p)
-            // Jacobian column j = (model(p+eps) - model(p)) / eps
-            // But since residual = y - model, 
-            // d(residual)/dp = - d(model)/dp
-            // So we want: (model(p) - model(p+eps)) / eps
-            // Which is: (residuals(p+eps) - residuals(p)) / eps roughly?
-            // Actually: J = d(model)/dp. 
-            // Forward diff: (Model(p+h) - Model(p)) / h.
-
-            // Note: We need Model(p) for every point, which is (y - residuals).
-            // But creating array for Model(p) is memory heavy.
-            // Let's just recalculate or pass carefully.
-
             Parallel.For(0, m, i =>
             {
                 double xi = x[i];
-                double modelBase = y[i] - preCalcResiduals[i]; // Reuse residual to get base model value
-
-                // Unroll loop for fixed parameters manually or loop small n
-                // Temporarily using a local stack copy for mutation would be complex.
-                // Instead, calculate explicitly.
+                double modelBase = y[i] - preCalcResiduals[i];
 
                 // Param 0: A
-                J_flat[i * n + 0] = (HyperEmgKernel(xi, p[0] + eps, p[1], p[2], p[3], p[4], p[5], p[6]) - modelBase) / eps;
+                if (!locks[0]) J_flat[i * n + 0] = (HyperEmgKernel(xi, p[0] + eps, p[1], p[2], p[3], p[4], p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 0] = 0;
                 // Param 1: mu
-                J_flat[i * n + 1] = (HyperEmgKernel(xi, p[0], p[1] + eps, p[2], p[3], p[4], p[5], p[6]) - modelBase) / eps;
+                if (!locks[1]) J_flat[i * n + 1] = (HyperEmgKernel(xi, p[0], p[1] + eps, p[2], p[3], p[4], p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 1] = 0;
                 // Param 2: sigma
-                J_flat[i * n + 2] = (HyperEmgKernel(xi, p[0], p[1], p[2] + eps, p[3], p[4], p[5], p[6]) - modelBase) / eps;
+                if (!locks[2]) J_flat[i * n + 2] = (HyperEmgKernel(xi, p[0], p[1], p[2] + eps, p[3], p[4], p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 2] = 0;
                 // Param 3: tauL
-                J_flat[i * n + 3] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3] + eps, p[4], p[5], p[6]) - modelBase) / eps;
+                if (!locks[3]) J_flat[i * n + 3] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3] + eps, p[4], p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 3] = 0;
                 // Param 4: tauR
-                J_flat[i * n + 4] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4] + eps, p[5], p[6]) - modelBase) / eps;
+                if (!locks[4]) J_flat[i * n + 4] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4] + eps, p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 4] = 0;
                 // Param 5: etaL
-                J_flat[i * n + 5] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4], p[5] + eps, p[6]) - modelBase) / eps;
+                if (!locks[5]) J_flat[i * n + 5] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4], p[5] + eps, p[6]) - modelBase) / eps; else J_flat[i * n + 5] = 0;
                 // Param 6: etaR
-                J_flat[i * n + 6] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4], p[5], p[6] + eps) - modelBase) / eps;
+                if (!locks[6]) J_flat[i * n + 6] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4], p[5], p[6] + eps) - modelBase) / eps; else J_flat[i * n + 6] = 0;
             });
         }
 
-        private double CalculateErrorParallel(double[] p, double[] x, double[] y, double[]? residualsOut)
+        private static double CalculateErrorParallel(double[] p, double[] x, double[] y, double[]? residualsOut)
         {
             double sumError = 0;
             object lockObj = new object();
@@ -255,7 +266,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         }
 
         // Optimized Gaussian Elimination (No allocation, Flat arrays)
-        private bool SolveLinearSystemGaussian(double[] A, double[] b, double[] x, int n)
+        private static bool SolveLinearSystemGaussian(double[] A, double[] b, double[] x, int n)
         {
             // Copy A/b to temp buffers because Solver destroys them
             // Since n is small (7), stackalloc is risky in C# w/o unsafe, using pooled array or just new is fine since its once per iter.
@@ -312,7 +323,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         // The Critical Hot Path: Hardcoded for 1 Left, 1 Right
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private double HyperEmgKernel(double x, double A, double mu, double sigma,
+        private static double HyperEmgKernel(double x, double A, double mu, double sigma,
                                       double tauL, double tauR, double etaL, double etaR)
         {
             double totalY = 0.0;
@@ -377,19 +388,19 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return poly * Math.Exp(-x * x);
         }
 
-        private void EnforceConstraints(double[] p)
+        private static void EnforceConstraints(double[] p)
         {
             if (p[0] < 0) p[0] = 1e-3; // A
             if (p[2] < 1e-3) p[2] = 1e-3; // Sigma
             if (p[3] < 1e-3) p[3] = 1e-3; // TauL
             if (p[4] < 1e-3) p[4] = 1e-3; // TauR
-            p[5] = Math.Clamp(p[5], 0.01, 0.95); // EtaL
+            p[5] = Math.Clamp(p[5], 1e-6, 0.95); // EtaL - allow very small tail
             double remaining = 0.99 - p[5];
-            p[6] = Math.Clamp(p[6], 0.01, remaining); // EtaR
+            p[6] = Math.Clamp(p[6], 1e-6, remaining); // EtaR
         }
 
         // Helper to keep peak detection functional
-        private (double mu, double sigma, double height) FindPeakParameters(double[] x, double[] y)
+        private static (double mu, double sigma, double height) FindPeakParameters(double[] x, double[] y)
         {
             double maxHeight = -1;
             int maxIdx = 0;
@@ -403,7 +414,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return (mu, fwhm / 2.355, maxHeight);
         }
 
-        private (double[] edges, double[] centers, double[] counts) CreateHistogram(double[] data)
+        private static (double[] edges, double[] centers, double[] counts) CreateHistogram(double[] data)
         {
             // Standard histogram logic (Assuming this part is fast enough or O(N))
             int numBins = 16384;

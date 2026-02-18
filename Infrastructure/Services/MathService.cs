@@ -294,6 +294,45 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
         }
 
+        public FittingResult HemgDoubleSidedFitManual(double[] xData, double[] yData, double[]? initialGuess, bool[]? fixedParams = null)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(MathService));
+            try
+            {
+                var (fitCurve, parameters) = _hemgFittingService.HemgDoubleSidedFit(xData, yData, initialGuess, fixedParams);
+
+                if (fitCurve == null || fitCurve.Length == 0 || parameters == null || parameters.Length < 7)
+                    return FittingResult.Empty(xData.Length);
+
+                var result = new FittingResult
+                {
+                    IsValid = true,
+                    FitCurve = fitCurve,
+                    A = parameters[0],
+                    Peak = parameters[0],
+                    Mu = parameters[1],
+                    Sigma = parameters[2],
+                    TauL1 = parameters[3],
+                    TauR1 = parameters[4],
+                    EtaL1 = parameters[5],
+                    EtaR1 = parameters[6]
+                };
+                CalculateFitStats(result, xData, yData, fitCurve);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogException(ex, "HEMG Manual Fit Error");
+                return FittingResult.Empty(xData.Length);
+            }
+        }
+
+        public double[] GenerateHemgCurve(double[] x, double[] parameters)
+        {
+            return _hemgFittingService.GenerateHemgCurve(x, parameters);
+        }
+
         private static void CalculateFitStats(FittingResult result, double[] xData, double[] yData, double[] fitCurve)
         {
             int n = yData.Length;

@@ -744,6 +744,7 @@ namespace BaselineMode.WPF.Views.Observation
                     // But I will apply same logic as StatThresholding for now if K is shared?
                     // Let's use TxtAdaptiveK if meaningful.
                     // Actually, let's leave ZScore empty/pass-through unless user requested it specifically.
+
                 }
             }
 

@@ -1111,7 +1111,11 @@ namespace BaselineMode.WPF.Views.Shared
             if (binCount > 8192) binCount = 8192;
             if (binCount < 100) binCount = 100;
 
-            detailWindow.ShowHistogram(data, title, showFit, barColor, xMin, xMax, binCount, _observationViewModel.BarWidthMultiplier);
+            detailWindow.ShowHistogram(data, title, showFit, barColor, xMin, xMax, binCount,
+                _observationViewModel.BarWidthMultiplier,
+                _observationViewModel.SelectedXAxisIndex,
+                _observationViewModel.EnergyCalibrationSlope,
+                _observationViewModel.EnergyCalibrationIntercept);
             detailWindow.Show();
         }
         #endregion

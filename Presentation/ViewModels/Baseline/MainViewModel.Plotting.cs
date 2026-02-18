@@ -31,7 +31,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 {
                     Title = $"Channel {i}",
                     ChannelIndex = i - 1,
-                    StatsText = "No Data"
+                    StatsText = "No Data",
+                    MathService = _mathService
                 };
 
                 Channels.Add(channel);
@@ -147,8 +148,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         else
                         {
                             // ก่อนลบ baseline - ใช้ ADC range ปกติ
-                            minVal = 0;
-                            maxVal = 16383;
+                            minVal = XAxisMin;
+                            maxVal = XAxisMax;
                         }
 
                         var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
