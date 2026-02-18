@@ -163,11 +163,26 @@ namespace BaselineMode.WPF.Views.Observation
                 // Prefer HEMG
                 var fitResult = _fittingService.HemgDoubleSidedFit(xFit, yFit);
 
-                if (fitResult.IsValid && fitResult.FitCurve != null)
+                if (fitResult.IsValid)
                 {
+                    // Generate fit curve for the full range (x) using the fitted parameters
+                    // Parameters order: A, Mu, Sigma, TauL, TauR, EtaL, EtaR
+                    var parameters = new double[]
+                    {
+                        fitResult.Peak,
+                        fitResult.Mu,
+                        fitResult.Sigma,
+                        fitResult.TauL1,
+                        fitResult.TauR1,
+                        fitResult.EtaL1,
+                        fitResult.EtaR1
+                    };
+
+                    var fullFitCurve = _fittingService.GenerateHemgCurve(x, parameters);
+
                     var fitData = new ChannelViewModel.FitData
                     {
-                        Curve = fitResult.FitCurve,
+                        Curve = fullFitCurve,
                         Color = System.Drawing.Color.Lime,
                         Label = "HEMG-D"
                     };
@@ -185,13 +200,10 @@ namespace BaselineMode.WPF.Views.Observation
                     _viewModel.ManualA = fitResult.Peak;
                     _viewModel.ManualMu = fitResult.Mu;
                     _viewModel.ManualSigma = fitResult.Sigma;
-                    // Note: fitResult (BaselineFittingResult) might not exposed Tau/Eta directly if not cast?
-                    // BaselineFittingResult usually has A, Mu, Sigma.
-                    // But if it was a HEMG fit, we might want Tau/Eta.
-                    // MathService.HemgDoubleSidedFit returns BaselineFittingResult.
-                    // Check if we can extract more.
-                    // For now, defaults will be used by ViewModel if not set, or we can try to be smarter.
-                    // But ViewModel.OnIsManualModeChanged handles defaults if properties are 0.
+                    _viewModel.ManualTauL = fitResult.TauL1;
+                    _viewModel.ManualTauR = fitResult.TauR1;
+                    _viewModel.ManualEtaL = fitResult.EtaL1;
+                    _viewModel.ManualEtaR = fitResult.EtaR1;
                 }
             }
             catch { }
