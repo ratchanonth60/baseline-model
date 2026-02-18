@@ -40,11 +40,23 @@ namespace BaselineMode.WPF.Views.Observation
         }
 
         public void ShowHistogram(double[] data, string title, bool showFit = true, System.Drawing.Color? color = null,
-            double xMin = 0, double xMax = 0, int binCount = 4096, double barWidthMultiplier = 1.0,
-            int xAxisIndex = 0, double slope = 0.000427, double offset = 0.0)
+            BaselineMode.WPF.Core.Models.Baseline.AnalysisAxisConfig? axisConfig = null)
         {
             _viewModel.Title = title;
-            _viewModel.BarWidthMultiplier = barWidthMultiplier;
+            axisConfig ??= new BaselineMode.WPF.Core.Models.Baseline.AnalysisAxisConfig
+            {
+                XMin = 0,
+                XMax = 0,
+                BinCount = 4096,
+                AxisIndex = 0,
+                Slope = 0.000427,
+                Offset = 0.0,
+                VoltageMax = 5000.0,
+                AdcResolution = 16383.0,
+                BarWidthMultiplier = 1.0
+            };
+
+            _viewModel.BarWidthMultiplier = axisConfig.BarWidthMultiplier;
 
             // Prepare Data
             var filteredData = data.Where(v => v > 0).ToArray();
@@ -56,36 +68,37 @@ namespace BaselineMode.WPF.Views.Observation
 
             // 1. Determine ADC Range (for Histogramming)
             // Inputs xMin/xMax are in User Units. We convert them to ADC.
-            double adcXMin = xMin;
-            double adcXMax = xMax > 0 ? xMax : 4096;
+            double adcXMin = axisConfig.XMin;
+            double adcXMax = axisConfig.XMax > 0 ? axisConfig.XMax : 4096;
 
-            if (xAxisIndex == 1) // Voltage (mV) -> ADC
+            if (axisConfig.AxisIndex == 1) // Voltage (mV) -> ADC
             {
-                // V = (ADC / 16383) * 5000  => ADC = (V * 16383) / 5000
-                adcXMin = (xMin / 5000.0) * 16383.0;
-                adcXMax = (xMax / 5000.0) * 16383.0;
+                // V = (ADC / AdcResolution) * VoltageMax  => ADC = (V * AdcResolution) / VoltageMax
+                adcXMin = (axisConfig.XMin / axisConfig.VoltageMax) * axisConfig.AdcResolution;
+                adcXMax = (axisConfig.XMax / axisConfig.VoltageMax) * axisConfig.AdcResolution;
             }
-            else if (xAxisIndex == 2 && slope != 0) // Energy (MeV) -> ADC
+            else if (axisConfig.AxisIndex == 2 && axisConfig.Slope != 0) // Energy (MeV) -> ADC
             {
                 // E = ADC*slope + offset => ADC = (E - offset) / slope
-                adcXMin = (xMin - offset) / slope;
-                adcXMax = (xMax - offset) / slope;
+                adcXMin = (axisConfig.XMin - axisConfig.Offset) / axisConfig.Slope;
+                adcXMax = (axisConfig.XMax - axisConfig.Offset) / axisConfig.Slope;
             }
 
             // Defaults if invalid or zero range
             if (adcXMax <= adcXMin)
             {
                 adcXMin = 0;
-                adcXMax = 16384;
+                adcXMax = (int)axisConfig.AdcResolution + 1;
             }
 
             // 2. Determine Bin Count (Resolution) from ADC Range
             int targetBinCount = (int)(adcXMax - adcXMin);
-            if (targetBinCount > 16384) targetBinCount = 16384;
+            if (targetBinCount > (int)axisConfig.AdcResolution + 1) targetBinCount = (int)axisConfig.AdcResolution + 1;
             if (targetBinCount < 100) targetBinCount = 100;
 
             // Allow override if valid binCount passed and not using Energy/Voltage (which distorts xMax int)
-            int usedBinCount = (xAxisIndex > 0 || binCount < 100) ? targetBinCount : binCount;
+            // Re-using passed BinCount if reasonable
+            int usedBinCount = (axisConfig.AxisIndex > 0 || axisConfig.BinCount < 100) ? targetBinCount : axisConfig.BinCount;
 
             // 3. Generate Histogram in ADC Space
             var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: adcXMin, max: adcXMax, binCount: usedBinCount);
@@ -99,23 +112,23 @@ namespace BaselineMode.WPF.Views.Observation
             double displayXMin = adcXMin;
             double displayXMax = adcXMax;
 
-            if (xAxisIndex == 1) // ADC -> Voltage
+            if (axisConfig.AxisIndex == 1) // ADC -> Voltage
             {
                 for (int i = 0; i < binMidpoints.Length; i++)
-                    binMidpoints[i] = (binMidpoints[i] / 16383.0) * 5000.0;
+                    binMidpoints[i] = (binMidpoints[i] / axisConfig.AdcResolution) * axisConfig.VoltageMax;
 
                 xLabel = "Voltage (mV)";
-                displayXMin = (adcXMin / 16383.0) * 5000.0;
-                displayXMax = (adcXMax / 16383.0) * 5000.0;
+                displayXMin = (adcXMin / axisConfig.AdcResolution) * axisConfig.VoltageMax;
+                displayXMax = (adcXMax / axisConfig.AdcResolution) * axisConfig.VoltageMax;
             }
-            else if (xAxisIndex == 2) // ADC -> Energy
+            else if (axisConfig.AxisIndex == 2) // ADC -> Energy
             {
                 for (int i = 0; i < binMidpoints.Length; i++)
-                    binMidpoints[i] = (binMidpoints[i] * slope) + offset;
+                    binMidpoints[i] = (binMidpoints[i] * axisConfig.Slope) + axisConfig.Offset;
 
                 xLabel = "Energy (MeV)";
-                displayXMin = (adcXMin * slope) + offset;
-                displayXMax = (adcXMax * slope) + offset;
+                displayXMin = (adcXMin * axisConfig.Slope) + axisConfig.Offset;
+                displayXMax = (adcXMax * axisConfig.Slope) + axisConfig.Offset;
             }
 
             _viewModel.BinCenters = binMidpoints;

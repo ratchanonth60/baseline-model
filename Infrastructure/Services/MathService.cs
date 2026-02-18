@@ -254,27 +254,33 @@ namespace BaselineMode.WPF.Infrastructure.Services
         public FittingResult HyperEMGDoubleSidedFit(double[] xData, double[] yData, double[] rawData) => HemgDoubleSidedFit(xData, yData, rawData);
         public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData) => HemgDoubleSidedFit(xData, yData, null);
 
-        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData, double[]? rawData)
+        public FittingResult HemgDoubleSidedFit(double[] xData, double[] yData, double[]? rawData, BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig? config = null)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(MathService));
             if (xData == null || yData == null || xData.Length == 0) return FittingResult.Empty(0);
 
+            config ??= new BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig();
+
             try
             {
-                // เรียก HEMG Fit (ส่ง x=binCenters, y=counts) ผลลัพธ์: fitCurve และ parameters [A, mu, sigma, tauL, tauR, etaL, etaR]
-                var (fitCurve, parameters) = _hemgFittingService.HemgDoubleSidedFit(xData, yData);
+                // Call HEMG Fit (x=binCenters, y=counts) -> Results: fitCurve and parameters [A, mu, sigma, tauL, tauR, etaL, etaR]
+                var (fitCurve, parameters) = _hemgFittingService.HemgDoubleSidedFit(xData, yData, null, null, config);
 
-                // ตรวจสอบผลลัพธ์
+                // Validation
                 if (fitCurve == null || fitCurve.Length == 0 || parameters == null || parameters.Length < 7)
                     return FittingResult.Empty(xData.Length);
 
-                // แปลงผลลัพธ์กลับเป็น FittingResult Object ของระบบหลัก (Map Parameters ตามลำดับ array ใน HemgFittingService)
+                // *** FIX: Floating Yellow Dot ***
+                // Calculate actual height at Peak (x = mu)
+                double realPeakHeight = _hemgFittingService.CalculateMaxHeight(parameters);
+
+                // Map results to FittingResult Object
                 var result = new FittingResult
                 {
                     IsValid = true,
                     FitCurve = fitCurve,
-                    A = parameters[0],
-                    Peak = parameters[0], // ใช้ A เป็น Peak (หรือจะคำนวณ max ของ curve ก็ได้)
+                    A = parameters[0],     // Area (kept for calculation)
+                    Peak = realPeakHeight, // <--- Use Real Height for Plotting
                     Mu = parameters[1],
                     Sigma = parameters[2],
                     TauL1 = parameters[3],
@@ -282,7 +288,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     EtaL1 = parameters[5],
                     EtaR1 = parameters[6]
                 };
-                // คำนวณค่าสถิติเพิ่มเติม (RMS, R-Squared)
+                // Calculate additional stats (RMS, R-Squared)
                 CalculateFitStats(result, xData, yData, fitCurve);
 
                 return result;

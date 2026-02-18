@@ -18,17 +18,31 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         private readonly ILoggerService _logger = loggerService ?? throw new ArgumentNullException(nameof(loggerService));
 
+        public double CalculateMaxHeight(double[] p)
+        {
+            if (p == null || p.Length < 7) return 0;
+            // p = [A, mu, sigma, tauL, tauR, etaL, etaR]
+            // Call Kernel at peak (x = mu) to find real height
+            return HyperEmgKernel(p[1], p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
+        }
+
         public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] thresholdedData)
+        {
+            // Default config for backward compatibility or overload
+            return HemgDoubleSidedFit(thresholdedData, new BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig());
+        }
+
+        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] thresholdedData, BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig config)
         {
             try
             {
-                var (_, centers, counts) = CreateHistogram(thresholdedData);
-                return HemgDoubleSidedFit(centers, counts);
+                var (_, centers, counts) = CreateHistogram(thresholdedData, config.HistogramBinCount);
+                return HemgDoubleSidedFit(centers, counts, null, null, config);
             }
             catch (Exception ex)
             {
                 _logger.LogException(ex, "HEMG Fit Error (Raw Data)");
-                return (new double[16384], new double[7]);
+                return (new double[config.HistogramBinCount], new double[7]);
             }
         }
 
@@ -45,13 +59,15 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] binCenters, double[] counts)
         {
-            return HemgDoubleSidedFit(binCenters, counts, null);
+            return HemgDoubleSidedFit(binCenters, counts, null, null, null);
         }
 
-        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] binCenters, double[] counts, double[]? initialGuess = null, bool[]? fixedParams = null)
+        public (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] binCenters, double[] counts, double[]? initialGuess = null, bool[]? fixedParams = null, BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig? config = null)
         {
             if (binCenters == null || counts == null || binCenters.Length < 10)
                 return (new double[binCenters?.Length ?? 0], new double[7]);
+
+            config ??= new BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig();
 
             try
             {
@@ -91,7 +107,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 Array.Copy(counts, startBin, yRoi, 0, roiLen);
 
                 // 4. Optimization (Fast Levenberg-Marquardt with Locks)
-                double[] pFit = FitLevenbergMarquardtParallel(p0, xRoi, yRoi, fixedParams);
+                double[] pFit = FitLevenbergMarquardtParallel(p0, xRoi, yRoi, fixedParams, config);
 
                 // 5. Generate Curve
                 double[] fitCurve = GenerateHemgCurve(binCenters, pFit);
@@ -105,13 +121,11 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
         }
 
-        private static double[] FitLevenbergMarquardtParallel(double[] p0, double[] x, double[] y, bool[]? fixedParams = null)
+        private static double[] FitLevenbergMarquardtParallel(double[] p0, double[] x, double[] y, bool[]? fixedParams, BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig config)
         {
             int n = p0.Length; // 7 parameters
             int m = x.Length;
             double[] p = (double[])p0.Clone();
-
-            // If fixedParams is null, treat all as false (unlocked)
             bool[] locks = fixedParams ?? new bool[n];
 
             // Pre-allocate buffers
@@ -122,8 +136,8 @@ namespace BaselineMode.WPF.Infrastructure.Services
             double[] JtRes = new double[n];
             double[] delta = new double[n];
 
-            double lambda = 0.01;
-            const int maxIter = 30;
+            double lambda = config.Lambda;
+            int maxIter = config.MaxIterations;
 
             double currentError = CalculateErrorParallel(p, x, y, residuals);
 
@@ -143,9 +157,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
                     for (int j = 0; j < n; j++)
                     {
-                        // If locked, J is 0, so no contribution to JtRes or JtJ (except diagonal)
                         if (locks[j]) continue;
-
                         double valJ = J_flat[rowOffset + j];
                         JtRes[j] += valJ * res;
 
@@ -164,7 +176,6 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 double[] diagBackup = new double[n];
                 for (int i = 0; i < n; i++)
                 {
-                    // If locked, diagonal = 1 (to ensure det != 0 for inversion), and JtRes = 0 -> delta = 0
                     if (locks[i])
                     {
                         JtJ[i * n + i] = 1.0;
@@ -179,13 +190,8 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
                 if (SolveLinearSystemGaussian(JtJ, JtRes, delta, n))
                 {
-                    for (int i = 0; i < n; i++)
-                    {
-                        // Update only if not locked
-                        pNew[i] = !locks[i] ? p[i] + delta[i] : p[i];
-                    }
+                    for (int i = 0; i < n; i++) pNew[i] = !locks[i] ? p[i] + delta[i] : p[i];
                     EnforceConstraints(pNew);
-                    // Ensure locked params are reset exactly (constraints might have shifted them if logic was loose)
                     for (int i = 0; i < n; i++) if (locks[i]) pNew[i] = p[i];
 
                     double newError = CalculateErrorParallel(pNew, x, y, null);
@@ -215,6 +221,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
 
         private static void CalculateJacobianParallel(double[] p, double[] x, double[] y, double[] preCalcResiduals, double[] J_flat, bool[] locks)
         {
+            // Implementation unchanged ...
             int n = p.Length;
             int m = x.Length;
             double eps = 1e-5;
@@ -224,19 +231,12 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 double xi = x[i];
                 double modelBase = y[i] - preCalcResiduals[i];
 
-                // Param 0: A
                 if (!locks[0]) J_flat[i * n + 0] = (HyperEmgKernel(xi, p[0] + eps, p[1], p[2], p[3], p[4], p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 0] = 0;
-                // Param 1: mu
                 if (!locks[1]) J_flat[i * n + 1] = (HyperEmgKernel(xi, p[0], p[1] + eps, p[2], p[3], p[4], p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 1] = 0;
-                // Param 2: sigma
                 if (!locks[2]) J_flat[i * n + 2] = (HyperEmgKernel(xi, p[0], p[1], p[2] + eps, p[3], p[4], p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 2] = 0;
-                // Param 3: tauL
                 if (!locks[3]) J_flat[i * n + 3] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3] + eps, p[4], p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 3] = 0;
-                // Param 4: tauR
                 if (!locks[4]) J_flat[i * n + 4] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4] + eps, p[5], p[6]) - modelBase) / eps; else J_flat[i * n + 4] = 0;
-                // Param 5: etaL
                 if (!locks[5]) J_flat[i * n + 5] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4], p[5] + eps, p[6]) - modelBase) / eps; else J_flat[i * n + 5] = 0;
-                // Param 6: etaR
                 if (!locks[6]) J_flat[i * n + 6] = (HyperEmgKernel(xi, p[0], p[1], p[2], p[3], p[4], p[5], p[6] + eps) - modelBase) / eps; else J_flat[i * n + 6] = 0;
             });
         }
@@ -414,19 +414,24 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return (mu, fwhm / 2.355, maxHeight);
         }
 
-        private static (double[] edges, double[] centers, double[] counts) CreateHistogram(double[] data)
+        private static (double[] edges, double[] centers, double[] counts) CreateHistogram(double[] data, int numBins)
         {
-            // Standard histogram logic (Assuming this part is fast enough or O(N))
-            int numBins = 16384;
+            // Standard histogram logic with dynamic bins
             double[] edges = new double[numBins + 1];
             double[] centers = new double[numBins];
             double[] counts = new double[numBins];
             for (int i = 0; i <= numBins; i++) edges[i] = i;
             for (int i = 0; i < numBins; i++) centers[i] = edges[i] + 0.5;
+
+            int maxBinIdx = numBins - 1;
             foreach (double val in data)
             {
-                int bin = (int)val; // Fast floor
-                if (bin >= 0 && bin < numBins) counts[bin]++;
+                int bin = (int)val;
+                // Safety clamp
+                if (bin >= numBins) bin = maxBinIdx;
+                if (bin < 0) bin = 0;
+
+                counts[bin]++;
             }
             return (edges, centers, counts);
         }

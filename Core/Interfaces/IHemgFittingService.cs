@@ -11,9 +11,14 @@ namespace BaselineMode.WPF.Core.Interfaces
         double[] GenerateHemgCurve(double[] x, double[] p);
 
         /// <summary>
+        /// Calculate the actual peak height of the HEMG curve from parameters.
+        /// </summary>
+        double CalculateMaxHeight(double[] parameters);
+
+        /// <summary>
         /// Fit histogram (bin centers, counts) with double-sided Hyper-EMG.
         /// Returns (fitCurve, parameters) where parameters are [A, mu, sigma, tauL, tauR, etaL, etaR].
         /// </summary>
-        (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] binCenters, double[] counts, double[]? initialGuess = null, bool[]? fixedParams = null);
+        (double[] fitCurve, double[] parameters) HemgDoubleSidedFit(double[] binCenters, double[] counts, double[]? initialGuess = null, bool[]? fixedParams = null, BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig? config = null);
     }
 }
