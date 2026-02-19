@@ -84,14 +84,14 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     // 2. Initial Guess
                     double tauL0 = sigma0 * 0.5;
                     double tauR0 = sigma0 * 0.5;
-                    double modelAtPeak = HyperEmgKernel(mu0, 1.0, mu0, sigma0, tauL0, tauR0, 0.05, 0.05);
+                    double modelAtPeak = HyperEmgKernel(mu0, 1.0, mu0, sigma0, tauL0, tauR0, config.InitialEta, config.InitialEta);
                     double A0 = (modelAtPeak > 1e-15) ? height0 / modelAtPeak : height0;
-                    p0 = [A0, mu0, sigma0, tauL0, tauR0, 0.05, 0.05];
+                    p0 = [A0, mu0, sigma0, tauL0, tauR0, config.InitialEta, config.InitialEta];
                 }
 
                 // 3. ROI Extraction
                 int startBin = 0, endBin = binCenters.Length - 1;
-                double fitRange = p0[2] * 8;
+                double fitRange = p0[2] * config.RoiSigmaMultiplier;
                 double minX = p0[1] - fitRange;
                 double maxX = p0[1] + fitRange;
 
@@ -144,7 +144,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             for (int iter = 0; iter < maxIter; iter++)
             {
                 // 1. Calculate Jacobian (Parallel) with Locks
-                CalculateJacobianParallel(p, x, y, residuals, J_flat, locks);
+                CalculateJacobianParallel(p, x, y, residuals, J_flat, locks, config);
 
                 // 2. Compute JtJ and JtRes (Matrix Multiplication)
                 Array.Clear(JtJ, 0, JtJ.Length);
@@ -184,14 +184,14 @@ namespace BaselineMode.WPF.Infrastructure.Services
                     else
                     {
                         diagBackup[i] = JtJ[i * n + i];
-                        JtJ[i * n + i] += lambda * (diagBackup[i] + 1e-5);
+                        JtJ[i * n + i] += lambda * (diagBackup[i] + 1e-5); // Consider config for 1e-5? Keeping as is for LM damping stability
                     }
                 }
 
                 if (SolveLinearSystemGaussian(JtJ, JtRes, delta, n))
                 {
                     for (int i = 0; i < n; i++) pNew[i] = !locks[i] ? p[i] + delta[i] : p[i];
-                    EnforceConstraints(pNew);
+                    EnforceConstraints(pNew, config); // Pass config
                     for (int i = 0; i < n; i++) if (locks[i]) pNew[i] = p[i];
 
                     double newError = CalculateErrorParallel(pNew, x, y, null);
@@ -201,7 +201,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
                         lambda /= 10.0;
                         currentError = newError;
                         Array.Copy(pNew, p, n);
-                        if (Math.Abs(currentError - newError) < 1e-6 * currentError) break;
+                        if (Math.Abs(currentError - newError) < config.ConvergenceTolerance * currentError) break; // Use config
                     }
                     else
                     {
@@ -219,12 +219,12 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return p;
         }
 
-        private static void CalculateJacobianParallel(double[] p, double[] x, double[] y, double[] preCalcResiduals, double[] J_flat, bool[] locks)
+        private static void CalculateJacobianParallel(double[] p, double[] x, double[] y, double[] preCalcResiduals, double[] J_flat, bool[] locks, BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig config)
         {
             // Implementation unchanged ...
             int n = p.Length;
             int m = x.Length;
-            double eps = 1e-5;
+            double eps = config.JacobianEpsilon; // Use config
 
             Parallel.For(0, m, i =>
             {
@@ -244,7 +244,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
         private static double CalculateErrorParallel(double[] p, double[] x, double[] y, double[]? residualsOut)
         {
             double sumError = 0;
-            object lockObj = new object();
+            object lockObj = new();
 
             // ใช้ Partitioner เพื่อลด Overhead ของ Parallel loop
             var partitioner = Partitioner.Create(0, x.Length);
@@ -388,14 +388,17 @@ namespace BaselineMode.WPF.Infrastructure.Services
             return poly * Math.Exp(-x * x);
         }
 
-        private static void EnforceConstraints(double[] p)
+        private static void EnforceConstraints(double[] p, BaselineMode.WPF.Core.Models.Baseline.HemgFitConfig? config = null)
         {
-            if (p[0] < 0) p[0] = 1e-3; // A
-            if (p[2] < 1e-3) p[2] = 1e-3; // Sigma
-            if (p[3] < 1e-3) p[3] = 1e-3; // TauL
-            if (p[4] < 1e-3) p[4] = 1e-3; // TauR
-            p[5] = Math.Clamp(p[5], 1e-6, 0.95); // EtaL - allow very small tail
-            double remaining = 0.99 - p[5];
+            double minVal = config?.MinParameterValue ?? 1e-3;
+            double maxTotalEta = config?.MaxTotalEta ?? 0.99;
+
+            if (p[0] < 0) p[0] = minVal; // A
+            if (p[2] < minVal) p[2] = minVal; // Sigma
+            if (p[3] < minVal) p[3] = minVal; // TauL
+            if (p[4] < minVal) p[4] = minVal; // TauR
+            p[5] = Math.Clamp(p[5], 1e-6, maxTotalEta - 0.04); // EtaL 
+            double remaining = maxTotalEta - p[5];
             p[6] = Math.Clamp(p[6], 1e-6, remaining); // EtaR
         }
 

@@ -182,7 +182,7 @@ namespace BaselineMode.WPF.Views.Observation
                     // Parameters order: A, Mu, Sigma, TauL, TauR, EtaL, EtaR
                     var parameters = new double[]
                     {
-                        fitResult.Peak,
+                        fitResult.A,
                         fitResult.Mu,
                         fitResult.Sigma,
                         fitResult.TauL1,
@@ -197,7 +197,14 @@ namespace BaselineMode.WPF.Views.Observation
                     {
                         Curve = fullFitCurve,
                         Color = System.Drawing.Color.Lime,
-                        Label = "HEMG-D"
+                        Label = "HEMG-D",
+                        A = fitResult.A,
+                        Mu = fitResult.Mu,
+                        Sigma = fitResult.Sigma,
+                        TauL = fitResult.TauL1,
+                        TauR = fitResult.TauR1,
+                        EtaL = fitResult.EtaL1,
+                        EtaR = fitResult.EtaR1
                     };
                     _viewModel.ActiveFits["HEMG-D"] = fitData;
 
@@ -210,7 +217,7 @@ namespace BaselineMode.WPF.Views.Observation
                     _viewModel.StatsText = $"μ={fitResult.Mu:F2} σ={fitResult.Sigma:F2} FWHM={fitResult.FWHM:F2} Res={fitResult.Resolution:F2}%";
 
                     // Also populate Manual initial values
-                    _viewModel.ManualA = fitResult.Peak;
+                    _viewModel.ManualA = fitResult.A;
                     _viewModel.ManualMu = fitResult.Mu;
                     _viewModel.ManualSigma = fitResult.Sigma;
                     _viewModel.ManualTauL = fitResult.TauL1;

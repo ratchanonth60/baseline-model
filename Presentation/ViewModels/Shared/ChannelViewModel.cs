@@ -1,6 +1,9 @@
+
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Threading.Tasks;
+using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using ScottPlot;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Shared
@@ -12,6 +15,50 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
             public double[]? Curve { get; set; }
             public System.Drawing.Color Color { get; set; }
             public string Label { get; set; } = "Fit";
+
+            // Parameters for restoring manual fit
+            public double A { get; set; }
+            public double Mu { get; set; }
+            public double Sigma { get; set; }
+            public double TauL { get; set; }
+            public double TauR { get; set; }
+            public double EtaL { get; set; }
+            public double EtaR { get; set; }
+        }
+
+        // สำหรับ ComboBox เลือก fitting
+        public ObservableCollection<FitData> AvailableFits => new(ActiveFits.Values);
+
+        private const double V = 1e-6;
+        [ObservableProperty] private FitData? _selectedFit;
+        partial void OnSelectedFitChanged(FitData? value)
+        {
+            if (value != null)
+                SetManualParamsFromFit(value.Label); // ใช้ Label เป็น key
+        }
+
+        /// <summary>
+        /// Set manual parameters from a selected fitting result (by key in ActiveFits).
+        /// </summary>
+        public void SetManualParamsFromFit(string fitKey)
+        {
+            // ปกติจะใช้ค่าจาก FittingResult ที่เก็บใน ActiveFits หรือ property ของ ViewModel
+            // หาก FitData มี parameter เพิ่มเติมควรดึงตรงนี้
+            if (ActiveFits.TryGetValue(fitKey, out var fit) && fit != null)
+            {
+                // ปกติค่าพารามิเตอร์จะอยู่ใน ViewModel (ล่าสุดจาก auto fit)
+                // หากต้องการให้แม่นยำควรเก็บ parameter ใน FitData ด้วย
+                // ตัวอย่างนี้ใช้ property ของ ViewModel
+                if (fit.A > 0) ManualA = fit.A;
+                if (fit.Mu > 0) ManualMu = fit.Mu;
+                if (fit.Sigma > 0) ManualSigma = fit.Sigma;
+                if (fit.TauL > 0) ManualTauL = fit.TauL;
+                if (fit.TauR > 0) ManualTauR = fit.TauR;
+                if (fit.EtaL > 0) ManualEtaL = fit.EtaL;
+                if (fit.EtaR > 0) ManualEtaR = fit.EtaR;
+
+                UpdateManualCurve();
+            }
         }
 
         [ObservableProperty]
@@ -56,6 +103,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
         public double Peak { get; set; }
         public double FWHM { get; set; }
         public double Resolution { get; set; }
+        public double TauL1 { get; set; }
+        public double TauR1 { get; set; }
+        public double EtaL1 { get; set; }
+        public double EtaR1 { get; set; }
 
         /// <summary>Multiplier for bar width (1.0 = auto from bin spacing).</summary>
         public double BarWidthMultiplier { get; set; } = 1.0;
@@ -128,9 +179,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
                             fitScatter.Label = fit.Label;
 
                             // Ghost Trace Logic: If this is "Manual" and we have a Ghost Trace, plot it
-                            if (fit.Label == "Manual Fit" && ActiveFits.ContainsKey("Ghost"))
+                            if (fit.Label == "Manual Fit" && ActiveFits.TryGetValue("Ghost", out FitData? ghost))
                             {
-                                var ghost = ActiveFits["Ghost"];
                                 var ghostScatter = targetPlot.Plot.AddScatter(BinCenters, ghost.Curve);
                                 ghostScatter.LineWidth = 1;
                                 ghostScatter.Color = System.Drawing.Color.Gray;
@@ -189,13 +239,19 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
         {
             if (value && MathService != null && BinCenters != null)
             {
-                if (ManualA <= 1) ManualA = Peak > 0 ? Peak : 100;
-                if (Math.Abs(ManualMu) < 1e-6) ManualMu = Mu;
-                if (ManualSigma <= 1e-6) ManualSigma = Sigma > 0 ? Sigma : 10;
-                if (ManualTauL <= 1e-6) ManualTauL = Sigma;
-                if (ManualTauR <= 1e-6) ManualTauR = Sigma;
-                if (ManualEtaL <= 1e-6) ManualEtaL = 0.5;
-                if (ManualEtaR <= 1e-6) ManualEtaR = 0.5;
+                if (ManualA <= 1)
+                {
+                    if (ActiveFits.TryGetValue("HEMG-D", out var fit) && fit.A > 0)
+                        ManualA = fit.A;
+                    else
+                        ManualA = (Peak > 0 && Sigma > 0) ? Peak * (Sigma * 2.5) : (Peak > 0 ? Peak * 10 : 1000);
+                }
+                if (Math.Abs(ManualMu) < V) ManualMu = Mu;
+                if (ManualSigma <= V) ManualSigma = Sigma > 0 ? Sigma : 10;
+                if (ManualTauL <= V) ManualTauL = Sigma;
+                if (ManualTauR <= V) ManualTauR = Sigma;
+                if (ManualEtaL <= V) ManualEtaL = 0.5;
+                if (ManualEtaR <= V) ManualEtaR = 0.5;
 
                 // Capture Ghost Trace (current auto-fit)
                 if (ActiveFits.ContainsKey("HEMG-D"))
@@ -224,7 +280,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
             }
         }
 
-        [ObservableProperty] private double _manualA = 100;
+        [ObservableProperty] private double _manualA = 1;
         partial void OnManualAChanged(double value) => UpdateManualCurve();
 
         [ObservableProperty] private double _manualMu = 0;
@@ -340,12 +396,23 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
                 Sigma = result.Sigma;
                 Peak = result.Peak;
                 FWHM = result.FWHM;
+                TauL1 = result.TauL1;
+                TauR1 = result.TauR1;
+                EtaL1 = result.EtaL1;
+                EtaR1 = result.EtaR1;
 
                 var fitData = new FitData
                 {
                     Curve = result.FitCurve,
                     Color = System.Drawing.Color.Magenta,
-                    Label = "HEMG-D (Refit)"
+                    Label = "HEMG-D (Refit)",
+                    A = result.A,
+                    Mu = result.Mu,
+                    Sigma = result.Sigma,
+                    TauL = result.TauL1,
+                    TauR = result.TauR1,
+                    EtaL = result.EtaL1,
+                    EtaR = result.EtaR1
                 };
                 ActiveFits["HEMG-D"] = fitData;
                 ActiveFits["Manual"] = fitData;

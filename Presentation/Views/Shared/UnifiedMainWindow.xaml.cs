@@ -38,6 +38,8 @@ namespace BaselineMode.WPF.Views.Shared
         private string? _lastSavedFilePath;
         private const string FORMAT_DATE = "yyyy-MMM-dd HH:mm:ss.fff";
         private const string NA = "N/A";
+        private const double DEFAULT_X_MAX = 4096;
+        private const int DEFAULT_FIT_WINDOW = 100;
 
         public UnifiedMainWindow(MainViewModel mainViewModel, ObservationViewModel observationViewModel)
         {
@@ -763,12 +765,12 @@ namespace BaselineMode.WPF.Views.Shared
             if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0");
 
             // FIX: Use dynamic max from UI
-            double xMax = 4096;
+            double xMax = DEFAULT_X_MAX;
             if (double.TryParse(ObsTxtDSSDXMax?.Text, out double _max)) xMax = _max;
 
             int binCount = (int)xMax;
             if (binCount > 8192) binCount = 8192;
-            if (binCount < 100) binCount = 100;
+            if (binCount < DEFAULT_FIT_WINDOW) binCount = DEFAULT_FIT_WINDOW;
 
             var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: 0, max: xMax, binCount: binCount);
 
@@ -805,7 +807,7 @@ namespace BaselineMode.WPF.Views.Shared
                     // Crop area around peak
                     double maxVal = hist.Max();
                     int peakIdx = Array.IndexOf(hist, maxVal);
-                    int win = 100;
+                    int win = DEFAULT_FIT_WINDOW;
                     int start = Math.Max(0, peakIdx - win);
                     int end = Math.Min(hist.Length - 1, peakIdx + win);
                     int len = end - start;
@@ -892,12 +894,12 @@ namespace BaselineMode.WPF.Views.Shared
             }
 
             // FIX: Use dynamic max from UI
-            double xMax = 4096;
+            double xMax = DEFAULT_X_MAX;
             if (double.TryParse(ObsTxtBGOXMax?.Text, out double _max)) xMax = _max;
 
             int binCount = (int)xMax;
             if (binCount > 8192) binCount = 8192;
-            if (binCount < 100) binCount = 100;
+            if (binCount < DEFAULT_FIT_WINDOW) binCount = DEFAULT_FIT_WINDOW;
 
             var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: 0, max: xMax, binCount: binCount);
 
@@ -936,7 +938,7 @@ namespace BaselineMode.WPF.Views.Shared
 
                     double maxVal = hist.Max();
                     int peakIdx = Array.IndexOf(hist, maxVal);
-                    int win = 100;
+                    int win = DEFAULT_FIT_WINDOW;
                     int start = Math.Max(0, peakIdx - win);
                     int end = Math.Min(hist.Length - 1, peakIdx + win);
                     int len = end - start;
@@ -1096,7 +1098,7 @@ namespace BaselineMode.WPF.Views.Shared
                 barColor = System.Drawing.Color.FromArgb(255, barColor.Value);
 
             double xMin = 0;
-            double xMax = 4096;
+            double xMax = DEFAULT_X_MAX;
             if (tag.Contains("BGO"))
             {
                 if (double.TryParse(ObsTxtBGOXMax?.Text, out double _bMax)) xMax = _bMax;
@@ -1109,7 +1111,7 @@ namespace BaselineMode.WPF.Views.Shared
 
             int binCount = (int)xMax;
             if (binCount > 8192) binCount = 8192;
-            if (binCount < 100) binCount = 100;
+            if (binCount < DEFAULT_FIT_WINDOW) binCount = DEFAULT_FIT_WINDOW;
 
             var axisConfig = new BaselineMode.WPF.Core.Models.Baseline.AnalysisAxisConfig
             {

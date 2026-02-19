@@ -20,5 +20,16 @@ namespace BaselineMode.WPF.Core.Models.Baseline
         public int AdcResolution { get; set; } = 16384;
         public double VoltageRange { get; set; } = 5000.0; // mV
         public int HistogramBinCount { get; set; } = 16384;
+
+        // ROI Settings
+        public double RoiSigmaMultiplier { get; set; } = 8.0;
+        public int DefaultRoiWindow { get; set; } = 100;
+
+        // Optimization Settings
+        public double InitialEta { get; set; } = 0.05;
+        public double JacobianEpsilon { get; set; } = 1e-5;
+        public double ConvergenceTolerance { get; set; } = 1e-4; // Assuming 1e-4 is a common default, check implementation for actual
+        public double MinParameterValue { get; set; } = 1e-3;
+        public double MaxTotalEta { get; set; } = 0.99;
     }
 }
