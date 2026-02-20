@@ -31,7 +31,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
                 while (dataIndex <= totalSteps && !token.IsCancellationRequested)
                 {
-                    string? hexString = rawData.Rows[dataIndex - 1][0].ToString();
+                    string? hexString = rawData.Rows[dataIndex - 1][0]?.ToString();
                     if (hexString == null)
                     {
                         dataIndex++;
@@ -64,7 +64,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
                 if (progress != null && totalSteps > 0)
                 {
-                    string? lastHex = rawData.Rows[totalSteps - 1][0].ToString();
+                    string? lastHex = rawData.Rows[totalSteps - 1][0]?.ToString();
                     string[]? lastHexData = null;
                     DateTime? lastTime = null;
                     if (lastHex != null)
@@ -103,8 +103,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
                     for (int i = 1; i <= totalSteps; i++)
                     {
-                        string? hexString = rawData.Rows[i - 1][0].ToString();
-                        if (hexString == null || !hexString.StartsWith(AppConstants.HeaderStart))
+                        string? hexString = rawData.Rows[i - 1][0]?.ToString();
+                        if (hexString == null || !hexString.StartsWith(AppConstants.HeaderStart, StringComparison.OrdinalIgnoreCase))
                             return (false, $"Header INCORRECT at row {i}", i);
                     }
 

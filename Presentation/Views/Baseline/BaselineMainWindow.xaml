@@ -1,4 +1,4 @@
-﻿<Window x:Class="BaselineMode.WPF.Views.Baseline.BaselineMainWindow"
+﻿<Window x:Class="BaselineMode.WPF.Presentation.Views.Baseline.BaselineMainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -83,14 +83,14 @@
                     <!-- File Selection Card -->
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel>
-                            <TextBlock Text="📁 File Selection" Style="{StaticResource CardHeaderStyle}"/>
+                            <TextBlock Text="?? File Selection" Style="{StaticResource CardHeaderStyle}"/>
                             
-                            <Button Content="📂 Select File(s)" 
+                            <Button Content="?? Select File(s)" 
                                   Command="{Binding SelectFilesCommand}" 
                                   Style="{StaticResource PrimaryBtn}" 
                                   Margin="0,0,0,12"/>
                             
-                            <Button Content="⚙️ Process Data" 
+                            <Button Content="?? Process Data" 
                                   Command="{Binding PreProcessDataCommand}" 
                                   Style="{StaticResource SecondaryBtn}" 
                                   Margin="0,0,0,12"/>
@@ -121,7 +121,7 @@
                     <!-- Test Configuration Card -->
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel>
-                            <TextBlock Text="⚙️ Test Configuration" Style="{StaticResource CardHeaderStyle}"/>
+                            <TextBlock Text="?? Test Configuration" Style="{StaticResource CardHeaderStyle}"/>
                             
                             <Grid Margin="0,0,0,16">
                                 <Grid.ColumnDefinitions>
@@ -131,7 +131,7 @@
                                 </Grid.ColumnDefinitions>
                                 
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Delay (μs)" Style="{StaticResource LabelStyle}"/>
+                                    <TextBlock Text="Delay (�s)" Style="{StaticResource LabelStyle}"/>
                                     <TextBox Text="{Binding DelayTimeMs, UpdateSourceTrigger=PropertyChanged}"/>
                                 </StackPanel>
                                 
@@ -141,7 +141,7 @@
                                 </StackPanel>
                             </Grid>
 
-                            <Button Content="✓ Check Header" 
+                            <Button Content="? Check Header" 
                                   Command="{Binding CheckHeaderCommand}" 
                                   Style="{StaticResource SecondaryBtn}"/>
                         </StackPanel>
@@ -150,19 +150,19 @@
                     <!-- Processing Control Card -->
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel>
-                            <TextBlock Text="▶️ Processing Control" Style="{StaticResource CardHeaderStyle}"/>
+                            <TextBlock Text="?? Processing Control" Style="{StaticResource CardHeaderStyle}"/>
                             
-                            <Button Content="▶️ Start Processing" 
+                            <Button Content="?? Start Processing" 
                                   Command="{Binding ProcessDataCommand}" 
                                   Style="{StaticResource SuccessBtn}" 
                                   Margin="0,0,0,12"/>
                             
-                            <Button Content="⏹️ Stop" 
+                            <Button Content="?? Stop" 
                                   Command="{Binding StopCommand}" 
                                   Style="{StaticResource DangerBtn}" 
                                   Margin="0,0,0,12"/>
                             
-                            <Button Content="🔄 Reset" 
+                            <Button Content="?? Reset" 
                                   Command="{Binding ResetCommand}" 
                                   Style="{StaticResource SecondaryBtn}"
                                   Margin="0,0,0,16"/>
@@ -227,7 +227,7 @@
                     <!-- Analysis Settings Card -->
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel>
-                            <TextBlock Text="📊 Analysis Settings" Style="{StaticResource CardHeaderStyle}"/>
+                            <TextBlock Text="?? Analysis Settings" Style="{StaticResource CardHeaderStyle}"/>
 
                             <TextBlock Text="DSSD Layer" Style="{StaticResource LabelStyle}"/>
                             <ComboBox SelectedIndex="{Binding SelectedLayerIndex}" Margin="0,0,0,12">
@@ -283,12 +283,12 @@
                                 <ComboBoxItem Content="Hyper-EMG double tail"/>
                             </ComboBox>
 
-                            <Button Content="🔥 Show 2D Heatmap" 
+                            <Button Content="?? Show 2D Heatmap" 
                                     Command="{Binding ShowHeatmapCommand}" 
                                     Style="{StaticResource SecondaryBtn}"
                                     Margin="0,8,0,0"/>
 
-                            <Button Content="💾 Save Mean Values" 
+                            <Button Content="?? Save Mean Values" 
                                     Command="{Binding SaveMeanCommand}" 
                                     IsEnabled="{Binding CanSaveMean}"
                                     Style="{StaticResource SecondaryBtn}"
@@ -340,7 +340,7 @@
                     </TabControl.Resources>
 
                     <!-- Histogram View Tab -->
-                    <TabItem Header="📈 Histogram View">
+                    <TabItem Header="?? Histogram View">
                         <Grid Margin="20">
                             <TabControl BorderThickness="0" Background="Transparent">
                                 
@@ -449,7 +449,7 @@
                     </TabItem>
 
                     <!-- Data View Tab -->
-                    <TabItem Header="📋 Data View">
+                    <TabItem Header="?? Data View">
                         <Grid Margin="20">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*"/>
@@ -476,7 +476,7 @@
                     </TabItem>
 
                     <!-- Header Information Tab -->
-                    <TabItem Header="📄 Header Information">
+                    <TabItem Header="?? Header Information">
                         <TextBox Text="{Binding HeaderInfoText}" 
                                IsReadOnly="True" 
                                FontFamily="Consolas" 

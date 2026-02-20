@@ -498,7 +498,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private void ShowChannelDetail(ChannelViewModel channel)
         {
             if (channel == null) return;
-            var window = new BaselineMode.WPF.Views.Baseline.ChannelDetailWindow
+            var window = new BaselineMode.WPF.Presentation.Views.Baseline.ChannelDetailWindow
             {
                 MainVM = this,
                 DataContext = channel
@@ -527,7 +527,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         var vm = new HeatmapViewModel(matrix);
-                        var window = new BaselineMode.WPF.Views.Baseline.HeatmapWindow
+                        var window = new BaselineMode.WPF.Presentation.Views.Baseline.HeatmapWindow
                         {
                             DataContext = vm
                         };

@@ -1,10 +1,10 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
-using BaselineMode.WPF.Views.Observation;
-using BaselineMode.WPF.Views.Baseline;
-using BaselineMode.WPF.Views.Flux;
+using BaselineMode.WPF.Presentation.Views.Observation;
+using BaselineMode.WPF.Presentation.Views.Baseline;
+using BaselineMode.WPF.Presentation.Views.Flux;
 
-namespace BaselineMode.WPF.Views.Shared
+namespace BaselineMode.WPF.Presentation.Views.Shared
 {
     public partial class ModeSelectorWindow : Window
     {

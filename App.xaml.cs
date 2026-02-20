@@ -10,7 +10,7 @@ using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
 
-using BaselineMode.WPF.Views.Shared;
+using BaselineMode.WPF.Presentation.Views.Shared;
 
 namespace BaselineMode.WPF;
 
@@ -46,8 +46,8 @@ public partial class App : Application
 
         // Views
         services.AddTransient<UnifiedMainWindow>();
-        services.AddTransient<BaselineMode.WPF.Views.Observation.ObservationMainWindow>();
-        services.AddTransient<BaselineMode.WPF.Views.Flux.FluxMainWindow>();
+        services.AddTransient<BaselineMode.WPF.Presentation.Views.Observation.ObservationMainWindow>();
+        services.AddTransient<BaselineMode.WPF.Presentation.Views.Flux.FluxMainWindow>();
 
         // Register Fitting Service
         services.AddSingleton<IFittingService, MathService>();

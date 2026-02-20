@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
 
-namespace BaselineMode.WPF.Views.Shared
+namespace BaselineMode.WPF.Presentation.Views.Shared
 {
     public partial class ModernMessageBox : Window
     {

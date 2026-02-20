@@ -1,13 +1,12 @@
 using System.Windows;
 using BaselineMode.WPF.Presentation.ViewModels;
 
-namespace BaselineMode.WPF.Views.Calibration
+namespace BaselineMode.WPF.Presentation.Views.Calibration;
+
+public partial class CalibrationMainWindow : Window
 {
-    public partial class CalibrationMainWindow : Window
+    public CalibrationMainWindow()
     {
-        public CalibrationMainWindow()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }

@@ -17,15 +17,15 @@ using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Core.Models.Observation;
 using BaselineMode.WPF.Core.Interfaces.Observation;
-using BaselineMode.WPF.Views.Observation;
+using BaselineMode.WPF.Presentation.Views.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
 using BaselineMode.WPF.Core.Helpers;
 using BaselineMode.WPF.Infrastructure.Services;
 
-namespace BaselineMode.WPF.Views.Shared
+namespace BaselineMode.WPF.Presentation.Views.Shared
 {
-    public partial class UnifiedMainWindow : Window
+    public partial class UnifiedMainWindow : Window, IDisposable
     {
         // Baseline Mode fields
         private readonly MainViewModel _mainViewModel;
@@ -60,7 +60,7 @@ namespace BaselineMode.WPF.Views.Shared
             _obsDateTimeTimer.Tick += (s, e) =>
             {
                 if (ObsDateTimeLabel != null)
-                    ObsDateTimeLabel.Text = DateTime.Now.ToString(FORMAT_DATE);
+                    ObsDateTimeLabel.Text = DateTime.Now.ToString(FORMAT_DATE, System.Globalization.CultureInfo.InvariantCulture);
             };
             _obsDateTimeTimer.Start();
             // Graph settings moved to Settings Panel (XAML bindings handle DataContext)
@@ -420,28 +420,30 @@ namespace BaselineMode.WPF.Views.Shared
 
             // Use FileHelper to find the file
             string? fileName = _observationViewModel.FileHelper.FindExcelFile(outputName);
-            if (fileName != null) return;
 
-            var result = MessageBoxService.Show(
-                $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
-                "File Not Found",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.No) return;
-
-            var openFileDialog = new OpenFileDialog
+            if (fileName == null)
             {
-                Filter = "Excel Files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
-                Title = "Select Particle Data File"
-            };
+                var result = MessageBoxService.Show(
+                    $"File '{outputName}' not found in default locations.\nDo you want to browse for the file manually?",
+                    "File Not Found",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
 
-            string initialDir = _observationViewModel.FileHelper.GetOutputFolder("");
-            if (Directory.Exists(initialDir))
-                openFileDialog.InitialDirectory = initialDir;
+                if (result == MessageBoxResult.No) return;
 
-            if (openFileDialog.ShowDialog() == false) return;
-            fileName = openFileDialog.FileName;
+                var openFileDialog = new OpenFileDialog
+                {
+                    Filter = "Excel Files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                    Title = "Select Particle Data File"
+                };
+
+                string initialDir = _observationViewModel.FileHelper.GetOutputFolder("");
+                if (Directory.Exists(initialDir))
+                    openFileDialog.InitialDirectory = initialDir;
+
+                if (openFileDialog.ShowDialog() == false) return;
+                fileName = openFileDialog.FileName;
+            }
 
             _obsCts = new CancellationTokenSource();
             var progress = new Progress<ObservationProcessReport>(report =>
@@ -456,7 +458,7 @@ namespace BaselineMode.WPF.Views.Shared
 
                 if (report.CurrentTime.HasValue)
                 {
-                    ObsTxtStopTime.Text = report.IsComplete ? report.CurrentTime.Value.ToString(FORMAT_DATE) : report.CurrentTime.Value.ToString(FORMAT_DATE);
+                    ObsTxtStopTime.Text = report.IsComplete ? report.CurrentTime.Value.ToString(FORMAT_DATE, System.Globalization.CultureInfo.InvariantCulture) : report.CurrentTime.Value.ToString(FORMAT_DATE, System.Globalization.CultureInfo.InvariantCulture);
                 }
 
                 if (report.IsComplete)
@@ -762,7 +764,7 @@ namespace BaselineMode.WPF.Views.Shared
                 return;
             }
 
-            if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0");
+            if (countsLabel != null) countsLabel.Text = filteredData.Length.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
 
             // FIX: Use dynamic max from UI
             double xMax = DEFAULT_X_MAX;
@@ -1037,7 +1039,7 @@ namespace BaselineMode.WPF.Views.Shared
                 title = $"Pulse Height Y ({dssdLayer})";
                 showFit = ObsChkDSSDFit?.IsChecked == true;
             }
-            else if (tag.StartsWith("StripX_"))
+            else if (tag.StartsWith("StripX_", StringComparison.OrdinalIgnoreCase))
             {
                 if (int.TryParse(tag.AsSpan(7), out int stripNum))
                 {
@@ -1050,7 +1052,7 @@ namespace BaselineMode.WPF.Views.Shared
                     }
                 }
             }
-            else if (tag.StartsWith("StripY_"))
+            else if (tag.StartsWith("StripY_", StringComparison.OrdinalIgnoreCase))
             {
                 if (int.TryParse(tag.AsSpan(7), out int stripNum))
                 {
@@ -1128,5 +1130,12 @@ namespace BaselineMode.WPF.Views.Shared
             detailWindow.Show();
         }
         #endregion
+
+        public void Dispose()
+        {
+            _obsCts?.Dispose();
+            _obsDateTimeTimer?.Stop();
+            System.GC.SuppressFinalize(this);
+        }
     }
 }

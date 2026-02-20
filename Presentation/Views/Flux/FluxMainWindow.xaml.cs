@@ -5,7 +5,7 @@ using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Presentation.ViewModels;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
 
-namespace BaselineMode.WPF.Views.Flux
+namespace BaselineMode.WPF.Presentation.Views.Flux
 {
     public partial class FluxMainWindow : Window
     {

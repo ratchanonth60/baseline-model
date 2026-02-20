@@ -6,7 +6,7 @@ using ScottPlot;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
 using BaselineMode.WPF.Core.Helpers;
 
-namespace BaselineMode.WPF.Views.Flux
+namespace BaselineMode.WPF.Presentation.Views.Flux
 {
     public partial class FluxView : UserControl
     {

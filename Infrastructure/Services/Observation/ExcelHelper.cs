@@ -33,17 +33,14 @@ namespace BaselineMode.WPF.Infrastructure.Services.Observation
                     return Result.Failure("Invalid file name. Please use a valid name.");
                 }
 
-                // Get the Debug/Source folder dynamically
-                string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
-                string saveDirectory = Path.Combine(projectDirectory, AppConstants.SourceFolderName);
-
                 // Ensure the directory exists
-                if (!Directory.Exists(saveDirectory))
+                string? saveDirectory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(saveDirectory) && !Directory.Exists(saveDirectory))
                 {
                     Directory.CreateDirectory(saveDirectory);
                 }
 
-                string fullPath = Path.Combine(saveDirectory, fileName);
+                string fullPath = filePath;
                 using var package = new ExcelPackage();
                 var worksheet = package.Workbook.Worksheets.Add("Processed Data");
 

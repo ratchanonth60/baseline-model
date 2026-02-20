@@ -19,7 +19,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
     /// ViewModel for Flux mode: file selection, raw data processing, and flux density plotting per layer.
     /// Split into partials: FileOperations, Commands, DataProcessing.
     /// </summary>
-    public partial class FluxViewModel : SharedViewModelBase
+    public partial class FluxViewModel : SharedViewModelBase, IDisposable
     {
         private readonly IFileHelper _fileHelper;
         private readonly IObservationDataProcessor _dataProcessor;
@@ -181,6 +181,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                 layer.StatsText = "No Data";
                 layer.RenderPlot(defaultFig, defaultData, defaultFg, defaultSeries);
             }
+        }
+
+        public void Dispose()
+        {
+            _cts?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

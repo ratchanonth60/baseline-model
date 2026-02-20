@@ -17,7 +17,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
     /// ViewModel for Calibration mode: file selection, raw/Excel processing, channel histograms.
     /// Split into partials: Commands, DataProcessing, Plotting.
     /// </summary>
-    public partial class CalibrationViewModel : SharedViewModelBase
+    public partial class CalibrationViewModel : SharedViewModelBase, IDisposable
     {
         private readonly IMathService _mathService;
         private readonly IFileHelper _fileHelper;
@@ -193,6 +193,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                 ch.StatsText = "";
                 ch.RenderPlot(fig, data, fg, series);
             }
+        }
+
+        public void Dispose()
+        {
+            _cts?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

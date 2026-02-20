@@ -2,7 +2,7 @@ using System;
 using System.Linq;
 using System.Windows;
 
-namespace BaselineMode.WPF.Views.Flux
+namespace BaselineMode.WPF.Presentation.Views.Flux
 {
     public partial class FluxDetailWindow : Window
     {

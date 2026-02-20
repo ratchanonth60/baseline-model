@@ -3,7 +3,7 @@ using System.Windows;
 using ScottPlot;
 using BaselineMode.WPF.Core.Interfaces;
 
-namespace BaselineMode.WPF.Views.Calibration
+namespace BaselineMode.WPF.Presentation.Views.Calibration
 {
     public partial class CalibrationDetailWindow : Window
     {

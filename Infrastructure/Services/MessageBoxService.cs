@@ -1,30 +1,29 @@
 using System;
 using System.Windows;
-using BaselineMode.WPF.Views.Shared;
+using BaselineMode.WPF.Presentation.Views.Shared;
 
-namespace BaselineMode.WPF.Infrastructure.Services
+namespace BaselineMode.WPF.Infrastructure.Services;
+
+public static class MessageBoxService
 {
-    public static class MessageBoxService
+    public static MessageBoxResult Show(string message, string title = "Notification", MessageBoxButton button = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.Information)
     {
-        public static MessageBoxResult Show(string message, string title = "Notification", MessageBoxButton button = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.Information)
+        // Execute on UI Thread
+        if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
         {
-            // Execute on UI Thread
-            if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
-            {
-                return Application.Current.Dispatcher.Invoke(() => Show(message, title, button, image));
-            }
-
-            var dlg = new ModernMessageBox(message, title, button, image);
-
-            // Set owner if any window is active to center properly
-            if (Application.Current?.MainWindow != null && Application.Current.MainWindow.IsVisible)
-            {
-                dlg.Owner = Application.Current.MainWindow;
-                dlg.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            }
-
-            dlg.ShowDialog();
-            return dlg.Result;
+            return Application.Current.Dispatcher.Invoke(() => Show(message, title, button, image));
         }
+
+        var dlg = new ModernMessageBox(message, title, button, image);
+
+        // Set owner if any window is active to center properly
+        if (Application.Current?.MainWindow != null && Application.Current.MainWindow.IsVisible)
+        {
+            dlg.Owner = Application.Current.MainWindow;
+            dlg.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        }
+
+        dlg.ShowDialog();
+        return dlg.Result;
     }
 }

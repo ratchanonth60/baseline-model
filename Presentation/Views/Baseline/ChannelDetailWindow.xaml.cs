@@ -4,7 +4,7 @@ using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using BaselineMode.WPF.Core.Helpers;
 
-namespace BaselineMode.WPF.Views.Baseline
+namespace BaselineMode.WPF.Presentation.Views.Baseline
 {
     public partial class ChannelDetailWindow : Window
     {

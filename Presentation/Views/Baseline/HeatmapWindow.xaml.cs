@@ -5,7 +5,7 @@ using BaselineMode.WPF.Presentation.ViewModels;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
 using ScottPlot;
 
-namespace BaselineMode.WPF.Views.Baseline
+namespace BaselineMode.WPF.Presentation.Views.Baseline
 {
     public partial class HeatmapWindow : Window
     {

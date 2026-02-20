@@ -30,7 +30,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             _cts = new CancellationTokenSource();
 
             string outputName = string.IsNullOrWhiteSpace(OutputFileName) ? "FluxResult" : OutputFileName;
-            if (!outputName.EndsWith(".xlsx")) outputName += ".xlsx";
+            if (!outputName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)) outputName += ".xlsx";
 
             try
             {
@@ -111,7 +111,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         private async Task ReadData()
         {
             string outputName = OutputFileName;
-            if (!outputName.EndsWith(".xlsx")) outputName += ".xlsx";
+            if (!outputName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)) outputName += ".xlsx";
 
             string? fileName = _fileHelper.FindExcelFile(Path.GetFileNameWithoutExtension(outputName));
             if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
@@ -216,7 +216,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         private async Task HeaderCheck()
         {
             string outputName = OutputFileName;
-            if (!outputName.EndsWith(".xlsx")) outputName += ".xlsx";
+            if (!outputName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)) outputName += ".xlsx";
 
             string? fileName = _fileHelper.FindExcelFile(Path.GetFileNameWithoutExtension(outputName));
             if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
@@ -241,7 +241,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                     for (int i = 0; i < totalRows; i++)
                     {
                         string hexString = rawData.Rows[i][0].ToString() ?? "";
-                        if (!hexString.StartsWith(AppConstants.HeaderStart))
+                        if (!hexString.StartsWith("E225", StringComparison.OrdinalIgnoreCase))
                         {
                             Application.Current.Dispatcher.BeginInvoke(() =>
                                 HeaderCheckStatus = $"Header is INCORRECT! at data row no. {i + 1}");

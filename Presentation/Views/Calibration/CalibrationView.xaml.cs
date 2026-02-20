@@ -5,7 +5,7 @@ using BaselineMode.WPF.Presentation.ViewModels.Calibration;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using ScottPlot;
 
-namespace BaselineMode.WPF.Views.Calibration
+namespace BaselineMode.WPF.Presentation.Views.Calibration
 {
     public partial class CalibrationView : UserControl
     {

@@ -5,7 +5,7 @@ using ScottPlot;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Presentation.ViewModels.Shared; // Added for ChannelViewModel
 
-namespace BaselineMode.WPF.Views.Observation
+namespace BaselineMode.WPF.Presentation.Views.Observation
 {
     public partial class ObservationDetailWindow : Window
     {

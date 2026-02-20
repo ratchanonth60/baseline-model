@@ -80,7 +80,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
                 return;
             }
 
-            string dateStr = DateTime.Now.ToString("yyyy-MM-dd");
+            string dateStr = DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
             string fullPath = Path.Combine(OutputDirectoryPath, dateStr);
             if (!Directory.Exists(fullPath))
                 Directory.CreateDirectory(fullPath);
