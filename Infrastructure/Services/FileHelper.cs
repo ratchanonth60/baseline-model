@@ -167,70 +167,7 @@ namespace BaselineMode.WPF.Infrastructure.Services
             }
         }
 
-        public async Task<Result<string>> SaveToExcelWithDialogAsync(List<string> data, string defaultFileName)
-        {
-            try
-            {
-                var dialog = new SaveFileDialog
-                {
-                    Filter = "Excel Files (*.xlsx)|*.xlsx",
-                    DefaultExt = ".xlsx",
-                    FileName = defaultFileName
-                };
 
-                if (dialog.ShowDialog() == true)
-                {
-                    string fullPath = dialog.FileName;
-                    using var package = new ExcelPackage();
-                    WriteListToExcelSheet(package, data, "Processed Data");
-                    await package.SaveAsAsync(new FileInfo(fullPath));
-                    _logger.LogInfo($"Successfully saved to Excel via dialog: {fullPath}");
-                    return Result.Success(fullPath);
-                }
-
-                return Result.Failure<string>("Save cancelled by user.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogException(ex, "Error saving to Excel via dialog");
-                return Result.Failure<string>($"Failed to save: {ex.Message}");
-            }
-        }
-
-        public async Task<Result<string>> SaveResultsToExcelWithDialogAsync(string defaultFileName, List<Dictionary<string, object>> results)
-        {
-            try
-            {
-                var dialog = new SaveFileDialog
-                {
-                    Filter = "Excel Files (*.xlsx)|*.xlsx",
-                    DefaultExt = ".xlsx",
-                    FileName = defaultFileName
-                };
-
-                if (dialog.ShowDialog() == true)
-                {
-                    string fullPath = dialog.FileName;
-                    using var package = new ExcelPackage();
-
-                    if (results.Count > 0)
-                    {
-                        WriteResultsToExcelSheet(package, results, "ParticleData");
-                    }
-
-                    await package.SaveAsAsync(new FileInfo(fullPath));
-                    _logger.LogInfo($"Successfully saved results to Excel via dialog: {fullPath}");
-                    return Result.Success(fullPath);
-                }
-
-                return Result.Failure<string>("Save cancelled by user.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogException(ex, "Error saving results to Excel via dialog");
-                return Result.Failure<string>($"Failed to save: {ex.Message}");
-            }
-        }
 
         private static void WriteListToExcelSheet(ExcelPackage package, List<string> data, string sheetName)
         {

@@ -1,9 +1,10 @@
 using System;
 using System.Linq;
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using ScottPlot.Avalonia;
 using BaselineMode.WPF.Presentation.ViewModels;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
-using ScottPlot;
 
 namespace BaselineMode.WPF.Views.Baseline
 {
@@ -15,7 +16,7 @@ namespace BaselineMode.WPF.Views.Baseline
             this.Loaded += HeatmapWindow_Loaded;
         }
 
-        private void HeatmapWindow_Loaded(object sender, RoutedEventArgs e)
+        private void HeatmapWindow_Loaded(object? sender, RoutedEventArgs e)
         {
             if (DataContext is HeatmapViewModel vm && vm.HeatmapData != null)
             {
@@ -27,33 +28,22 @@ namespace BaselineMode.WPF.Views.Baseline
         {
             HeatmapPlot.Plot.Clear();
 
-            // data is [rows, cols]
-            // We want Rows = Y (Z channels), Cols = X (X channels)
-            // ScottPlot 4 AddHeatmap takes double[,] intensity
+            var hm = HeatmapPlot.Plot.Add.Heatmap(vm.HeatmapData);
 
-            var hm = HeatmapPlot.Plot.AddHeatmap(vm.HeatmapData, lockScales: false);
-            hm.Smooth = true; // Interpolation? User said "Heatmap -3d" so maybe plain blocks is better?
-                              // Let's try regular first (Smooth=false is default usually but true effectively makes it look nicer)
-                              // Actually for discrete channels, Smooth=false (blocks) is more accurate.
-            hm.Smooth = false;
+            var cb = HeatmapPlot.Plot.Add.ColorBar(hm);
 
-            var cb = HeatmapPlot.Plot.AddColorbar(hm);
-
-            // Labels
             HeatmapPlot.Plot.XLabel("X Channels (1-8)");
             HeatmapPlot.Plot.YLabel("Z Channels (9-16)");
             HeatmapPlot.Plot.Title("Coincidence Heatmap");
 
-            // Custom Ticks
             double[] xPositions = [.. Enumerable.Range(0, 8).Select(x => (double)x)];
             string[] xLabels = vm.XLabels;
-            HeatmapPlot.Plot.XTicks(xPositions, xLabels);
+            HeatmapPlot.Plot.Axes.Bottom.TickGenerator = new ScottPlot.TickGenerators.NumericManual(xPositions, xLabels);
 
             double[] yPositions = [.. Enumerable.Range(0, 8).Select(y => (double)y)];
             string[] yLabels = vm.YLabels;
-            HeatmapPlot.Plot.YTicks(yPositions, yLabels);
+            HeatmapPlot.Plot.Axes.Left.TickGenerator = new ScottPlot.TickGenerators.NumericManual(yPositions, yLabels);
 
-            // Stats
             double maxVal = 0;
             double total = 0;
             int rows = vm.HeatmapData.GetLength(0);

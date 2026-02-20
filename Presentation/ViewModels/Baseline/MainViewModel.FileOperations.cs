@@ -5,14 +5,16 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Globalization;
 using System.Buffers.Binary; // สำหรับการแปลง Byte แบบรวดเร็ว
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using BaselineMode.WPF.Core.Models.Baseline;
 using BaselineMode.WPF.Infrastructure.Services;
-using BaselineMode.WPF.Presentation.ViewModels.Shared; // ปรับ Namespace ตามโครงสร้างโปรเจกต์จริง
+using BaselineMode.WPF.Presentation.ViewModels.Shared;
+using Avalonia; // ปรับ Namespace ตามโครงสร้างโปรเจกต์จริง
+using Avalonia.Threading;
+using BaselineMode.WPF.Core.Models.Shared;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 {
@@ -23,15 +25,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         // ---------------------------------------------------------
 
         [RelayCommand]
-        private void BrowseOutputDirectory()
+        private async Task BrowseOutputDirectory()
         {
-            var dialog = new Microsoft.Win32.OpenFolderDialog
+            var folder = await _dialogService.OpenFolderAsync("Select Output Root Folder");
+            if (!string.IsNullOrEmpty(folder))
             {
-                Title = "Select Output Root Folder"
-            };
-            if (dialog.ShowDialog() == true)
-            {
-                OutputDirectoryPath = dialog.FolderName;
+                OutputDirectoryPath = folder;
             }
         }
 
@@ -49,15 +48,11 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private async Task SelectFiles()
         {
             Reset(); // เคลียร์ค่าเก่า
-            var dialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Multiselect = true,
-                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
-            };
+            var filesArray = await _dialogService.OpenFilesAsync("Select files", true, "Text Files (*.txt)|*.txt|All Files (*.*)|*.*");
 
-            if (dialog.ShowDialog() != true) return;
+            if (filesArray == null || filesArray.Length == 0) return;
 
-            var files = dialog.FileNames.ToList();
+            var files = filesArray.ToList();
 
             if (files.Count == 1)
             {
@@ -106,20 +101,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                             }
                         }
 
-                        Application.Current.Dispatcher.Invoke(() =>
+                        Dispatcher.UIThread.InvokeAsync(async () =>
                         {
                             _selectedFiles = [combinedFilePath];
                             OutputFileName = "multiple_file_output.xlsx";
                             StatusMessage = "Merge Complete. Ready.";
-                            MessageBoxService.Show($"Files merged into:\n{combinedFilePath}", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                            await _dialogService.ShowMessageAsync($"Files merged into:\n{combinedFilePath}", "Success", MsgBoxButton.OK, MsgBoxImage.Information);
                         });
                     }
                     catch (Exception ex)
                     {
-                        Application.Current.Dispatcher.Invoke(() =>
+                        Dispatcher.UIThread.InvokeAsync(async () =>
                         {
                             StatusMessage = $"Merge Error: {ex.Message}";
-                            MessageBoxService.Show($"Error merging files: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            await _dialogService.ShowMessageAsync($"Error merging files: {ex.Message}", "Error", MsgBoxButton.OK, MsgBoxImage.Error);
                         });
                     }
                 });
@@ -159,7 +154,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     string lastHeaderHex = ReadFileBlock(filePath, isTail: true);
                     byte[]? lastHeaderBytes = FindLastPacketInHex(lastHeaderHex);
 
-                    Application.Current.Dispatcher.Invoke(() =>
+                    Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                     {
                         StringBuilder sb = new();
                         sb.AppendLine($"File Size: {fileInfo.Length / (1024.0 * 1024.0):F2} MB");
@@ -197,7 +192,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 }
                 catch (Exception ex)
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
+                    Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         StatusMessage = "Error Analyzing Header";
                         HeaderInfoText = $"Error: {ex.Message}";
@@ -356,14 +351,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     WriteMeansToFile(6, t6.Result);
                     WriteMeansToFile(7, t7.Result);
 
-                    Application.Current.Dispatcher.Invoke(() => StatusMessage = "Mean Values Saved Successfully.");
+                    Dispatcher.UIThread.InvokeAsync(() => StatusMessage = "Mean Values Saved Successfully.");
                 }
                 catch (Exception ex)
                 {
-                    Application.Current.Dispatcher.Invoke(() =>
+                    Dispatcher.UIThread.InvokeAsync(async () =>
                     {
                         StatusMessage = $"Error saving means: {ex.Message}";
-                        MessageBoxService.Show(ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        await _dialogService.ShowMessageAsync(ex.Message, "Error", MsgBoxButton.OK, MsgBoxImage.Error);
                     });
                 }
             });

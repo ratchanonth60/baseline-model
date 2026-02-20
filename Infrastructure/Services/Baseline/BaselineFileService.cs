@@ -472,19 +472,6 @@ namespace BaselineMode.WPF.Infrastructure.Services.Baseline
             GC.SuppressFinalize(this);
         }
 
-        public string[]? OpenFileDialog(string filter, bool multiselect)
-        {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = filter,
-                Multiselect = multiselect
-            };
 
-            if (openFileDialog.ShowDialog() == true)
-            {
-                return openFileDialog.FileNames;
-            }
-            return null;
-        }
     }
 }

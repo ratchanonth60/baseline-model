@@ -35,16 +35,6 @@ namespace BaselineMode.WPF.Core.Interfaces
         Task<Result<string>> SaveResultsToExcelAsync(string folderName, List<Dictionary<string, object>> results);
 
         /// <summary>
-        /// Save hex data segments to Excel file with SaveFileDialog
-        /// </summary>
-        Task<Result<string>> SaveToExcelWithDialogAsync(List<string> data, string defaultFileName);
-
-        /// <summary>
-        /// Save processed results to Excel file with SaveFileDialog
-        /// </summary>
-        Task<Result<string>> SaveResultsToExcelWithDialogAsync(string defaultFileName, List<Dictionary<string, object>> results);
-
-        /// <summary>
         /// Check if file exists
         /// </summary>
         bool FileExists(string path);

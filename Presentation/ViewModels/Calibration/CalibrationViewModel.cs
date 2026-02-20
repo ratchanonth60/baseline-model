@@ -9,7 +9,7 @@ using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.Win32;
+using BaselineMode.WPF.Core.Interfaces.Shared;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 {
@@ -23,17 +23,19 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
         private readonly IFileHelper _fileHelper;
         private readonly IObservationDataProcessor _dataProcessor;
         private readonly ILoggerService _logger;
+        private readonly IDialogService _dialogService;
 
         private const int EstimatedRows = 10000;
         private const int DataPointsPerRow = 11;
         private const int InitialCapacity = EstimatedRows * DataPointsPerRow;
 
-        public CalibrationViewModel(IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger)
+        public CalibrationViewModel(IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger, IDialogService dialogService)
         {
             _mathService = mathService;
             _fileHelper = fileHelper;
             _dataProcessor = dataProcessor;
             _logger = logger;
+            _dialogService = dialogService;
 
             Channels = [];
             for (int i = 0; i < 16; i++)
@@ -87,21 +89,21 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
         }
 
         [ObservableProperty]
-        private System.Windows.Media.Color _graphFigureColor = System.Windows.Media.Color.FromRgb(30, 30, 30);
+        private Avalonia.Media.Color _graphFigureColor = Avalonia.Media.Color.FromRgb(30, 30, 30);
 
         [ObservableProperty]
-        private System.Windows.Media.Color _graphDataColor = System.Windows.Media.Color.FromRgb(37, 37, 38);
+        private Avalonia.Media.Color _graphDataColor = Avalonia.Media.Color.FromRgb(37, 37, 38);
 
         [ObservableProperty]
-        private System.Windows.Media.Color _graphSeriesColor = System.Windows.Media.Colors.Cyan;
+        private Avalonia.Media.Color _graphSeriesColor = Avalonia.Media.Colors.Cyan;
 
         [ObservableProperty]
-        private System.Windows.Media.Color _graphTextColor = System.Windows.Media.Colors.White;
+        private Avalonia.Media.Color _graphTextColor = Avalonia.Media.Colors.White;
 
-        partial void OnGraphFigureColorChanged(System.Windows.Media.Color value) => _ = UpdatePlotsAsync();
-        partial void OnGraphDataColorChanged(System.Windows.Media.Color value) => _ = UpdatePlotsAsync();
-        partial void OnGraphSeriesColorChanged(System.Windows.Media.Color value) => _ = UpdatePlotsAsync();
-        partial void OnGraphTextColorChanged(System.Windows.Media.Color value) => _ = UpdatePlotsAsync();
+        partial void OnGraphFigureColorChanged(Avalonia.Media.Color value) => _ = UpdatePlotsAsync();
+        partial void OnGraphDataColorChanged(Avalonia.Media.Color value) => _ = UpdatePlotsAsync();
+        partial void OnGraphSeriesColorChanged(Avalonia.Media.Color value) => _ = UpdatePlotsAsync();
+        partial void OnGraphTextColorChanged(Avalonia.Media.Color value) => _ = UpdatePlotsAsync();
 
         [ObservableProperty]
         private string _headerCheckStatus = "";
@@ -126,16 +128,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
         public IEnumerable<ChannelViewModel> ZChannels => Channels.Skip(8).Take(8);
 
         [RelayCommand]
-        private void SelectFiles()
+        private async Task SelectFiles()
         {
-            var openFileDialog = new OpenFileDialog
+            var files = await _dialogService.OpenFilesAsync("Select files", true, "Text files (*.txt)|*.txt|All files (*.*)|*.*");
+            if (files != null && files.Length > 0)
             {
-                Multiselect = true,
-                Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*"
-            };
-            if (openFileDialog.ShowDialog() == true)
-            {
-                InputFileList = openFileDialog.FileNames;
+                InputFileList = files;
                 ReadMultipleFiles = false;
                 InputFilesInfo = $"{InputFileList.Length} txt file(s) selected";
                 StatusMessage = "Files selected.";
@@ -143,17 +141,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
         }
 
         [RelayCommand]
-        private void SelectExcelFiles()
+        private async Task SelectExcelFiles()
         {
-            var openFileDialog = new OpenFileDialog
+            var files = await _dialogService.OpenFilesAsync("Select Excel files to read", true, "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*");
+            if (files != null && files.Length > 0)
             {
-                Multiselect = true,
-                Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
-                Title = "Select Excel files to read"
-            };
-            if (openFileDialog.ShowDialog() == true)
-            {
-                InputFileList = openFileDialog.FileNames;
+                InputFileList = files;
                 ReadMultipleFiles = true;
                 InputFilesInfo = $"{InputFileList.Length} Excel file(s) selected for reading";
                 StatusMessage = "Excel files selected.";

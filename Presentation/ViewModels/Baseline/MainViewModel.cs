@@ -6,13 +6,15 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Input;
+using Avalonia.Media;
+using Avalonia.Threading;
 using BaselineMode.WPF.Core.Models;
 using BaselineMode.WPF.Core.Models.Baseline;
 using BaselineMode.WPF.Core.Models.Flux;
 using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Infrastructure.Services;
 using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Core.Interfaces.Shared;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScottPlot;
@@ -29,6 +31,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private readonly IFileService _fileService;
         private readonly IMathService _mathService;
         private readonly ILoggerService _logger;
+        private readonly IDialogService _dialogService;
         private bool _disposed = false;
 
         [ObservableProperty]
@@ -44,7 +47,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private string _statusMessage = "Ready";
 
         [ObservableProperty]
-        private System.Windows.Media.Brush _statusColor = System.Windows.Media.Brushes.Gray;
+        private IBrush _statusColor = Brushes.Gray;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsProgressIndeterminate))]
@@ -65,21 +68,21 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
         // --- Graph Color Configuration ---
         [ObservableProperty]
-        private System.Windows.Media.Color _graphFigureColor = System.Windows.Media.Color.FromRgb(37, 37, 38);
+        private Avalonia.Media.Color _graphFigureColor = Avalonia.Media.Color.FromRgb(37, 37, 38);
 
         [ObservableProperty]
-        private System.Windows.Media.Color _graphDataColor = System.Windows.Media.Color.FromRgb(40, 40, 40);
+        private Avalonia.Media.Color _graphDataColor = Avalonia.Media.Color.FromRgb(40, 40, 40);
 
         [ObservableProperty]
-        private System.Windows.Media.Color _graphSeriesColor = System.Windows.Media.Colors.DodgerBlue;
+        private Avalonia.Media.Color _graphSeriesColor = Avalonia.Media.Colors.DodgerBlue;
 
         [ObservableProperty]
-        private System.Windows.Media.Color _graphTextColor = System.Windows.Media.Colors.White;
+        private Avalonia.Media.Color _graphTextColor = Avalonia.Media.Colors.White;
 
-        partial void OnGraphFigureColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
-        partial void OnGraphDataColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
-        partial void OnGraphSeriesColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
-        partial void OnGraphTextColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        partial void OnGraphFigureColorChanged(Avalonia.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        partial void OnGraphDataColorChanged(Avalonia.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        partial void OnGraphSeriesColorChanged(Avalonia.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
+        partial void OnGraphTextColorChanged(Avalonia.Media.Color value) => RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs(ProcessedData));
 
         [ObservableProperty]
         private double _barWidthMultiplier = 1.0;
@@ -192,16 +195,17 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
         public event EventHandler<PlotUpdateEventArgs>? RequestPlotUpdate;
 
-        public MainViewModel(IFileService fileService, IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger)
+        public MainViewModel(IFileService fileService, IMathService mathService, IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger, IDialogService dialogService)
         {
             _fileService = fileService;
             _mathService = mathService;
             _logger = logger;
+            _dialogService = dialogService;
 
             // Initialize CalibrationVM with dependencies
-            _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor, logger);
+            _calibrationVM = new CalibrationViewModel(mathService, fileHelper, dataProcessor, logger, dialogService);
             // Initialize FluxVM
-            _fluxVM = new FluxViewModel(fileHelper, dataProcessor, logger);
+            _fluxVM = new FluxViewModel(fileHelper, dataProcessor, logger, dialogService);
             // ObservationVM will be assigned from outside or we could initialize it here
             // But since it's injected into MainWindow, we'll assign it there.
 
@@ -210,7 +214,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
             // Initialize Timer for Clock
             _currentDateTime = DateTime.Now;
-            var timer = new System.Windows.Threading.DispatcherTimer
+            var timer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(1)
             };
@@ -322,42 +326,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         /// <summary>
         /// Builds a histogram from filtered channel data with correct range/binCount.
         /// </summary>
-        private (double[] counts, double[] binCenters) BuildHistogram(double[] filteredData, bool baselineSubtracted, int binCount = 16384)
-        {
-            double minVal, maxVal;
 
-            if (baselineSubtracted)
-            {
-                minVal = filteredData.Min();
-                maxVal = filteredData.Max();
-                double range = maxVal - minVal;
-                minVal -= range * 0.05;
-                maxVal += range * 0.05;
-            }
-            else
-            {
-                minVal = XAxisMin;
-                maxVal = XAxisMax;
-            }
-
-            var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
-                filteredData, min: minVal, max: maxVal, binCount: binCount);
-
-            double[] binCenters = new double[binEdges.Length - 1];
-            for (int i = 0; i < binCenters.Length; i++)
-                binCenters[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
-
-            // Voltage conversion
-            if (SelectedXAxisIndex == 1 && !baselineSubtracted)
-            {
-                for (int i = 0; i < binCenters.Length; i++)
-                    binCenters[i] = (binCenters[i] / 16383.0) * 5000.0;
-            }
-            // Add Energy conversion if needed (not present in dev, but main has it)
-            // But main does it in Plotting.cs independently.
-
-            return (counts, binCenters);
-        }
 
         private static double CalculateMean(double[] data)
         {

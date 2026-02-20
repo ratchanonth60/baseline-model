@@ -1,0 +1,14 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="BaselineMode.WPF.App"
+             RequestedThemeVariant="Light">
+    <Application.Styles>
+        <!-- FluentAvalonia theme -->
+        <FluentTheme />
+        
+        <!-- Custom Resources -->
+        <StyleInclude Source="avares://BaselineMode.WPF/Presentation/Views/Resources/Colors.axaml"/>
+        <StyleInclude Source="avares://BaselineMode.WPF/Presentation/Views/Resources/Buttons.axaml"/>
+        <StyleInclude Source="avares://BaselineMode.WPF/Presentation/Views/Resources/Styles.axaml"/>
+    </Application.Styles>
+</Application>

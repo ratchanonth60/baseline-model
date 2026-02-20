@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using ScottPlot;
+using ScottPlot.Avalonia;
+using BaselineMode.WPF.Core.Helpers;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Shared
 {
@@ -111,8 +113,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
         /// <summary>Multiplier for bar width (1.0 = auto from bin spacing).</summary>
         public double BarWidthMultiplier { get; set; } = 1.0;
 
-        public WpfPlot? PlotControl { get; set; }
-        public WpfPlot? ResidualPlotControl { get; set; }
+        public AvaPlot? PlotControl { get; set; }
+        public AvaPlot? ResidualPlotControl { get; set; }
 
         public void RenderPlot(System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor, double? xMin = null, double? xMax = null, string? xLabel = null)
         {
@@ -120,20 +122,25 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
                 RenderTo(PlotControl, figBg, dataBg, foreColor, seriesColor, xMin, xMax, xLabel);
         }
 
-        public void RenderTo(WpfPlot targetPlot, System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor, double? xMin = null, double? xMax = null, string? xLabel = null)
+        public void RenderTo(AvaPlot targetPlot, System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color foreColor, System.Drawing.Color seriesColor, double? xMin = null, double? xMax = null, string? xLabel = null)
         {
             if (targetPlot == null) return;
             targetPlot.Plot.Clear();
 
             // Apply Configured Style
-            targetPlot.Plot.Style(ScottPlot.Style.Gray1);
+            var fgColor = ColorHelper.ToScottPlotColor(foreColor);
+            var bgColor = ColorHelper.ToScottPlotColor(figBg);
+            var dataColor = ColorHelper.ToScottPlotColor(dataBg);
 
-            targetPlot.Plot.Style(figureBackground: figBg, dataBackground: dataBg);
-            targetPlot.Plot.XAxis.Label(color: foreColor);
-            targetPlot.Plot.YAxis.Label(color: foreColor);
-            targetPlot.Plot.XAxis.TickLabelStyle(color: foreColor);
-            targetPlot.Plot.YAxis.TickLabelStyle(color: foreColor);
-            targetPlot.Plot.Title(Title, color: foreColor);
+            targetPlot.Plot.FigureBackground.Color = bgColor;
+            targetPlot.Plot.DataBackground.Color = dataColor;
+
+            targetPlot.Plot.Axes.Color(fgColor);
+            targetPlot.Plot.Axes.Title.Label.ForeColor = fgColor;
+            targetPlot.Plot.Axes.Bottom.Label.ForeColor = fgColor;
+            targetPlot.Plot.Axes.Left.Label.ForeColor = fgColor;
+
+            targetPlot.Plot.Title(Title);
 
             if (Counts != null && Counts.Length > 0 && BinCenters != null)
             {
@@ -141,28 +148,36 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
 
                 if (isLogScale)
                 {
-                    var scatter = targetPlot.Plot.AddScatter(BinCenters, Counts);
+                    var scatter = targetPlot.Plot.Add.Scatter(BinCenters, Counts);
                     scatter.LineWidth = 2;
-                    scatter.Color = foreColor;
+                    scatter.Color = fgColor;
                     scatter.MarkerSize = 5;
-                    scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
-                    scatter.MarkerLineWidth = 0;
-                    scatter.MarkerColor = seriesColor;
-                    scatter.Label = "Data";
+                    scatter.MarkerShape = ScottPlot.MarkerShape.FilledCircle;
+                    scatter.MarkerStyle.LineWidth = 0;
+                    scatter.MarkerColor = ColorHelper.ToScottPlotColor(seriesColor);
+                    scatter.LegendText = "Data";
 
-                    targetPlot.Plot.YAxis.TickLabelFormat(value => $"10^{value:F0}");
-                    targetPlot.Plot.SetAxisLimitsY(0.1, double.NaN);
+                    // Log scale tick handling can be complex in SP5 if done manually
+                    // For now, let's trust auto ticks or use a custom tick generator if needed
+                    // targetPlot.Plot.Axes.Left.TickGenerator = new ScottPlot.TickGenerators.LogMinorTickGenerator(); 
+                    targetPlot.Plot.Axes.SetLimits(bottom: 0.1); // Log scale safety
                 }
                 else
                 {
-                    var bar = targetPlot.Plot.AddBar(values: Counts, positions: BinCenters);
-                    bar.FillColor = seriesColor;
-                    double autoWidth = BinCenters.Length > 1 ? BinCenters[1] - BinCenters[0] : 1;
-                    bar.BarWidth = autoWidth * BarWidthMultiplier;
-                    bar.BorderLineWidth = 0;
-                    bar.Label = "Data";
+                    // Create bars with explicit positions and widths
+                    var bars = new List<ScottPlot.Bar>();
+                    double width = (BinCenters.Length > 1 ? BinCenters[1] - BinCenters[0] : 1.0) * BarWidthMultiplier;
 
-                    targetPlot.Plot.SetAxisLimitsY(0, double.NaN);
+                    var barColor = ColorHelper.ToScottPlotColor(seriesColor);
+                    for (int i = 0; i < Counts.Length; i++)
+                    {
+                        var b = new ScottPlot.Bar { Position = BinCenters[i], Value = Counts[i], FillColor = barColor, Size = width };
+                        bars.Add(b);
+                    }
+                    var barPlot = targetPlot.Plot.Add.Bars(bars);
+                    barPlot.LegendText = "Data";
+
+                    targetPlot.Plot.Axes.SetLimits(bottom: 0);
                 }
 
                 // Plot Active Fits
@@ -172,21 +187,21 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
                     {
                         if (fit.Curve != null && fit.Curve.Length > 0)
                         {
-                            var fitScatter = targetPlot.Plot.AddScatter(BinCenters, fit.Curve);
+                            var fitScatter = targetPlot.Plot.Add.Scatter(BinCenters, fit.Curve);
                             fitScatter.LineWidth = 2;
-                            fitScatter.Color = fit.Color;
+                            fitScatter.Color = ColorHelper.ToScottPlotColor(fit.Color); // System.Drawing.Color -> ScottPlot.Color
                             fitScatter.MarkerSize = 0;
-                            fitScatter.Label = fit.Label;
+                            fitScatter.LegendText = fit.Label;
 
                             // Ghost Trace Logic: If this is "Manual" and we have a Ghost Trace, plot it
-                            if (fit.Label == "Manual Fit" && ActiveFits.TryGetValue("Ghost", out FitData? ghost))
+                            if (fit.Label == "Manual Fit" && ActiveFits.TryGetValue("Ghost", out FitData? ghost) && ghost.Curve != null)
                             {
-                                var ghostScatter = targetPlot.Plot.AddScatter(BinCenters, ghost.Curve);
+                                var ghostScatter = targetPlot.Plot.Add.Scatter(BinCenters, ghost.Curve);
                                 ghostScatter.LineWidth = 1;
-                                ghostScatter.Color = System.Drawing.Color.Gray;
-                                ghostScatter.LineStyle = ScottPlot.LineStyle.Dash;
+                                ghostScatter.Color = ScottPlot.Colors.Gray;
+                                ghostScatter.LinePattern = ScottPlot.LinePattern.Dashed;
                                 ghostScatter.MarkerSize = 0;
-                                ghostScatter.Label = "Original Fit";
+                                ghostScatter.LegendText = "Original Fit";
                             }
                         }
                     }
@@ -196,38 +211,43 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
                 if (Mu > 0 && !isLogScale)
                 {
                     string statsLabel = $"μ = {Mu:F2}\nσ = {Sigma:F2}\nFWHM = {FWHM:F2}\nRes = {Resolution:F2}%";
-                    var annotation = targetPlot.Plot.AddText(statsLabel, 0.02, 0.98);
-                    annotation.Font.Size = 10;
-                    annotation.Font.Color = System.Drawing.Color.Cyan;
-                    annotation.BackgroundColor = System.Drawing.Color.FromArgb(200, dataBg.R, dataBg.G, dataBg.B);
-                    annotation.BorderColor = System.Drawing.Color.Cyan;
-                    annotation.Alignment = ScottPlot.Alignment.UpperLeft;
+                    var annotation = targetPlot.Plot.Add.Text(statsLabel, 0.02, 0.98); // Text Logic might need coordinates or Pixel
+                                                                                       // SP5 Add.Text uses coordinates. To use Pixel (relative), use Annotation?
+                                                                                       // Let's use standard Text and set location to upper left relative to axis? 
+                                                                                       // Or Usage of `Plot.Add.Annotation`
+
+                    var ann = targetPlot.Plot.Add.Annotation(statsLabel);
+                    ann.LabelFontSize = 10;
+                    ann.LabelFontColor = ScottPlot.Colors.Cyan;
+                    ann.LabelBackgroundColor = new ScottPlot.Color(dataBg.R, dataBg.G, dataBg.B, 200);
+                    ann.LabelBorderColor = ScottPlot.Colors.Cyan;
+                    ann.Alignment = ScottPlot.Alignment.UpperLeft;
                 }
 
-                targetPlot.Plot.XLabel(xLabel ?? "ADC Channel");
-                targetPlot.Plot.YLabel(isLogScale ? "log scale Count" : "Count");
-                targetPlot.Plot.Legend(true, ScottPlot.Alignment.UpperRight);
+                targetPlot.Plot.Axes.Bottom.Label.Text = xLabel ?? "ADC Channel";
+                targetPlot.Plot.Axes.Left.Label.Text = isLogScale ? "log scale Count" : "Count";
+                targetPlot.Plot.ShowLegend(ScottPlot.Alignment.UpperRight);
 
                 if (xMin.HasValue && xMax.HasValue)
                 {
-                    targetPlot.Plot.SetAxisLimits(xMin: xMin.Value, xMax: xMax.Value);
-                    targetPlot.Plot.AxisAutoY();
+                    targetPlot.Plot.Axes.SetLimits(left: xMin.Value, right: xMax.Value);
+                    targetPlot.Plot.Axes.AutoScaleY();
                 }
                 else
                 {
-                    targetPlot.Plot.AxisAuto();
+                    targetPlot.Plot.Axes.AutoScale();
                 }
 
                 if (!isLogScale)
                 {
-                    var limits = targetPlot.Plot.GetAxisLimits();
-                    targetPlot.Plot.SetAxisLimits(yMin: 0, yMax: limits.YMax * 1.05);
+                    var limits = targetPlot.Plot.Axes.GetLimits();
+                    targetPlot.Plot.Axes.SetLimits(bottom: 0, top: limits.Top * 1.05);
                 }
             }
             else
             {
-                targetPlot.Plot.AddText("No Data", 0, 0, size: 24, color: System.Drawing.Color.Gray);
-                targetPlot.Plot.SetAxisLimits(-1, 1, -1, 1);
+                targetPlot.Plot.Add.Text("No Data", 0, 0);
+                targetPlot.Plot.Axes.SetLimits(-1, 1, -1, 1);
             }
 
             targetPlot.Refresh();
@@ -235,6 +255,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
 
         [ObservableProperty]
         private bool _isManualMode = false;
+
+        [Obsolete]
         partial void OnIsManualModeChanged(bool value)
         {
             if (value && MathService != null && BinCenters != null)
@@ -343,20 +365,28 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Shared
             if (ResidualPlotControl == null || BinCenters == null) return;
 
             ResidualPlotControl.Plot.Clear();
-            ResidualPlotControl.Plot.Style(ScottPlot.Style.Gray1);
-            ResidualPlotControl.Plot.Style(figureBackground: _lastFigBg, dataBackground: _lastDataBg);
-            ResidualPlotControl.Plot.XAxis.Label(color: _lastForeColor);
-            ResidualPlotControl.Plot.YAxis.Label(color: _lastForeColor);
-            ResidualPlotControl.Plot.XAxis.TickLabelStyle(color: _lastForeColor);
-            ResidualPlotControl.Plot.YAxis.TickLabelStyle(color: _lastForeColor);
 
-            var scatter = ResidualPlotControl.Plot.AddScatter(BinCenters, residuals);
+            var fgColor = ColorHelper.ToScottPlotColor(_lastForeColor);
+            var bgColor = ColorHelper.ToScottPlotColor(_lastFigBg);
+            var dataColor = ColorHelper.ToScottPlotColor(_lastDataBg);
+
+            ResidualPlotControl.Plot.FigureBackground.Color = bgColor;
+            ResidualPlotControl.Plot.DataBackground.Color = dataColor;
+            ResidualPlotControl.Plot.Axes.Color(fgColor);
+            ResidualPlotControl.Plot.Axes.Title.Label.ForeColor = fgColor;
+            ResidualPlotControl.Plot.Axes.Bottom.Label.ForeColor = fgColor;
+            ResidualPlotControl.Plot.Axes.Left.Label.ForeColor = fgColor;
+
+            var scatter = ResidualPlotControl.Plot.Add.Scatter(BinCenters, residuals);
             scatter.LineWidth = 1;
-            scatter.Color = System.Drawing.Color.Cyan;
+            scatter.Color = ScottPlot.Colors.Cyan;
             scatter.MarkerSize = 2;
+            scatter.LegendText = "Residuals";
 
             // Add zero line
-            ResidualPlotControl.Plot.AddHorizontalLine(0, System.Drawing.Color.Gray, style: ScottPlot.LineStyle.Dash);
+            var hLine = ResidualPlotControl.Plot.Add.HorizontalLine(0);
+            hLine.Color = ScottPlot.Colors.Gray;
+            hLine.LinePattern = ScottPlot.LinePattern.Dashed;
 
             ResidualPlotControl.Plot.Title("Residuals");
             ResidualPlotControl.Refresh();

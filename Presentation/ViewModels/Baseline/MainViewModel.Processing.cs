@@ -27,7 +27,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             UpdateDisplayTable();
             InitializeChannels();
             StatusMessage = "Reset complete.";
-            StatusColor = System.Windows.Media.Brushes.Gray;
+            StatusColor = Avalonia.Media.Brushes.Gray;
             ProgressValue = 0;
             CurrentPage = 1;
             RequestPlotUpdate?.Invoke(this, new PlotUpdateEventArgs([]));
@@ -38,7 +38,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         {
             _cts?.Cancel();
             StatusMessage = "Stopping...";
-            StatusColor = System.Windows.Media.Brushes.Orange;
+            StatusColor = Avalonia.Media.Brushes.Orange;
         }
 
         [RelayCommand]
@@ -47,20 +47,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
             if (_selectedFiles.Count == 0)
             {
                 StatusMessage = "No files selected for processing.";
-                StatusColor = System.Windows.Media.Brushes.Red;
+                StatusColor = Avalonia.Media.Brushes.Red;
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(OutputFileName))
             {
                 StatusMessage = "Please provide output filename.";
-                StatusColor = System.Windows.Media.Brushes.Red;
+                StatusColor = Avalonia.Media.Brushes.Red;
                 return;
             }
 
             IsBusy = true;
             StatusMessage = "Processing raw files to Excel...";
-            StatusColor = System.Windows.Media.Brushes.Orange;
+            StatusColor = Avalonia.Media.Brushes.Orange;
 
             await Task.Run(async () =>
             {
@@ -77,24 +77,24 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
                     foreach (var file in _selectedFiles)
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = $"Processing file {currentFile + 1}/{fileCount}...");
+                        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => StatusMessage = $"Processing file {currentFile + 1}/{fileCount}...");
 
                         var fileProgress = new Progress<double>(p =>
                         {
                             double baseProgress = (double)currentFile / fileCount * 70;
                             double currentFileContribution = (p / 100.0) * (1.0 / fileCount) * 70;
-                            System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = baseProgress + currentFileContribution);
+                            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ProgressValue = baseProgress + currentFileContribution);
                         });
 
                         var result = await _fileService.ProcessFileStreamAsync(file, fileProgress);
                         if (result.IsFailure)
                         {
                             _logger.LogError($"Failed to process raw file {file}: {result.Error}");
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                             {
                                 StatusMessage = result.Error;
-                                StatusColor = System.Windows.Media.Brushes.Red;
-                                MessageBoxService.Show(result.Error, "Process Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                                StatusColor = Avalonia.Media.Brushes.Red;
+                                MessageBoxService.Show(result.Error, "Process Error", MsgBoxButton.OK, MsgBoxImage.Error);
                             });
                             return;
                         }
@@ -115,51 +115,51 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         string outputDir = GetDailyOutputDirectory();
                         string fullPath = Path.Combine(outputDir, fileName);
 
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Saving to Excel...");
+                        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => StatusMessage = "Saving to Excel...");
 
                         // Scale saving 70-100%
                         var saveProgress = new Progress<double>(p =>
-                             System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = 70 + (p * 0.3)));
+                             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ProgressValue = 70 + (p * 0.3)));
 
                         var saveResult = await _fileService.SaveToExcelAsync(allData, fullPath, saveProgress);
                         if (saveResult.IsFailure)
                         {
                             _logger.LogError($"Failed to save Baseline Excel: {saveResult.Error}");
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                             {
                                 StatusMessage = saveResult.Error;
-                                StatusColor = System.Windows.Media.Brushes.Red;
-                                MessageBoxService.Show(saveResult.Error, "Save Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                                StatusColor = Avalonia.Media.Brushes.Red;
+                                MessageBoxService.Show(saveResult.Error, "Save Error", MsgBoxButton.OK, MsgBoxImage.Error);
                             });
                             return;
                         }
 
                         _logger.LogInfo($"Baseline data saved to Excel: {fullPath}");
 
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             StatusMessage = $"Saved {allData.Count} events to {fileName}";
-                            StatusColor = System.Windows.Media.Brushes.LimeGreen;
-                            MessageBoxService.Show($"Successfully processed {allData.Count} events to Source folder.", "Process Data", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                            StatusColor = Avalonia.Media.Brushes.LimeGreen;
+                            MessageBoxService.Show($"Successfully processed {allData.Count} events to Source folder.", "Process Data", MsgBoxButton.OK, MsgBoxImage.Information);
                         });
                     }
                     else
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             StatusMessage = "No valid data found in selected files.";
-                            StatusColor = System.Windows.Media.Brushes.Red;
-                            MessageBoxService.Show("No valid data found in selected files. Please check the input file layout.", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                            StatusColor = Avalonia.Media.Brushes.Red;
+                            MessageBoxService.Show("No valid data found in selected files. Please check the input file layout.", "Error", MsgBoxButton.OK, MsgBoxImage.Warning);
                         });
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogException(ex, "Error in PreProcessData (Baseline)");
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         StatusMessage = $"Error: {ex.Message}";
-                        StatusColor = System.Windows.Media.Brushes.Red;
+                        StatusColor = Avalonia.Media.Brushes.Red;
                     });
                 }
             });
@@ -200,36 +200,36 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
 
                     if (!File.Exists(fullPath))
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             StatusMessage = $"File not found: {fullPath}";
-                            MessageBoxService.Show($"Expected input file not found:\n{fullPath}\n\nPlease ensure you have run 'Process Data' first.", "File Not Found", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                            MessageBoxService.Show($"Expected input file not found:\n{fullPath}\n\nPlease ensure you have run 'Process Data' first.", "File Not Found", MsgBoxButton.OK, MsgBoxImage.Error);
                         });
                         return;
                     }
 
                     // Debugging Hint: Show where we are reading from
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        MessageBoxService.Show($"Reading from:\n{fullPath}", "Confirm Input File", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                        MessageBoxService.Show($"Reading from:\n{fullPath}", "Confirm Input File", MsgBoxButton.OK, MsgBoxImage.Information);
                     });
 
                     if (_cts.Token.IsCancellationRequested) return;
 
 
                     // 2. Read from Excel
-                    System.Windows.Application.Current.Dispatcher.Invoke(() => StatusMessage = "Reading Excel...");
+                    _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => StatusMessage = "Reading Excel...");
                     var readProgress = new Progress<double>(p =>
-                        System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = p * 0.5)); // 0-50%
+                        Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ProgressValue = p * 0.5)); // 0-50%
 
                     var readResult = await _fileService.ReadExcelFileAsync(fullPath, readProgress);
                     if (readResult.IsFailure)
                     {
                         _logger.LogError($"Failed to read baseline Excel: {readResult.Error}");
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             StatusMessage = readResult.Error;
-                            MessageBoxService.Show(readResult.Error, "Read Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                            MessageBoxService.Show(readResult.Error, "Read Error", MsgBoxButton.OK, MsgBoxImage.Error);
                         });
                         return;
                     }
@@ -237,7 +237,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     ProcessedData = readResult.Value;
                     _logger.LogInfo($"Successfully read {ProcessedData.Count} events from baseline Excel: {fullPath}");
 
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         DataCountsStr = ProcessedData.Count.ToString();
                         UpdateDisplayTable();
@@ -266,7 +266,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                 double hMax = XAxisMax;
 
                                 // ScottPlot Histogram
-                                var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, min: hMin, max: hMax, binCount: 16384);
+                                // Local Histogram Implementation
+                                var (counts, binEdges) = _mathService.CalculateHistogram(filteredData, min: hMin, max: hMax, binCount: 16384);
 
                                 // สร้าง BinCenters
                                 double[] binCenters = new double[binEdges.Length - 1];
@@ -346,7 +347,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                                 }
 
                                 // UI Update (Assign Results + Render)
-                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                                     ProcessChannelData(chIndex, filteredData, counts, binCenters, fitResults));
 
                             }
@@ -360,7 +361,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                         {
                             processedCount++;
                             double progress = 50 + ((double)processedCount / 16 * 50);
-                            System.Windows.Application.Current.Dispatcher.Invoke(() => ProgressValue = progress);
+                            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ProgressValue = progress);
                         }
                     });
                 }, _cts.Token);
@@ -395,7 +396,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
         private void UpdateChannelStatsSafe(int chIndex, string msg, double[] counts)
         {
             // ต้องใช้ Dispatcher.Invoke เพื่อ update UI-bound properties จาก background thread
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
                 Channels[chIndex].StatsText = msg;
                 if (counts != null)
@@ -637,7 +638,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 });
 
                 // 5. Update UI (Main Thread)
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                _ = Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     ProcessChannelData(chIndex, filteredData, counts, binCenters, fitResults);
                 });
@@ -651,5 +652,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 chVM.IsFitting = false;
             }
         }
+
+
     }
 }

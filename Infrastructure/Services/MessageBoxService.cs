@@ -1,30 +1,66 @@
-using System;
-using System.Windows;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Threading;
+using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Views.Shared;
 
 namespace BaselineMode.WPF.Infrastructure.Services
 {
     public static class MessageBoxService
     {
-        public static MessageBoxResult Show(string message, string title = "Notification", MessageBoxButton button = MessageBoxButton.OK, MessageBoxImage image = MessageBoxImage.Information)
+        public static async Task<MsgBoxResult> ShowAsync(string message, string title = "Notification", MsgBoxButton button = MsgBoxButton.OK, MsgBoxImage image = MsgBoxImage.Information)
         {
-            // Execute on UI Thread
-            if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+            return await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                return Application.Current.Dispatcher.Invoke(() => Show(message, title, button, image));
-            }
+                var dlg = new ModernMessageBox(message, title, button, image);
 
-            var dlg = new ModernMessageBox(message, title, button, image);
+                // Set owner if a main window is available
+                if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                    && desktop.MainWindow is { IsVisible: true } mainWindow)
+                {
+                    await dlg.ShowDialog(mainWindow);
+                }
+                else
+                {
+                    dlg.Show();
+                    // Wait for dialog to close
+                    var tcs = new TaskCompletionSource();
+                    dlg.Closed += (_, _) => tcs.TrySetResult();
+                    await tcs.Task;
+                }
 
-            // Set owner if any window is active to center properly
-            if (Application.Current?.MainWindow != null && Application.Current.MainWindow.IsVisible)
+                return dlg.Result;
+            });
+        }
+
+        /// <summary>
+        /// Synchronous wrapper for backward compatibility (fire-and-forget or blocking on UI thread).
+        /// For new code, prefer ShowAsync.
+        /// </summary>
+        public static MsgBoxResult Show(string message, string title = "Notification", MsgBoxButton button = MsgBoxButton.OK, MsgBoxImage image = MsgBoxImage.Information)
+        {
+            if (Dispatcher.UIThread.CheckAccess())
             {
-                dlg.Owner = Application.Current.MainWindow;
-                dlg.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            }
+                // Already on UI thread - run synchronously via nested dispatch
+                var dlg = new ModernMessageBox(message, title, button, image);
 
-            dlg.ShowDialog();
-            return dlg.Result;
+                if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                    && desktop.MainWindow is { IsVisible: true } mainWindow)
+                {
+                    // ShowDialog returns a task; we need to block
+                    dlg.ShowDialog(mainWindow).GetAwaiter().GetResult();
+                }
+                else
+                {
+                    dlg.Show();
+                }
+
+                return dlg.Result;
+            }
+            else
+            {
+                return Dispatcher.UIThread.InvokeAsync(() => Show(message, title, button, image)).GetAwaiter().GetResult();
+            }
         }
     }
 }

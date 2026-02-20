@@ -1,0 +1,116 @@
+<Window x:Class="BaselineMode.WPF.Views.Observation.ObservationDetailWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:scott="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
+        mc:Ignorable="d"
+        Title="Observation Detail"
+        Height="620" Width="1100"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E"
+        x:CompileBindings="False">
+
+    <Grid Margin="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="280"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Plot Area -->
+        <scott:AvaPlot x:Name="DetailPlot" Grid.Column="0" Margin="0,0,12,0"/>
+
+        <!-- Controls Panel -->
+        <Border Grid.Column="1" Background="#2D2D30" CornerRadius="8" Padding="16"
+                BoxShadow="0 2 8 0 #40000000">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+
+                    <!-- Title -->
+                    <TextBlock x:Name="TxtTitle" Text="Channel Detail" FontSize="16" FontWeight="Bold"
+                               Foreground="#64B5F6" Margin="0,0,0,16" HorizontalAlignment="Center"/>
+
+                    <!-- Binning -->
+                    <TextBlock Text="Binning" FontWeight="Medium" Foreground="#B0BEC5" Margin="0,0,0,4"/>
+                    <TextBox x:Name="TxtBinCount" Text="256" Width="100" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+
+                    <!-- X Range -->
+                    <TextBlock Text="X Range" FontWeight="Medium" Foreground="#B0BEC5" Margin="0,0,0,4"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <TextBox x:Name="TxtXMin" Text="0" Width="70" Margin="0,0,8,0"/>
+                        <TextBlock Text="–" VerticalAlignment="Center" Foreground="Gray" Margin="0,0,8,0"/>
+                        <TextBox x:Name="TxtXMax" Text="4096" Width="70"/>
+                    </StackPanel>
+
+                    <!-- Fit Method -->
+                    <TextBlock Text="Fit Method" FontWeight="Medium" Foreground="#B0BEC5" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="CmbFitMethod" Width="160" HorizontalAlignment="Left" Margin="0,0,0,12"
+                              SelectionChanged="CmbFitMethod_SelectionChanged">
+                        <ComboBoxItem Content="Gaussian" IsSelected="True"/>
+                        <ComboBoxItem Content="Lorentzian"/>
+                        <ComboBoxItem Content="HEMG"/>
+                    </ComboBox>
+
+                    <!-- Manual Fit Toggle -->
+                    <CheckBox x:Name="ChkManualFit" Content="Manual Fit Mode" Margin="0,0,0,12"
+                              IsCheckedChanged="ChkManualFit_Changed"/>
+
+                    <!-- Manual Fit Parameters -->
+                    <StackPanel x:Name="ManualFitPanel" IsVisible="False">
+                        <TextBlock Text="Amplitude" FontSize="11" Foreground="Gray" Margin="0,0,0,2"/>
+                        <Slider x:Name="SldrAmplitude" Minimum="0" Maximum="10000" Value="100" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="TxtAmplitudeVal" Text="100" FontSize="11" Foreground="#69F0AE" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+
+                        <TextBlock Text="Mean (μ)" FontSize="11" Foreground="Gray" Margin="0,0,0,2"/>
+                        <Slider x:Name="SldrMean" Minimum="0" Maximum="4096" Value="2048" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="TxtMeanVal" Text="2048" FontSize="11" Foreground="#69F0AE" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+
+                        <TextBlock Text="Sigma (σ)" FontSize="11" Foreground="Gray" Margin="0,0,0,2"/>
+                        <Slider x:Name="SldrSigma" Minimum="0.1" Maximum="500" Value="50" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="TxtSigmaVal" Text="50" FontSize="11" Foreground="#69F0AE" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+
+                        <TextBlock Text="Tau (τ) - HEMG" FontSize="11" Foreground="Gray" Margin="0,0,0,2"/>
+                        <Slider x:Name="SldrTau" Minimum="0.01" Maximum="200" Value="10" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="TxtTauVal" Text="10" FontSize="11" Foreground="#69F0AE" HorizontalAlignment="Right" Margin="0,0,0,4"/>
+                    </StackPanel>
+
+                    <!-- Stats Display -->
+                    <Border Background="#252528" CornerRadius="4" Padding="8" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Statistics" FontSize="12" FontWeight="Medium" Foreground="#64B5F6" Margin="0,0,0,8"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Peak:" Foreground="#B0BEC5" FontSize="11" Grid.Row="0" Margin="0,2"/>
+                                <TextBlock x:Name="TxtDetailPeak" Text="-" Foreground="#FF5252" FontSize="11" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Right" Margin="0,2"/>
+                                <TextBlock Text="Mean:" Foreground="#B0BEC5" FontSize="11" Grid.Row="1" Margin="0,2"/>
+                                <TextBlock x:Name="TxtDetailMean" Text="-" Foreground="#69F0AE" FontSize="11" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" Margin="0,2"/>
+                                <TextBlock Text="RMS:" Foreground="#B0BEC5" FontSize="11" Grid.Row="2" Margin="0,2"/>
+                                <TextBlock x:Name="TxtDetailRMS" Text="-" Foreground="#FFD740" FontSize="11" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Right" Margin="0,2"/>
+                                <TextBlock Text="FWHM:" Foreground="#B0BEC5" FontSize="11" Grid.Row="3" Margin="0,2"/>
+                                <TextBlock x:Name="TxtDetailFWHM" Text="-" Foreground="#40C4FF" FontSize="11" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Right" Margin="0,2"/>
+                                <TextBlock Text="Resolution:" Foreground="#B0BEC5" FontSize="11" Grid.Row="4" Margin="0,2"/>
+                                <TextBlock x:Name="TxtDetailRes" Text="-" Foreground="#FF80AB" FontSize="11" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Right" Margin="0,2"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Buttons -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
+                        <Button x:Name="BtnRefresh" Content="Refresh" Click="BtnRefresh_Click" Margin="0,0,8,0"/>
+                        <Button x:Name="BtnClose" Content="Close" Click="BtnClose_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>

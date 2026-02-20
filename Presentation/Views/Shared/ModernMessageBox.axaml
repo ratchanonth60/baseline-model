@@ -1,15 +1,11 @@
-<Window x:Class="BaselineMode.WPF.Views.Shared.ModernMessageBox"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d"
+        x:Class="BaselineMode.WPF.Views.Shared.ModernMessageBox"
         Title="Notification" 
         Height="250" Width="450"
-        WindowStyle="None"
-        AllowsTransparency="True"
+        SystemDecorations="None"
         Background="Transparent"
-        ResizeMode="NoResize"
+        CanResize="False"
         WindowStartupLocation="CenterScreen"
         Topmost="True">
     
@@ -17,10 +13,8 @@
             CornerRadius="16"
             BorderBrush="{StaticResource BorderBrush}"
             BorderThickness="1"
-            Margin="20">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.2" Direction="270"/>
-        </Border.Effect>
+            Margin="20"
+            BoxShadow="0 5 20 0 #33000000">
 
         <Grid Margin="24">
             <Grid.RowDefinitions>
@@ -36,7 +30,7 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 
-                <!-- Icon Placeholder -->
+                <!-- Icon -->
                 <Path x:Name="IconPath"
                       Grid.Column="0"
                       Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
@@ -58,7 +52,7 @@
             <!-- Message Body -->
             <TextBlock x:Name="TxtMessage"
                        Grid.Row="1"
-                       Text="This is a sample message to show how the message box looks."
+                       Text="Message"
                        TextWrapping="Wrap"
                        FontSize="15"
                        Foreground="{StaticResource SecondaryColor}"
@@ -72,30 +66,30 @@
                         Margin="0,10,0,0">
                 
                 <Button x:Name="BtnCancel"
-                        Style="{StaticResource SecondaryBtn}"
+                        Classes="secondaryBtn"
                         Content="Cancel"
                         Margin="0,0,12,0"
                         Click="BtnCancel_Click"
-                        Visibility="Collapsed"/>
+                        IsVisible="False"/>
                 
                 <Button x:Name="BtnNo"
-                        Style="{StaticResource SecondaryBtn}"
+                        Classes="secondaryBtn"
                         Content="No"
                         Margin="0,0,12,0"
                         Click="BtnNo_Click"
-                        Visibility="Collapsed"/>
+                        IsVisible="False"/>
 
                 <Button x:Name="BtnYes"
-                        Style="{StaticResource PrimaryBtn}"
+                        Classes="primaryBtn"
                         Content="Yes"
                         Click="BtnYes_Click"
-                        Visibility="Collapsed"/>
+                        IsVisible="False"/>
                 
                 <Button x:Name="BtnOk"
-                        Style="{StaticResource PrimaryBtn}"
+                        Classes="primaryBtn"
                         Content="OK"
                         Click="BtnOk_Click"
-                        Visibility="Visible"/>
+                        IsVisible="True"/>
                 
             </StackPanel>
         </Grid>

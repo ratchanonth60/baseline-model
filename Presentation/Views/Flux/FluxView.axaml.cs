@@ -1,10 +1,12 @@
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using System.Diagnostics;
-using BaselineMode.WPF.Presentation.ViewModels;
-using ScottPlot;
 using BaselineMode.WPF.Presentation.ViewModels.Flux;
 using BaselineMode.WPF.Core.Helpers;
+using ScottPlot;
+using ScottPlot.Avalonia;
 
 namespace BaselineMode.WPF.Presentation.Views.Flux
 {
@@ -15,21 +17,21 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
             InitializeComponent();
         }
 
-        private void Plot_Loaded(object sender, RoutedEventArgs e)
+        private void Plot_Loaded(object? sender, VisualTreeAttachmentEventArgs e)
         {
-            if (sender is WpfPlot plot && plot.DataContext is FluxLayerViewModel vm)
+            if (sender is AvaPlot plot && plot.DataContext is FluxLayerViewModel vm)
             {
                 Debug.WriteLine($"[FluxView] Plot_Loaded for {vm.LayerName}");
                 vm.PlotControl = plot;
-                plot.Plot.Style(ScottPlot.Style.Gray1);
+                vm.PlotControl = plot;
                 plot.Plot.Title(vm.LayerName);
                 plot.Refresh();
             }
         }
 
-        private void Plot_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void Plot_DoubleTapped(object? sender, TappedEventArgs e)
         {
-            if (sender is not WpfPlot plot || plot.DataContext is not FluxLayerViewModel layerVM) return;
+            if (sender is not AvaPlot plot || plot.DataContext is not FluxLayerViewModel layerVM) return;
             if (this.DataContext is not FluxViewModel fluxVM) return;
 
             var detailWindow = new FluxDetailWindow();
@@ -50,7 +52,5 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
 
             detailWindow.Show();
         }
-
-
     }
 }

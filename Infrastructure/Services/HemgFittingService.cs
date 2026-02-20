@@ -296,9 +296,9 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 {
                     for (int j = k; j < n; j++)
                     {
-                        double tmp = M[k * n + j]; M[k * n + j] = M[pivot * n + j]; M[pivot * n + j] = tmp;
+                        (M[pivot * n + j], M[k * n + j]) = (M[k * n + j], M[pivot * n + j]);
                     }
-                    double tmpB = x[k]; x[k] = x[pivot]; x[pivot] = tmpB;
+                    (x[pivot], x[k]) = (x[k], x[pivot]);
                 }
 
                 if (Math.Abs(M[k * n + k]) < 1e-20) return false; // Singular

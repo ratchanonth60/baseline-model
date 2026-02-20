@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Windows;
+using Avalonia.Threading;
 using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Infrastructure.Services;
 using CommunityToolkit.Mvvm.Input;
@@ -22,7 +22,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
         {
             if (InputFileList == null || InputFileList.Length == 0)
             {
-                MessageBoxService.Show("Please select files first.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await MessageBoxService.ShowAsync("Please select files first.", "Error", MsgBoxButton.OK, MsgBoxImage.Warning);
                 return;
             }
 
@@ -62,7 +62,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
                         processedFiles++;
                         double progress = (double)processedFiles / InputFileList.Length * 50;
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        await Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             ProgressValue = progress;
                             StatusMessage = $"Processing file {processedFiles}/{InputFileList.Length}... ({filteredSegments.Count:N0} segments)";
@@ -74,7 +74,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
                     if (filteredSegments.Count > 0)
                     {
-                        await Application.Current.Dispatcher.InvokeAsync(async () =>
+                        await Dispatcher.UIThread.InvokeAsync(async () =>
                         {
                             StatusMessage = $"Saving {filteredSegments.Count:N0} segments to Excel...";
                             var saveResult = await _fileHelper.SaveToExcelAsync(filteredSegments, outputName, "Source");
@@ -89,7 +89,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                     }
                     else
                     {
-                        await Application.Current.Dispatcher.InvokeAsync(() => StatusMessage = "No valid segments found.");
+                        await Dispatcher.UIThread.InvokeAsync(() => StatusMessage = "No valid segments found.");
                     }
                 }, _cts.Token);
 
@@ -100,7 +100,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
             {
                 StatusMessage = $"Error: {ex.Message}";
                 _logger.LogException(ex, "ProcessData (Calibration)");
-                MessageBoxService.Show($"Error processing data: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await MessageBoxService.ShowAsync($"Error processing data: {ex.Message}", "Error", MsgBoxButton.OK, MsgBoxImage.Error);
             }
             finally
             {
@@ -118,7 +118,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                 filesToRead.AddRange(InputFileList.Where(f => f.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) && File.Exists(f)));
                 if (filesToRead.Count == 0)
                 {
-                    MessageBoxService.Show("No valid Excel files found in selection.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    await MessageBoxService.ShowAsync("No valid Excel files found in selection.", "Error", MsgBoxButton.OK, MsgBoxImage.Error);
                     return;
                 }
             }
@@ -129,7 +129,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                 string? fileName = _fileHelper.FindExcelFile(Path.GetFileNameWithoutExtension(outputName));
                 if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
                 {
-                    MessageBoxService.Show($"File not found: {outputName}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    await MessageBoxService.ShowAsync($"File not found: {outputName}", "Error", MsgBoxButton.OK, MsgBoxImage.Error);
                     return;
                 }
                 filesToRead.Add(fileName);
@@ -160,7 +160,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                             fileRows++;
                         }
                         totalRows += fileRows;
-                        Application.Current.Dispatcher.BeginInvoke(() =>
+                        Dispatcher.UIThread.InvokeAsync(() =>
                             StatusMessage = $"Counting... File {fileIndex + 1}/{filesToRead.Count}: {fileRows:N0} rows (Total: {totalRows:N0})");
                     }, _cts.Token);
                 }
@@ -198,7 +198,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                                 if (fileIndex == 0 && rowCount == 0)
                                 {
                                     bool isHeaderValid = _dataProcessor.ValidateHeader(hexData);
-                                    Application.Current.Dispatcher.BeginInvoke(() =>
+                                    Dispatcher.UIThread.InvokeAsync(() =>
                                         HeaderCheckStatus = isHeaderValid ? "Checksum OK" : "Checksum Mismatch");
                                     if (!isHeaderValid)
                                     {
@@ -213,7 +213,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                                 {
                                     int currentTotalRows = totalRowsRead + rowCount;
                                     double progress = (double)currentTotalRows / totalRows * 100.0;
-                                    Application.Current.Dispatcher.BeginInvoke(() =>
+                                    Dispatcher.UIThread.InvokeAsync(() =>
                                     {
                                         ProgressValue = progress;
                                         StatusMessage = $"File {fileIndex + 1}/{filesToRead.Count}: {rowCount:N0} rows | Total: {currentTotalRows:N0}/{totalRows:N0} ({progress:F1}%)";
@@ -224,7 +224,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                             }
                             totalRowsRead += rowCount;
                         }
-                        Application.Current.Dispatcher.BeginInvoke(() =>
+                        Dispatcher.UIThread.InvokeAsync(() =>
                             StatusMessage = $"Completed file {fileIndex + 1}/{filesToRead.Count} (Total: {totalRowsRead:N0}/{totalRows:N0} rows)");
                     }, _cts.Token);
 
@@ -234,7 +234,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                 if (!headerCheckPassed)
                 {
                     StatusMessage = "Stopped: Checksum Mismatch";
-                    MessageBoxService.Show("Checksum Mismatch! Processing Stopped.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    await MessageBoxService.ShowAsync("Checksum Mismatch! Processing Stopped.", "Error", MsgBoxButton.OK, MsgBoxImage.Error);
                     return;
                 }
 
@@ -252,7 +252,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
             {
                 StatusMessage = $"Error: {ex.Message}";
                 _logger.LogException(ex, "ReadData (Calibration)");
-                MessageBoxService.Show($"Error reading data: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                await MessageBoxService.ShowAsync($"Error reading data: {ex.Message}", "Error", MsgBoxButton.OK, MsgBoxImage.Error);
             }
             finally
             {

@@ -1,0 +1,89 @@
+<UserControl x:Class="BaselineMode.WPF.Presentation.Views.Calibration.CalibrationView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:scott="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1200"
+             Background="#1E1E1E"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <!-- Chart Card Style -->
+        <Style Selector="Border.chartCard">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="8"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="8">
+        <TabControl Background="Transparent" BorderThickness="0">
+            <!-- X-Side Tab -->
+            <TabItem Header="X-Side" Foreground="#26C6DA" FontSize="14" FontWeight="SemiBold">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding XChannels}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="2" Columns="4"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="chartCard" Margin="6" MinHeight="180">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="{Binding Title}" Foreground="#CCCCCC" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding StatsText}" Foreground="#007ACC" FontSize="10" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <scott:AvaPlot Grid.Row="1" x:Name="Plot" 
+                                                       AttachedToVisualTree="Plot_Loaded" 
+                                                       DoubleTapped="Plot_DoubleTapped"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Z-Side Tab -->
+            <TabItem Header="Z-Side" Foreground="#26C6DA" FontSize="14" FontWeight="SemiBold">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding ZChannels}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="2" Columns="4"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Classes="chartCard" Margin="6" MinHeight="180">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="{Binding Title}" Foreground="#CCCCCC" FontSize="11" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding StatsText}" Foreground="#007ACC" FontSize="10" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <scott:AvaPlot Grid.Row="1" x:Name="Plot" 
+                                                       AttachedToVisualTree="Plot_Loaded" 
+                                                       DoubleTapped="Plot_DoubleTapped"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

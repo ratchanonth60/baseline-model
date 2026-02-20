@@ -1,0 +1,48 @@
+<UserControl x:Class="BaselineMode.WPF.Presentation.Views.Flux.FluxView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:scott="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
+             mc:Ignorable="d" 
+             d:DesignHeight="800" d:DesignWidth="1200"
+             Background="#1E1E1E"
+             x:CompileBindings="False">
+    <UserControl.Styles>
+        <Style Selector="Border.chartCard">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="BorderBrush" Value="#3E3E42"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="8"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid Margin="8">
+        <ItemsControl ItemsSource="{Binding Layers}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Rows="2" Columns="4"/>
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Classes="chartCard" Margin="4">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{Binding LayerName}" Foreground="#26C6DA" FontSize="12" FontWeight="Bold" Margin="4,2"/>
+                            <scott:AvaPlot Grid.Row="1" MinHeight="180" x:Name="Plot" 
+                                           AttachedToVisualTree="Plot_Loaded" 
+                                           DoubleTapped="Plot_DoubleTapped"/>
+                            <TextBlock Grid.Row="2" Text="{Binding StatsText}" Foreground="#858585" FontSize="10" Margin="4,2"/>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</UserControl>

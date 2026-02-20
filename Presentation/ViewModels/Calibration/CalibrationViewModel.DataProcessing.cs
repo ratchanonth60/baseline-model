@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Windows;
+using Avalonia.Threading;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 {
@@ -34,7 +34,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                 _l7VoltColumns[i] = new List<double>(capacity);
             }
 
-            Application.Current.Dispatcher.BeginInvoke(() =>
+            Dispatcher.UIThread.InvokeAsync(() =>
                 StatusMessage = $"Lists initialized with capacity: {capacity:N0} per channel");
         }
 

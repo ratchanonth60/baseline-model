@@ -1,0 +1,123 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ========== BASE BUTTON STYLE ========== -->
+    <Style Selector="Button.baseBtn">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="20,12"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    
+    <!-- ========== PRIMARY BUTTON ========== -->
+    <Style Selector="Button.primaryBtn">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="20,12"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Background" Value="{StaticResource PrimaryColor}"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.primaryBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource PrimaryDarkColor}"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.primaryBtn:pressed /template/ ContentPresenter">
+        <Setter Property="RenderTransform" Value="scale(0.98)"/>
+    </Style>
+    <Style Selector="Button.primaryBtn:disabled">
+        <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+    
+    <!-- ========== SECONDARY BUTTON ========== -->
+    <Style Selector="Button.secondaryBtn">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="20,12"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource PrimaryColor}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource PrimaryColor}"/>
+        <Setter Property="BorderThickness" Value="2"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="Button.secondaryBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource PrimaryColor}"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.secondaryBtn:pressed /template/ ContentPresenter">
+        <Setter Property="RenderTransform" Value="scale(0.98)"/>
+    </Style>
+    <Style Selector="Button.secondaryBtn:disabled">
+        <Setter Property="Opacity" Value="0.5"/>
+    </Style>
+    
+    <!-- ========== SUCCESS BUTTON ========== -->
+    <Style Selector="Button.successBtn">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="20,12"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Background" Value="{StaticResource AccentColor}"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.successBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentDarkColor}"/>
+    </Style>
+    
+    <!-- ========== DANGER BUTTON ========== -->
+    <Style Selector="Button.dangerBtn">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="20,12"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Background" Value="{StaticResource DangerColor}"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.dangerBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#DC2626"/>
+    </Style>
+    
+    <!-- ========== WARNING BUTTON ========== -->
+    <Style Selector="Button.warningBtn">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="20,12"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Background" Value="{StaticResource WarningColor}"/>
+        <Setter Property="Foreground" Value="White"/>
+    </Style>
+    <Style Selector="Button.warningBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#D97706"/>
+    </Style>
+    
+    <!-- ========== ICON BUTTON ========== -->
+    <Style Selector="Button.iconBtn">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource SecondaryColor}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="Button.iconBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource DividerBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+    <Style Selector="Button.iconBtn:pressed /template/ ContentPresenter">
+        <Setter Property="RenderTransform" Value="scale(0.95)"/>
+    </Style>
+    
+</Styles>

@@ -1,0 +1,849 @@
+<Window x:Class="BaselineMode.WPF.Views.Shared.UnifiedMainWindow"
+        x:Name="MainWindowRoot"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fluentIcons="using:FluentIcons.Avalonia"
+        xmlns:vm="using:BaselineMode.WPF.Presentation.ViewModels"
+        xmlns:viewsCalib="using:BaselineMode.WPF.Presentation.Views.Calibration"
+        xmlns:viewsFlux="using:BaselineMode.WPF.Presentation.Views.Flux"
+        xmlns:scott="using:ScottPlot.Avalonia"
+        mc:Ignorable="d"
+        Title="DSSD Analysis Suite"
+        Height="900" Width="1600"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E"
+        x:CompileBindings="False">
+
+    <Window.Styles>
+        <!-- VS Code Dark Theme inline styles -->
+        <Style Selector="RadioButton.ribbonTab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#858585"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="PART_Border" Background="{TemplateBinding Background}"
+                            BorderThickness="0,0,0,2" BorderBrush="Transparent"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.ribbonTab:checked /template/ Border#PART_Border">
+            <Setter Property="BorderBrush" Value="#007ACC"/>
+        </Style>
+        <Style Selector="RadioButton.ribbonTab:checked">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="RadioButton.ribbonTab:pointerover">
+            <Setter Property="Background" Value="#35373B"/>
+        </Style>
+
+        <!-- TabItem styles for Baseline histogram tabs -->
+        <Style Selector="TabItem.darkTab">
+            <Setter Property="Foreground" Value="#858585"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="12,6"/>
+        </Style>
+        <Style Selector="TabItem.darkTab:selected">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- Left-side TabItem for Observation -->
+        <Style Selector="TabItem.darkSideTab">
+            <Setter Property="Foreground" Value="#858585"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10,12"/>
+        </Style>
+        <Style Selector="TabItem.darkSideTab:selected">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="TabItem.darkSideTab:pointerover">
+            <Setter Property="Background" Value="#35373B"/>
+        </Style>
+    </Window.Styles>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="24"/>
+        </Grid.RowDefinitions>
+
+        <!-- 1. Title Bar -->
+        <Border Grid.Row="0" Background="#1E1E1E" Padding="12,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal">
+                    <fluentIcons:SymbolIcon Symbol="DataHistogram" FontSize="18" Foreground="#007ACC" Margin="0,0,8,0"/>
+                    <TextBlock Text="DSSD Analysis Suite" Foreground="White" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text=" — v3.0" Foreground="#858585" FontSize="11" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Classes="primaryBtn" Content="Mode Selector" Click="BtnModeSelector_Click" Margin="0,0,8,0" Padding="8,4"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. Ribbon Area -->
+        <Border Grid.Row="1" Background="#2B2D31" BorderBrush="#3E3E42" BorderThickness="0,1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Ribbon Tabs -->
+                <Border Background="#252526" Padding="8,0">
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="TabBaseline" Classes="ribbonTab" Content="Baseline"
+                                     IsChecked="True" GroupName="RibbonTabs"
+                                     Checked="TabBaseline_Checked"/>
+                        <RadioButton x:Name="TabObservation" Classes="ribbonTab" Content="Observation"
+                                     GroupName="RibbonTabs"
+                                     Checked="TabObservation_Checked"/>
+                        <RadioButton x:Name="TabCalibration" Classes="ribbonTab" Content="Calibration"
+                                     GroupName="RibbonTabs"
+                                     Checked="TabCalibration_Checked"/>
+                        <RadioButton x:Name="TabFlux" Classes="ribbonTab" Content="Flux"
+                                     GroupName="RibbonTabs"
+                                     Checked="TabFlux_Checked"/>
+                        <RadioButton x:Name="TabSettings" Classes="ribbonTab" Content="Settings"
+                                     GroupName="RibbonTabs"
+                                     Checked="TabSettings_Checked"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Toolbar Area -->
+                <Grid Grid.Row="1">
+
+                    <!-- BASELINE Toolbar -->
+                    <StackPanel x:Name="ToolbarBaseline" Orientation="Horizontal" Margin="8,4">
+                        <!-- File Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding OpenFilesCommand}" ToolTip.Tip="Open Input Files">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="FolderOpen" FontSize="20" Foreground="#4EC9B0" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Open" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding SaveExcelCommand}" ToolTip.Tip="Export to Excel">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="Save" FontSize="20" Foreground="#5B9BD5" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Export" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="File" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Parameters Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="X Min:" Foreground="#CCCCCC" FontSize="11" Width="45" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding XMin}" Classes="RibbonInput" Width="50"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="X Max:" Foreground="#CCCCCC" FontSize="11" Width="45" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding XMax}" Classes="RibbonInput" Width="50"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Parameters" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Fitting Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Algo:" Foreground="#CCCCCC" FontSize="11" Width="38" TextAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <ComboBox SelectedItem="{Binding SelectedFittingAlgorithm}"
+                                                  ItemsSource="{Binding FittingAlgorithmOptions}"
+                                                  Width="100" Classes="RibbonCombo"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="Bins:" Foreground="#CCCCCC" FontSize="11" Width="38" TextAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBox Text="{Binding BinCount}" Classes="RibbonInput" Width="50"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Fitting" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Actions Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding ProcessCommand}" ToolTip.Tip="Process Data">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="Play" FontSize="20" Foreground="#4CAF50" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Process" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding StopCommand}" ToolTip.Tip="Stop">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="Stop" FontSize="20" Foreground="#F44336" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Stop" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding ResetCommand}" ToolTip.Tip="Reset All">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="ArrowReset" FontSize="20" Foreground="#FF9800" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Reset" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="Actions" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Status Group -->
+                        <Border Padding="12,0">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="STATUS" Foreground="#858585" FontSize="10"/>
+                                <TextBlock Text="{Binding StatusMessage}" Foreground="#4EC9B0" FontSize="11" FontWeight="SemiBold"
+                                           MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Value="{Binding ProgressValue}" Minimum="0" Maximum="100" Height="4" Width="100"
+                                             Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"
+                                             IsIndeterminate="{Binding IsProgressIndeterminate}"/>
+                                <TextBlock Text="{Binding HeaderCheckStatus}" FontSize="10" Margin="0,2,0,0" Foreground="#FFD740"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- OBSERVATION Toolbar -->
+                    <StackPanel x:Name="ToolbarObservation" Orientation="Horizontal" Margin="8,4" IsVisible="False"
+                                DataContext="{Binding ObservationVM}">
+                        <!-- File Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Classes="RibbonBtnLarge" Click="ObsBtnSelectFiles_Click" ToolTip.Tip="Select HEX Files">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="FolderOpen" FontSize="20" Foreground="#4EC9B0" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Select" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Click="ObsBtnExport_Click" ToolTip.Tip="Export to Excel">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="ArrowExportUp" FontSize="20" Foreground="#5B9BD5" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Export" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Click="ObsBtnOpenResults_Click" ToolTip.Tip="Open Results">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="Open" FontSize="20" Foreground="#FFD740" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Results" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="File" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- DSSD Settings -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Layer:" Foreground="#CCCCCC" FontSize="11" Width="45" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ObsCmbDSSDLayer" SelectedIndex="0" Width="70" Classes="RibbonCombo"
+                                                  SelectionChanged="ObsCmbDSSDLayer_SelectionChanged">
+                                            <ComboBoxItem Content="L1"/>
+                                            <ComboBoxItem Content="L2"/>
+                                            <ComboBoxItem Content="L6"/>
+                                            <ComboBoxItem Content="L7"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="X-Axis:" Foreground="#CCCCCC" FontSize="11" Width="45" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <ComboBox SelectedIndex="{Binding SelectedXAxisIndex}" Width="85" Classes="RibbonCombo">
+                                            <ComboBoxItem Content="ADC"/>
+                                            <ComboBoxItem Content="Voltage"/>
+                                            <ComboBoxItem Content="Energy"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="DSSD" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- DSSD Range -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="X Min:" Foreground="#CCCCCC" FontSize="11" Width="45" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="ObsTxtDSSDXMin" Text="0" Classes="RibbonInput" Width="50"
+                                                 TextChanged="ObsTxtDSSDAxisChanged"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="X Max:" Foreground="#CCCCCC" FontSize="11" Width="45" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="ObsTxtDSSDXMax" Text="4096" Classes="RibbonInput" Width="50"
+                                                 TextChanged="ObsTxtDSSDAxisChanged"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Range" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Fit Options -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <CheckBox x:Name="ObsChkDSSDFit" Content="Fit DSSD" Foreground="#CCCCCC" FontSize="11"
+                                              Margin="0,4,0,0" IsChecked="{Binding ShowGaussianFitDSSD}"
+                                              Checked="ObsChkDSSDFit_Changed" Unchecked="ObsChkDSSDFit_Changed"/>
+                                    <CheckBox x:Name="ObsChkBGOFit" Content="Fit BGO" Foreground="#CCCCCC" FontSize="11"
+                                              Margin="0,4,0,0" IsChecked="{Binding ShowGaussianFitBGO}"
+                                              Checked="ObsChkBGOFit_Changed" Unchecked="ObsChkBGOFit_Changed"/>
+                                </StackPanel>
+                                <TextBlock Text="Fitting" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- BGO Settings -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Layer:" Foreground="#CCCCCC" FontSize="11" Width="38" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ObsCmbBGOLayer" SelectedIndex="0" Width="60" Classes="RibbonCombo"
+                                                  SelectionChanged="ObsCmbBGOLayer_SelectionChanged">
+                                            <ComboBoxItem Content="L3"/>
+                                            <ComboBoxItem Content="L4"/>
+                                            <ComboBoxItem Content="L5"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="X Max:" Foreground="#CCCCCC" FontSize="11" Width="38" VerticalAlignment="Center"/>
+                                        <TextBox x:Name="ObsTxtBGOXMax" Text="4096" Classes="RibbonInput" Width="50"
+                                                 TextChanged="ObsTxtBGOAxisChanged"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="BGO" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Observation Actions -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Classes="RibbonBtnLarge" Click="ObsBtnProcessData_Click" ToolTip.Tip="Process HEX → Excel">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="ArrowExportUp" FontSize="20" Foreground="#4CAF50" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Process" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Click="ObsBtnReadData_Click" ToolTip.Tip="Read &amp; Plot">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="DataHistogram" FontSize="20" Foreground="#4EC9B0" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Read" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Click="ObsBtnHeaderCheck_Click" ToolTip.Tip="Check Headers">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="CheckmarkCircle" FontSize="20" Foreground="#5B9BD5" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Header" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Click="ObsBtnReset_Click" ToolTip.Tip="Reset All">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="ArrowReset" FontSize="20" Foreground="#FF9800" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Reset" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="Actions" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Observation Status -->
+                        <Border Padding="12,0">
+                            <StackPanel VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="STATUS: " Foreground="#858585" FontSize="10"/>
+                                    <TextBlock x:Name="ObsTxtStatus" Text="READY" Foreground="#4CAF50" FontSize="10" FontWeight="Bold"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="Output: " Foreground="#858585" FontSize="10"/>
+                                    <TextBox x:Name="ObsTxtOutputFileName" Text="" Classes="RibbonInput" Width="100" FontSize="10"/>
+                                </StackPanel>
+                                <ProgressBar x:Name="ObsProgressBar" Value="0" Minimum="0" Maximum="100" Height="4" Width="120"
+                                             Margin="0,4,0,0" Background="#3E3E42" Foreground="#007ACC"/>
+                                <TextBlock x:Name="ObsTxtProgress" Text="Ready" Foreground="#858585" FontSize="9" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- CALIBRATION Toolbar -->
+                    <StackPanel x:Name="ToolbarCalibration" Orientation="Horizontal" Margin="8,4" IsVisible="False"
+                                DataContext="{Binding CalibrationVM}">
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding OpenFilesCommand}" ToolTip.Tip="Open Files">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="FolderOpen" FontSize="20" Foreground="#4EC9B0" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Open" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding CalibrateCommand}" ToolTip.Tip="Run Calibration">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="Play" FontSize="20" Foreground="#4CAF50" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Calibrate" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding SaveCommand}" ToolTip.Tip="Save Results">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="Save" FontSize="20" Foreground="#5B9BD5" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Save" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="Calibration" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- FLUX Toolbar -->
+                    <StackPanel x:Name="ToolbarFlux" Orientation="Horizontal" Margin="8,4" IsVisible="False"
+                                DataContext="{Binding FluxVM}">
+                        <!-- File Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding OpenFilesCommand}" ToolTip.Tip="Open Flux Files">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="FolderOpen" FontSize="20" Foreground="#4EC9B0" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Open" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="File" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Conditions -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Delay:" Foreground="#CCCCCC" FontSize="11" Width="45" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding DelayTime}" Classes="RibbonInput" Width="50"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="Thresh:" Foreground="#CCCCCC" FontSize="11" Width="45" TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding Threshold}" Classes="RibbonInput" Width="50"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Conditions" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Flux Actions -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding ProcessDataCommand}" ToolTip.Tip="Process HEX → Excel">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="ArrowExportUp" FontSize="20" Foreground="#4CAF50" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Process" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding ReadDataCommand}" ToolTip.Tip="Read &amp; Plot">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="DataHistogram" FontSize="20" Foreground="#4EC9B0" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Read" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding HeaderCheckCommand}" ToolTip.Tip="Check Headers">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="CheckmarkCircle" FontSize="20" Foreground="#5B9BD5" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Header" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding StopCommand}" ToolTip.Tip="Stop Operation">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="Stop" FontSize="20" Foreground="#F44336" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Stop" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Classes="RibbonBtnLarge" Command="{Binding ResetCommand}" ToolTip.Tip="Reset All">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="ArrowReset" FontSize="20" Foreground="#FF9800" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Reset" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="Actions" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Flux Status -->
+                        <Border Padding="12,0">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="STATUS" Foreground="#858585" FontSize="10"/>
+                                <TextBlock Text="{Binding StatusMessage}" Foreground="#4EC9B0" FontSize="11" FontWeight="SemiBold"
+                                           MaxWidth="150" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Value="{Binding ProgressValue}" Minimum="0" Maximum="100" Height="4" Width="100"
+                                             Margin="0,6,0,0" Background="#3E3E42" Foreground="#007ACC"
+                                             IsIndeterminate="{Binding IsProgressIndeterminate}"/>
+                                <TextBlock Text="{Binding HeaderCheckStatus}" FontSize="10" Margin="0,2,0,0" Foreground="#FFD740"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- SETTINGS Toolbar -->
+                    <StackPanel x:Name="ToolbarSettings" Orientation="Horizontal" Margin="8,4" IsVisible="False">
+                        <!-- Appearance Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="8,0">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Height="68">
+                                    <Button x:Name="BtnSettings" Classes="RibbonBtnLarge" Click="BtnSettings_Click" ToolTip.Tip="Theme">
+                                        <StackPanel>
+                                            <fluentIcons:SymbolIcon Symbol="PaintBrush" FontSize="20" Foreground="#4EC9B0" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Theme" FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Text="Appearance" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Config Group -->
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Mode:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ComboBox SelectedIndex="{Binding SelectedMode}" Width="100" Classes="RibbonCombo">
+                                            <ComboBoxItem Content="Cut off"/>
+                                            <ComboBoxItem Content="Setting"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="Subtract:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ComboBox SelectedIndex="{Binding SelectedBaselineMode}" Width="100" Classes="RibbonCombo">
+                                            <ComboBoxItem Content="Before"/>
+                                            <ComboBoxItem Content="After"/>
+                                            <ComboBoxItem Content="Before (log)"/>
+                                            <ComboBoxItem Content="After (log)"/>
+                                        </ComboBox>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Baseline" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Output Group -->
+                        <Border Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Output Folder Root:" Foreground="#CCCCCC" FontSize="11" Margin="0,4,0,4"/>
+                                        <Grid Width="200">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="24"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Text="{Binding OutputDirectoryPath}" Classes="RibbonInput" IsReadOnly="True"
+                                                     ToolTip.Tip="{Binding OutputDirectoryPath}"/>
+                                            <Button Grid.Column="1" Content="..." Classes="RibbonBtnSmall"
+                                                    Command="{Binding BrowseOutputDirectoryCommand}" Margin="2,0,0,0" Padding="0"/>
+                                        </Grid>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <TextBlock Text="Output Filename:" Foreground="#CCCCCC" FontSize="11" Margin="0,4,0,4"/>
+                                        <TextBox Text="{Binding OutputFileName}" Classes="RibbonInput" Width="200"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Output" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border BorderBrush="#3E3E42" BorderThickness="0,0,1,0" Padding="12,0">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center" Height="68">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <TextBlock Text="Algorithm:" Foreground="#CCCCCC" FontSize="11" Width="55" VerticalAlignment="Center"/>
+                                        <ComboBox SelectedItem="{Binding SelectedFittingAlgorithm}"
+                                                  ItemsSource="{Binding FittingAlgorithmOptions}"
+                                                  Width="120" Classes="RibbonCombo"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Text="Baseline" Foreground="#858585" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- 3. Main Content Area -->
+        <Grid Grid.Row="2" Background="#1E1E1E">
+
+            <!-- ============== BASELINE VIEW ============== -->
+            <Grid x:Name="ViewBaseline">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <!-- Workspace Tabs -->
+                <Border Background="#252526" Padding="8,4">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="BtnViewHistogram" Classes="WorkspaceTabBtnActive" Content="Histogram" Click="BtnViewHistogram_Click" Margin="0,0,4,0"/>
+                        <Button x:Name="BtnViewDataTable" Classes="WorkspaceTabBtn" Content="Data Table" Click="BtnViewDataTable_Click"/>
+                    </StackPanel>
+                </Border>
+                <!-- Histogram View -->
+                <Grid x:Name="HistogramView" Grid.Row="1">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Channels}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Classes="ChartCard" Margin="4" Width="380" Height="300">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Text="{Binding ChannelName}" Foreground="#4EC9B0" FontSize="12" FontWeight="SemiBold" Margin="8,4"/>
+                                            <scott:AvaPlot Grid.Row="1" Tag="{Binding}" Loaded="AvaPlot_Loaded" Margin="4"/>
+                                            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="4">
+                                                <TextBlock Text="Peak: " Foreground="#858585" FontSize="10"/>
+                                                <TextBlock Text="{Binding PeakChannel}" Foreground="#4EC9B0" FontSize="10" Margin="0,0,8,0"/>
+                                                <TextBlock Text="Counts: " Foreground="#858585" FontSize="10"/>
+                                                <TextBlock Text="{Binding TotalCounts}" Foreground="#4EC9B0" FontSize="10" Margin="0,0,8,0"/>
+                                                <TextBlock Text="FWHM: " Foreground="#858585" FontSize="10"/>
+                                                <TextBlock Text="{Binding FWHM}" Foreground="#4EC9B0" FontSize="10"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+                <!-- Data Table View -->
+                <Grid x:Name="DataTableView" Grid.Row="1" IsVisible="False">
+                    <DataGrid ItemsSource="{Binding DataTableRows}" AutoGenerateColumns="True"
+                              Background="#1E1E1E" Foreground="#CCCCCC" FontSize="11"
+                              GridLinesVisibility="All" BorderThickness="0"/>
+                </Grid>
+            </Grid>
+
+            <!-- ============== OBSERVATION VIEW ============== -->
+            <Grid x:Name="ViewObservation" IsVisible="False" DataContext="{Binding ObservationVM}">
+                <TabControl TabStripPlacement="Left" Background="#1E1E1E">
+                    <!-- DSSD Tab -->
+                    <TabItem Classes="darkSideTab" Header="DSSD">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <StackPanel Margin="8">
+                                <!-- Main DSSD Plots -->
+                                <WrapPanel>
+                                    <Border Classes="ChartCard" Margin="4" Width="480" Height="320">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <scott:AvaPlot x:Name="ObsPlotDSSDX" Tag="PulseHeight_X" DoubleTapped="ObsPlot_DoubleTapped"/>
+                                            <StackPanel Grid.Row="1" Margin="4,2">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDXPeak" Text="-" Foreground="#4EC9B0" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDXCounts" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDXMean" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDXRMS" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDXFWHM" Text="-" Foreground="#FF80AB" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="Res:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDXRes" Text="-" Foreground="#FF80AB" FontSize="9"/></StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Border Classes="ChartCard" Margin="4" Width="480" Height="320">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <scott:AvaPlot x:Name="ObsPlotDSSDY" Tag="PulseHeight_Y" DoubleTapped="ObsPlot_DoubleTapped"/>
+                                            <StackPanel Grid.Row="1" Margin="4,2">
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDYPeak" Text="-" Foreground="#4EC9B0" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="Counts:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDYCounts" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDYMean" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDYRMS" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDYFWHM" Text="-" Foreground="#FF80AB" FontSize="9"/></StackPanel>
+                                                <StackPanel Orientation="Horizontal"><TextBlock Text="Res:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtDSSDYRes" Text="-" Foreground="#FF80AB" FontSize="9"/></StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </WrapPanel>
+                                <!-- Strip-X plots -->
+                                <TextBlock Text="Strip X" Foreground="#858585" FontSize="12" FontWeight="SemiBold" Margin="4,8,0,4"/>
+                                <WrapPanel>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripX1" Tag="StripX_1" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripX2" Tag="StripX_2" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripX3" Tag="StripX_3" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripX4" Tag="StripX_4" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripX5" Tag="StripX_5" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripX6" Tag="StripX_6" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripX7" Tag="StripX_7" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripX8" Tag="StripX_8" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                </WrapPanel>
+                                <!-- Strip-Y plots -->
+                                <TextBlock Text="Strip Y" Foreground="#858585" FontSize="12" FontWeight="SemiBold" Margin="4,8,0,4"/>
+                                <WrapPanel>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripY1" Tag="StripY_1" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripY2" Tag="StripY_2" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripY3" Tag="StripY_3" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripY4" Tag="StripY_4" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripY5" Tag="StripY_5" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripY6" Tag="StripY_6" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripY7" Tag="StripY_7" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                    <Border Classes="ChartCard" Margin="4"><Grid><scott:AvaPlot x:Name="ObsPlotStripY8" Tag="StripY_8" Width="230" Height="160" DoubleTapped="ObsPlot_DoubleTapped"/></Grid></Border>
+                                </WrapPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                    <!-- BGO Tab -->
+                    <TabItem Classes="darkSideTab" Header="BGO">
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <WrapPanel Margin="8">
+                                <Border Classes="ChartCard" Margin="4" Width="480" Height="320">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <scott:AvaPlot x:Name="ObsPlotBGOHigh" Tag="BGO_High" DoubleTapped="ObsPlot_DoubleTapped"/>
+                                        <StackPanel Grid.Row="1" Margin="4,2">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOHPeak" Text="-" Foreground="#4EC9B0" FontSize="9"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOHMean" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOHRMS" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOHFWHM" Text="-" Foreground="#FF80AB" FontSize="9"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Res:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOHRes" Text="-" Foreground="#FF80AB" FontSize="9"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <Border Classes="ChartCard" Margin="4" Width="480" Height="320">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <scott:AvaPlot x:Name="ObsPlotBGOLow" Tag="BGO_Low" DoubleTapped="ObsPlot_DoubleTapped"/>
+                                        <StackPanel Grid.Row="1" Margin="4,2">
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Peak:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOLPeak" Text="-" Foreground="#4EC9B0" FontSize="9"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Mean:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOLMean" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="RMS:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOLRMS" Text="-" Foreground="#CCCCCC" FontSize="9"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="FWHM:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOLFWHM" Text="-" Foreground="#FF80AB" FontSize="9"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Res:" Foreground="#858585" FontSize="9" Margin="0,0,3,0"/><TextBlock x:Name="ObsTxtBGOLRes" Text="-" Foreground="#FF80AB" FontSize="9"/></StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </WrapPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+
+            <!-- ============== CALIBRATION VIEW ============== -->
+            <Grid x:Name="ViewCalibration" IsVisible="False" DataContext="{Binding CalibrationVM}">
+                <viewsCalib:CalibrationView/>
+            </Grid>
+
+            <!-- ============== FLUX VIEW ============== -->
+            <Grid x:Name="ViewFlux" IsVisible="False" DataContext="{Binding FluxVM}">
+                <viewsFlux:FluxView/>
+            </Grid>
+
+            <!-- ============== SETTINGS VIEW ============== -->
+            <Grid x:Name="ViewSettings" IsVisible="False">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="24" MaxWidth="800">
+                        <TextBlock Text="Graph Settings" Foreground="White" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
+                        <!-- Observation Graph Settings Panel (bound to ObservationVM) -->
+                        <Border Background="#252526" CornerRadius="6" Padding="16" Margin="0,0,0,12"
+                                DataContext="{Binding ObservationVM}">
+                            <StackPanel>
+                                <TextBlock Text="DSSD / BGO Graph Colors" Foreground="#4EC9B0" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4">
+                                    <TextBlock Text="Bar Width:" Foreground="#CCCCCC" Width="120" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding BarWidthMultiplier}" Classes="RibbonInput" Width="80"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4">
+                                    <TextBlock Text="Energy Slope:" Foreground="#CCCCCC" Width="120" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding EnergyCalibrationSlope}" Classes="RibbonInput" Width="80"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,4">
+                                    <TextBlock Text="Energy Offset:" Foreground="#CCCCCC" Width="120" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding EnergyCalibrationIntercept}" Classes="RibbonInput" Width="80"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        <!-- Baseline Graph Settings -->
+                        <Border Background="#252526" CornerRadius="6" Padding="16" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Baseline Graph Colors" Foreground="#4EC9B0" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                <TextBlock Text="Color settings configured via ViewModel bindings" Foreground="#858585" FontSize="11"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- 4. Status Bar -->
+        <Border Grid.Row="3" Background="#007ACC">
+            <Grid Margin="12,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <fluentIcons:SymbolIcon Symbol="CheckmarkCircle" FontSize="14" Foreground="{Binding StatusColor}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtStatusBar" Text="{Binding StatusMessage}" Foreground="{Binding StatusColor}" FontSize="11" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <ProgressBar x:Name="StatusProgressBar" Width="120" Height="6" Minimum="0" Maximum="100" Value="{Binding ProgressValue}"
+                                 IsIndeterminate="{Binding IsProgressIndeterminate}"
+                                 Background="#00000033" Foreground="#FFFFFFCC" BorderThickness="0"/>
+                </StackPanel>
+                <TextBlock Grid.Column="2" x:Name="ObsDateTimeLabel" Foreground="White" FontSize="11" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Hidden elements for observation mode -->
+        <TextBlock x:Name="ObsTxtFileStatus" IsVisible="False"/>
+        <TextBlock x:Name="ObsTxtHeaderStatus" IsVisible="False"/>
+        <TextBlock x:Name="ObsTxtDataCount" IsVisible="False"/>
+        <TextBlock x:Name="ObsTxtParticleCount" IsVisible="False"/>
+        <TextBlock x:Name="ObsTxtStartTime" IsVisible="False"/>
+        <TextBlock x:Name="ObsTxtStopTime" IsVisible="False"/>
+        <TextBox x:Name="ObsTxtHeaderData" IsVisible="False"/>
+    </Grid>
+
+</Window>

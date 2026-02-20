@@ -27,9 +27,6 @@ namespace BaselineMode.WPF.Core.Interfaces
         /// </summary>
         Task<Result<List<BaselineData>>> ReadExcelFileAsync(string filePath, IProgress<double>? progress = null);
 
-        /// <summary>
-        /// Open file dialog to select files
-        /// </summary>
-        string[]? OpenFileDialog(string filter, bool multiselect);
+
     }
 }

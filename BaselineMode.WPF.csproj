@@ -2,16 +2,35 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-    <Version>2.3.0</Version>
+    <Version>3.0.0</Version>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- ML.NET (replacement for Accord.NET) -->
+    <!-- Avalonia -->
+    <PackageReference Include="Avalonia" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.12" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.12" />
+    
+    <!-- FluentAvalonia (WinUI controls for Avalonia) -->
+    <PackageReference Include="FluentAvaloniaUI" Version="2.5.0" />
+    
+    <!-- Icons -->
+    <PackageReference Include="FluentIcons.Avalonia" Version="2.0.318" />
+    
+    <!-- Charting -->
+    <PackageReference Include="ScottPlot.Avalonia" Version="5.1.57" />
+    
+    <!-- DI -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.2" />
+    
+    <!-- ML.NET -->
     <PackageReference Include="Microsoft.ML" Version="4.0.2" />
     
     <!-- Math Libraries -->
@@ -24,20 +43,13 @@
     <PackageReference Include="EPPlus" Version="7.5.3" />
     <PackageReference Include="ExcelDataReader" Version="3.7.0" />
     <PackageReference Include="ExcelDataReader.DataSet" Version="3.7.0" />
-    
-    <!-- Charting -->
-    <PackageReference Include="ScottPlot.WPF" Version="4.1.74" />
-    
-    <!-- UI - Material Design (for Observation Mode) -->
-    <PackageReference Include="MaterialDesignThemes" Version="5.1.0" />
-    <PackageReference Include="MaterialDesignColors" Version="3.1.0" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="Tests\**" />
     <EmbeddedResource Remove="Tests\**" />
     <None Remove="Tests\**" />
-    <Page Remove="Tests\**" />
   </ItemGroup>
 
 </Project>
+

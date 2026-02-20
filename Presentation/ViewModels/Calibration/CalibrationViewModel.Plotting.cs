@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
+using Avalonia.Threading;
 using BaselineMode.WPF.Core.Helpers;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using BaselineMode.WPF.Presentation.Views.Calibration;
@@ -60,7 +60,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
                 if (dataForChannel.Length > 0)
                 {
-                    var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
+                    var (counts, binEdges) = _mathService.CalculateHistogram(
                         dataForChannel, min: xMin, max: xMax, binCount: 500);
 
                     double[] binCenters = new double[binEdges.Length - 1];
@@ -71,7 +71,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
                 }
             });
 
-            Application.Current.Dispatcher.Invoke(() =>
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
                 for (int ch = 0; ch < channelCount; ch++)
                 {
@@ -112,7 +112,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Calibration
 
             if (_mathService is not Core.Interfaces.IFittingService fittingService) return;
 
-            var window = new CalibrationDetailWindow(fittingService);
+            var window = new CalibrationDetailWindow(fittingService, _mathService);
             string axisLabel = SelectedXAxisIndex == 1 ? "Voltage (mV)" : "ADC Channel";
 
             var figureBg = ColorHelper.ToDrawingColor(GraphFigureColor, Color.FromArgb(255, 30, 30, 30));

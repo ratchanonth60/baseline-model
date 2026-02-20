@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
-using BaselineMode.WPF.Infrastructure.Services;
+using BaselineMode.WPF.Core.Models.Shared;
+using BaselineMode.WPF.Presentation.ViewModels.Flux;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 {
@@ -17,19 +17,13 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         {
             Reset();
 
-            var dialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Multiselect = true,
-                Filter = "Text Files (*.txt)|*.txt|All Files (*.*)|*.*"
-            };
+            var files = await _dialogService.OpenFilesAsync("Select Flux Files", true, "Text Files (*.txt)|*.txt|All Files (*.*)|*.*");
+            if (files == null || files.Length == 0) return;
 
-            if (dialog.ShowDialog() != true) return;
-
-            var files = dialog.FileNames.ToList();
-            _selectedFiles = files;
+            _selectedFiles = files.ToList();
             InputFileList = [.. _selectedFiles];
 
-            if (files.Count == 1)
+            if (files.Length == 1)
             {
                 InputFilesInfo = "1 file selected.";
                 OutputFileName = Path.GetFileNameWithoutExtension(files[0]) + ".xlsx";
@@ -37,7 +31,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                 return;
             }
 
-            await CombineFilesAsync(files);
+            await CombineFilesAsync(_selectedFiles);
         }
 
         private async Task CombineFilesAsync(List<string> files)
@@ -52,8 +46,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                 {
                     StatusMessage = result.Error;
                     _logger.LogError($"Combine files failed: {result.Error}");
-                    MessageBoxService.Show($"Error combining files: {result.Error}", "Error",
-                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    await _dialogService.ShowMessageAsync($"Error combining files: {result.Error}", "Error",
+                        MsgBoxButton.OK, MsgBoxImage.Error);
                     return;
                 }
 
@@ -65,15 +59,15 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                 StatusMessage = "Files combined. Ready to process.";
                 _logger.LogInfo($"Files combined for flux: {combinedFilePath}");
 
-                MessageBoxService.Show($"Files combined into:\n{combinedFilePath}", "Success",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                await _dialogService.ShowMessageAsync($"Files combined into:\n{combinedFilePath}", "Success",
+                    MsgBoxButton.OK, MsgBoxImage.Information);
             }
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
                 _logger.LogException(ex, "CombineFilesAsync (Flux)");
-                MessageBoxService.Show($"Error combining files: {ex.Message}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                await _dialogService.ShowMessageAsync($"Error combining files: {ex.Message}", "Error",
+                    MsgBoxButton.OK, MsgBoxImage.Error);
             }
             finally
             {

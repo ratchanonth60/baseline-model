@@ -4,8 +4,9 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
-using System.Windows.Media;
+using Avalonia.Media;
 using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Core.Interfaces.Shared;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Core.Models.Flux;
 using BaselineMode.WPF.Core.Models.Shared;
@@ -24,6 +25,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         private readonly IFileHelper _fileHelper;
         private readonly IObservationDataProcessor _dataProcessor;
         private readonly ILoggerService _logger;
+        private readonly IDialogService _dialogService;
 
         /// <summary>Number of detector layers (L1–L7).</summary>
         private const int LayerCount = 7;
@@ -42,11 +44,12 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
         // ── Constructor ─────────────────────────────────────────────
 
-        public FluxViewModel(IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger)
+        public FluxViewModel(IFileHelper fileHelper, IObservationDataProcessor dataProcessor, ILoggerService logger, IDialogService dialogService)
         {
             _fileHelper = fileHelper;
             _dataProcessor = dataProcessor;
             _logger = logger;
+            _dialogService = dialogService;
 
             SelectFilesCommand = new AsyncRelayCommand(SelectFiles);
             ProcessDataCommand = new AsyncRelayCommand(ProcessData);

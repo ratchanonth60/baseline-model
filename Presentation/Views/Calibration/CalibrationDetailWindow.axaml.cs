@@ -1,13 +1,17 @@
+using System;
 using System.Linq;
-using System.Windows;
+using Avalonia.Controls;
 using ScottPlot;
+using ScottPlot.Avalonia;
 using BaselineMode.WPF.Core.Interfaces;
+using BaselineMode.WPF.Core.Helpers;
 
 namespace BaselineMode.WPF.Presentation.Views.Calibration
 {
     public partial class CalibrationDetailWindow : Window
     {
         private readonly IFittingService? _fittingService;
+        private readonly IMathService? _mathService;
 
         public CalibrationDetailWindow()
         {
@@ -16,14 +20,14 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
 
         private double[]? _currentData;
         private string _currentTitle = string.Empty;
-        private System.Drawing.Color _dataColor = System.Drawing.Color.FromArgb(255, 0, 150, 136);
+        private ScottPlot.Color _dataColor = ScottPlot.Colors.Teal;
         private bool _isUpdatingUi;
 
-        public CalibrationDetailWindow(IFittingService fittingService) : this()
+        public CalibrationDetailWindow(IFittingService fittingService, IMathService mathService) : this()
         {
             _fittingService = fittingService;
-            ChkShowFit.Checked += (s, e) => UpdatePlot();
-            ChkShowFit.Unchecked += (s, e) => UpdatePlot();
+            _mathService = mathService;
+            ChkShowFit.IsCheckedChanged += (s, e) => UpdatePlot();
         }
 
         private string _xLabel = "ADC Channel";
@@ -33,7 +37,7 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
             _currentData = data;
             _currentTitle = title;
             _xLabel = xLabel;
-            if (color.HasValue) _dataColor = color.Value;
+            if (color.HasValue) _dataColor = ColorHelper.ToScottPlotColor(color.Value);
             TitleText.Text = title;
             Title = $"Detail View - {title}";
 
@@ -44,15 +48,15 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
             UpdatePlot();
         }
 
-        private System.Drawing.Color _figureBg = System.Drawing.Color.FromArgb(255, 37, 37, 38);
-        private System.Drawing.Color _dataBg = System.Drawing.Color.FromArgb(255, 37, 37, 38);
-        private System.Drawing.Color _fgColor = System.Drawing.Color.White;
+        private ScottPlot.Color _figureBg = ScottPlot.Color.FromHex("#252526");
+        private ScottPlot.Color _dataBg = ScottPlot.Color.FromHex("#252526");
+        private ScottPlot.Color _fgColor = ScottPlot.Colors.White;
 
         public void SetColorTheme(System.Drawing.Color figureBg, System.Drawing.Color dataBg, System.Drawing.Color fgColor)
         {
-            _figureBg = figureBg;
-            _dataBg = dataBg;
-            _fgColor = fgColor;
+            _figureBg = ColorHelper.ToScottPlotColor(figureBg);
+            _dataBg = ColorHelper.ToScottPlotColor(dataBg);
+            _fgColor = ColorHelper.ToScottPlotColor(fgColor);
         }
 
         private void UpdatePlot()
@@ -62,14 +66,18 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
             DetailPlot.Plot.Clear();
 
             // Apply Theme
-            DetailPlot.Plot.Style(figureBackground: _figureBg, dataBackground: _dataBg);
-            DetailPlot.Plot.Style(tick: _fgColor, grid: System.Drawing.Color.FromArgb(60, _fgColor.R, _fgColor.G, _fgColor.B), titleLabel: _fgColor, axisLabel: _fgColor);
-            DetailPlot.Plot.XAxis.Label(label: _xLabel, color: _fgColor);
-            DetailPlot.Plot.YAxis.Label(label: "Count", color: _fgColor);
+            DetailPlot.Plot.FigureBackground.Color = _figureBg;
+            DetailPlot.Plot.DataBackground.Color = _dataBg;
+
+            DetailPlot.Plot.Axes.Color(_fgColor);
+            DetailPlot.Plot.Axes.Bottom.Label.Text = _xLabel;
+            DetailPlot.Plot.Axes.Bottom.Label.ForeColor = _fgColor;
+            DetailPlot.Plot.Axes.Left.Label.Text = "Count";
+            DetailPlot.Plot.Axes.Left.Label.ForeColor = _fgColor;
 
             if (_currentData == null || _currentData.Length == 0)
             {
-                DetailPlot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                DetailPlot.Plot.Add.Text("No data", 0, 0).LabelFontColor = ScottPlot.Colors.Gray;
                 DetailPlot.Refresh();
                 return;
             }
@@ -80,22 +88,33 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
 
             if (filteredData.Length == 0)
             {
-                DetailPlot.Plot.AddText("No positive data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                DetailPlot.Plot.Add.Text("No positive data", 0, 0).LabelFontColor = ScottPlot.Colors.Gray;
                 DetailPlot.Refresh();
                 return;
             }
 
             // Create histogram
-            var (hist, binEdges) = ScottPlot.Statistics.Common.Histogram(filteredData, binCount: 4096);
+            if (_mathService == null)
+            {
+                DetailPlot.Plot.Add.Text("Math Service Unavailable", 0, 0).LabelFontColor = ScottPlot.Colors.Red;
+                DetailPlot.Refresh();
+                return;
+            }
+
+            var (hist, binEdges) = _mathService.CalculateHistogram(filteredData, min: 0, max: 4096, binCount: 4096);
             double[] binMidpoints = new double[hist.Length];
             for (int i = 0; i < hist.Length; i++)
                 binMidpoints[i] = (binEdges[i] + binEdges[i + 1]) / 2.0;
 
-            var bar = DetailPlot.Plot.AddBar(hist, binMidpoints);
-            bar.BarWidth = 1;
-            bar.FillColor = _dataColor;
-            bar.BorderColor = bar.FillColor;
-            bar.BorderLineWidth = 0;
+            var bars = new ScottPlot.Bar[hist.Length];
+            for (int i = 0; i < hist.Length; i++)
+            {
+                bars[i] = new ScottPlot.Bar() { Position = binMidpoints[i], Value = hist[i] };
+            }
+
+            var barPlot = DetailPlot.Plot.Add.Bars(bars);
+            barPlot.Color = _dataColor;
+            // No direct border width property on BarPlot in simple usage, keeps default
 
             // Reset Stats
             TxtPeak.Text = "-";
@@ -109,7 +128,6 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
             {
                 try
                 {
-                    // --- 4.1 Crop around peak for better convergence ---
                     double maxVal = hist.Max();
                     int peakIdx = Array.IndexOf(hist, maxVal);
                     int win = 100;
@@ -119,16 +137,19 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
 
                     if (len > 3)
                     {
-                        double[] xFit = binMidpoints.Skip(start).Take(len).ToArray();
-                        double[] yFit = hist.Skip(start).Take(len).ToArray();
+                        double[] xFit = [.. binMidpoints.Skip(start).Take(len)];
+                        double[] yFit = [.. hist.Skip(start).Take(len)];
 
                         var fitResult = _fittingService.GaussianFit(xFit, yFit);
                         if (fitResult?.IsValid == true && fitResult.FitCurve != null && fitResult.FitCurve.Length == xFit.Length)
                         {
-                            DetailPlot.Plot.AddScatter(xFit, fitResult.FitCurve,
-                                System.Drawing.Color.FromArgb(255, 255, 82, 82), lineWidth: 2);
-                            DetailPlot.Plot.AddPoint(fitResult.Mu, fitResult.Peak,
-                                color: System.Drawing.Color.Yellow, size: 10);
+                            var sp = DetailPlot.Plot.Add.Scatter(xFit, fitResult.FitCurve);
+                            sp.Color = ScottPlot.Colors.Red; // "ARGB(255, 255, 82, 82)" -> Red-ish
+                            sp.LineWidth = 2;
+
+                            var mp = DetailPlot.Plot.Add.Marker(fitResult.Mu, fitResult.Peak);
+                            mp.Color = ScottPlot.Colors.Yellow;
+                            mp.Size = 10;
 
                             TxtPeak.Text = $"{fitResult.Peak:F0}";
                             TxtMean.Text = $"{fitResult.Mu:F2}";
@@ -152,7 +173,7 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
                 TxtRMS.Text = $"{stdDev:F2}";
             }
 
-            DetailPlot.Plot.SetAxisLimits(yMin: 0);
+            DetailPlot.Plot.Axes.SetLimits(bottom: 0, top: null);
             DetailPlot.Refresh();
         }
     }

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Windows;
+using Avalonia.Threading;
 using BaselineMode.WPF.Core.Helpers;
 using BaselineMode.WPF.Core.Models.Flux;
 using BaselineMode.WPF.Infrastructure.Services;
@@ -191,7 +191,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         {
             if (Layers == null || Layers.Count == 0) return;
 
-            Application.Current?.Dispatcher?.BeginInvoke(() =>
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
                 var figBg = ColorHelper.ToDrawingColor(GraphFigureColor, System.Drawing.Color.FromArgb(30, 30, 30));
                 var dataBg = ColorHelper.ToDrawingColor(GraphDataColor, System.Drawing.Color.FromArgb(37, 37, 38));

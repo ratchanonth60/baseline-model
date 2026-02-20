@@ -4,7 +4,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
+using Avalonia.Threading;
 using BaselineMode.WPF.Core.Models.Shared;
 using BaselineMode.WPF.Infrastructure.Services;
 using ExcelDataReader;
@@ -60,7 +60,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
                         processedFiles++;
                         double progress = (double)processedFiles / InputFileList.Length * 50;
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        await Dispatcher.UIThread.InvokeAsync(() =>
                         {
                             ProgressValue = progress;
                             StatusMessage = $"Processing file {processedFiles}/{InputFileList.Length}... ({filteredSegments.Count:N0} segments)";
@@ -72,7 +72,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 
                     if (filteredSegments.Count > 0)
                     {
-                        await Application.Current.Dispatcher.InvokeAsync(async () =>
+                        await Dispatcher.UIThread.InvokeAsync(async () =>
                         {
                             StatusMessage = $"Saving {filteredSegments.Count:N0} segments to Excel...";
                             var saveResult = await _fileHelper.SaveToExcelAsync(filteredSegments, outputName, "Source");
@@ -87,7 +87,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                     }
                     else
                     {
-                        await Application.Current.Dispatcher.InvokeAsync(() =>
+                        await Dispatcher.UIThread.InvokeAsync(() =>
                             StatusMessage = "No valid segments found.");
                     }
                 }, _cts.Token);
@@ -99,8 +99,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             {
                 StatusMessage = $"Error: {ex.Message}";
                 _logger.LogException(ex, "ProcessData (Flux)");
-                MessageBoxService.Show($"Error processing data: {ex.Message}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                await _dialogService.ShowMessageAsync($"Error processing data: {ex.Message}", "Error",
+                    MsgBoxButton.OK, MsgBoxImage.Error);
             }
             finally
             {
@@ -116,8 +116,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             string? fileName = _fileHelper.FindExcelFile(Path.GetFileNameWithoutExtension(outputName));
             if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
             {
-                MessageBoxService.Show($"File not found: {outputName}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                await _dialogService.ShowMessageAsync($"File not found: {outputName}", "Error",
+                    MsgBoxButton.OK, MsgBoxImage.Error);
                 return;
             }
 
@@ -141,7 +141,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                     var rawData = result.Tables[0];
                     totalSteps = rawData.Rows.Count;
 
-                    Application.Current.Dispatcher.BeginInvoke(() => DataCount = totalSteps);
+                    Dispatcher.UIThread.InvokeAsync(() => DataCount = totalSteps);
 
                     bool isFirst = true;
                     var lastUpdateTime = DateTime.Now;
@@ -153,7 +153,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                         if (isFirst)
                         {
                             startTime = GetDateTimeFromHexData(hexString);
-                            Application.Current.Dispatcher.BeginInvoke(() =>
+                            Dispatcher.UIThread.InvokeAsync(() =>
                                 StartTimeText = startTime.ToString("yyyy-MMM-dd HH:mm:ss.fff", new CultureInfo("en-US")));
                             isFirst = false;
                         }
@@ -165,7 +165,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                         {
                             int currentData = data + 1;
                             double progress = (double)currentData / totalSteps * 100.0;
-                            Application.Current.Dispatcher.BeginInvoke(() =>
+                            Dispatcher.UIThread.InvokeAsync(() =>
                             {
                                 ProgressValue = progress;
                                 StatusMessage = $"Processing... {progress:F1}% ({currentData:N0}/{totalSteps:N0})";
@@ -204,8 +204,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
-                MessageBoxService.Show($"Error reading data: {ex.Message}", "Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                await _dialogService.ShowMessageAsync($"Error reading data: {ex.Message}", "Error",
+                    MsgBoxButton.OK, MsgBoxImage.Error);
             }
             finally
             {
@@ -221,7 +221,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             string? fileName = _fileHelper.FindExcelFile(Path.GetFileNameWithoutExtension(outputName));
             if (string.IsNullOrEmpty(fileName) || !File.Exists(fileName))
             {
-                MessageBoxService.Show("File not found!", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await _dialogService.ShowMessageAsync("File not found!", "Error", MsgBoxButton.OK, MsgBoxImage.Warning);
                 return;
             }
 
@@ -243,20 +243,20 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                         string hexString = rawData.Rows[i][0].ToString() ?? "";
                         if (!hexString.StartsWith(AppConstants.HeaderStart))
                         {
-                            Application.Current.Dispatcher.BeginInvoke(() =>
+                            Dispatcher.UIThread.InvokeAsync(() =>
                                 HeaderCheckStatus = $"Header is INCORRECT! at data row no. {i + 1}");
                             return;
                         }
                     }
 
-                    Application.Current.Dispatcher.BeginInvoke(() =>
+                    Dispatcher.UIThread.InvokeAsync(() =>
                         HeaderCheckStatus = "Header is correct!");
                 });
             }
             catch (Exception ex)
             {
-                MessageBoxService.Show($"Error reading file: {ex.Message}", "File Read Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                await _dialogService.ShowMessageAsync($"Error reading file: {ex.Message}", "File Read Error",
+                    MsgBoxButton.OK, MsgBoxImage.Error);
             }
             finally
             {

@@ -1,9 +1,11 @@
-using System.Windows;
-using System.Windows.Controls;
-using BaselineMode.WPF.Presentation.ViewModels;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using BaselineMode.WPF.Presentation.ViewModels.Calibration;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using ScottPlot;
+using ScottPlot.Avalonia;
 
 namespace BaselineMode.WPF.Presentation.Views.Calibration
 {
@@ -14,15 +16,14 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
             InitializeComponent();
         }
 
-        private void Plot_Loaded(object sender, RoutedEventArgs e)
+        private void Plot_Loaded(object? sender, VisualTreeAttachmentEventArgs e)
         {
-            if (sender is WpfPlot plot && plot.DataContext is ChannelViewModel vm)
+            if (sender is AvaPlot plot && plot.DataContext is ChannelViewModel vm)
             {
                 // Assign the plot control to the ViewModel so it can render to it directly
                 vm.PlotControl = plot;
 
-                // If data was already loaded (e.g. Z-tab plots loaded lazily after ReadData),
-                // re-render immediately so graphs appear when the tab is first shown.
+                // If data was already loaded, re-render immediately
                 if (vm.Counts != null && vm.Counts.Length > 0 && this.DataContext is CalibrationViewModel calibVM)
                 {
                     var figBg = ToDrawingColor(calibVM.GraphFigureColor, System.Drawing.Color.FromArgb(255, 30, 30, 30));
@@ -37,25 +38,25 @@ namespace BaselineMode.WPF.Presentation.Views.Calibration
                 else
                 {
                     // Initial styling for empty plots
-                    plot.Plot.Style(ScottPlot.Style.Gray1);
+                    // Initial styling for empty plots
                     plot.Plot.Title(vm.ChannelName);
                     plot.Refresh();
                 }
             }
         }
 
-        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color wpfColor, System.Drawing.Color fallback)
+        private static System.Drawing.Color ToDrawingColor(Avalonia.Media.Color avColor, System.Drawing.Color fallback)
         {
             try
             {
-                return System.Drawing.Color.FromArgb(wpfColor.A, wpfColor.R, wpfColor.G, wpfColor.B);
+                return System.Drawing.Color.FromArgb(avColor.A, avColor.R, avColor.G, avColor.B);
             }
             catch { return fallback; }
         }
 
-        private void Plot_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void Plot_DoubleTapped(object? sender, TappedEventArgs e)
         {
-            if (sender is WpfPlot plot && plot.DataContext is ChannelViewModel channelVM)
+            if (sender is AvaPlot plot && plot.DataContext is ChannelViewModel channelVM)
             {
                 if (this.DataContext is CalibrationViewModel calibVM)
                 {

@@ -1,4 +1,7 @@
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using ScottPlot.Avalonia;
 using BaselineMode.WPF.Presentation.ViewModels;
 using BaselineMode.WPF.Presentation.ViewModels.Baseline;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
@@ -16,7 +19,7 @@ namespace BaselineMode.WPF.Views.Baseline
             Loaded += ChannelDetailWindow_Loaded;
         }
 
-        private void ChannelDetailWindow_Loaded(object sender, RoutedEventArgs e)
+        private void ChannelDetailWindow_Loaded(object? sender, RoutedEventArgs e)
         {
             if (DataContext is ChannelViewModel vm)
             {
@@ -24,12 +27,13 @@ namespace BaselineMode.WPF.Views.Baseline
                 vm.ResidualPlotControl = ResidualPlot;
 
                 // UX: Shift+Click to Lock Peak
-                DetailPlot.MouseDown += (s, e) =>
+                DetailPlot.PointerPressed += (s, pe) =>
                 {
-                    if (System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Shift && vm.IsManualMode)
+                    if (pe.KeyModifiers.HasFlag(KeyModifiers.Shift) && vm.IsManualMode)
                     {
-                        var (mouseX, mouseY) = DetailPlot.GetMouseCoordinates();
-                        vm.ManualMu = mouseX;
+                        var position = pe.GetPosition(DetailPlot);
+                        var coordinates = DetailPlot.Plot.GetCoordinates(new ScottPlot.Pixel((float)position.X, (float)position.Y));
+                        vm.ManualMu = coordinates.X;
                         vm.IsLockedMu = true;
                     }
                 };
@@ -44,12 +48,9 @@ namespace BaselineMode.WPF.Views.Baseline
                 }
                 else
                 {
-                    // Fallback to default
                     vm.RenderTo(DetailPlot, System.Drawing.Color.Gray, System.Drawing.Color.Gray, System.Drawing.Color.Black, System.Drawing.Color.Blue);
                 }
             }
         }
-
-
     }
 }

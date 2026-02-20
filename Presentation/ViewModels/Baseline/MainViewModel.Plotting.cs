@@ -152,7 +152,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                             maxVal = XAxisMax;
                         }
 
-                        var (counts, binEdges) = ScottPlot.Statistics.Common.Histogram(
+                        var (counts, binEdges) = _mathService.CalculateHistogram(
                             filteredData, min: minVal, max: maxVal, binCount: 16384);
 
                         double[] binCenters = new double[binEdges.Length - 1];
@@ -444,7 +444,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 int totalRecords = ProcessedData.Count;
                 int totalPages = (int)Math.Ceiling((double)totalRecords / PageSize);
 
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                 {
                     TotalPages = totalPages;
                     if (CurrentPage > TotalPages) CurrentPage = TotalPages;
@@ -486,7 +486,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                     table.Rows.Add(row);
                 }
 
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                 {
                     DisplayDataTable = table;
                     IsBusy = false;
@@ -524,7 +524,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 {
                     var matrix = CalculateCoincidenceMatrix();
 
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                     {
                         var vm = new HeatmapViewModel(matrix);
                         var window = new BaselineMode.WPF.Views.Baseline.HeatmapWindow
@@ -536,14 +536,14 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Baseline
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                     {
                         StatusMessage = $"Error showing heatmap: {ex.Message}";
                     });
                 }
                 finally
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                     {
                         IsBusy = false;
                         StatusMessage = "Heatmap shown.";

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
-using System.Windows;
+using Avalonia.Controls;
+using ScottPlot.Avalonia;
 
 namespace BaselineMode.WPF.Presentation.Views.Flux
 {
@@ -19,8 +20,11 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
         public FluxDetailWindow()
         {
             InitializeComponent();
-            ChkLogScale.Checked += (s, e) => { _isLogScale = true; UpdatePlot(); };
-            ChkLogScale.Unchecked += (s, e) => { _isLogScale = false; UpdatePlot(); };
+            ChkLogScale.IsCheckedChanged += (s, e) =>
+            {
+                _isLogScale = ChkLogScale.IsChecked == true;
+                UpdatePlot();
+            };
         }
 
         public void SetColorTheme(System.Drawing.Color figBg, System.Drawing.Color dataBg, System.Drawing.Color fgColor, System.Drawing.Color seriesColor)
@@ -49,14 +53,18 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
             DetailPlot.Plot.Clear();
 
             // Apply Theme
-            DetailPlot.Plot.Style(figureBackground: _figureBg, dataBackground: _dataBg);
-            DetailPlot.Plot.Style(tick: _fgColor,
-                grid: System.Drawing.Color.FromArgb(60, _fgColor.R, _fgColor.G, _fgColor.B),
-                titleLabel: _fgColor, axisLabel: _fgColor);
+            DetailPlot.Plot.FigureBackground.Color = new ScottPlot.Color(_figureBg.R, _figureBg.G, _figureBg.B, _figureBg.A);
+            DetailPlot.Plot.DataBackground.Color = new ScottPlot.Color(_dataBg.R, _dataBg.G, _dataBg.B, _dataBg.A);
+
+            var spFgColor = new ScottPlot.Color(_fgColor.R, _fgColor.G, _fgColor.B, _fgColor.A);
+            DetailPlot.Plot.Axes.Color(spFgColor);
+            DetailPlot.Plot.Grid.MajorLineColor = new ScottPlot.Color(_fgColor.R, _fgColor.G, _fgColor.B, (byte)60);
 
             if (_xData == null || _yData == null || _xData.Length == 0 || _yData.Length == 0)
             {
-                DetailPlot.Plot.AddText("No data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                var txt = DetailPlot.Plot.Add.Text("No data", 0, 0);
+                txt.LabelFontSize = 14;
+                txt.LabelFontColor = ScottPlot.Colors.Gray;
                 DetailPlot.Refresh();
                 TxtDataPoints.Text = "0";
                 TxtMaxFlux.Text = "-";
@@ -72,7 +80,9 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
 
             if (validPairs.Length == 0)
             {
-                DetailPlot.Plot.AddText("No valid flux data", 0, 0, size: 14, color: System.Drawing.Color.Gray);
+                var txt = DetailPlot.Plot.Add.Text("No valid flux data", 0, 0);
+                txt.LabelFontSize = 14;
+                txt.LabelFontColor = ScottPlot.Colors.Gray;
                 DetailPlot.Refresh();
                 return;
             }
@@ -90,16 +100,19 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
             if (_isLogScale)
             {
                 plotY = [.. filteredY.Select(y => y > 0 ? Math.Log10(y) : -10)];
-                DetailPlot.Plot.YAxis.TickLabelFormat(value => $"10^{value:F0}");
+                if (DetailPlot.Plot.Axes.Left.TickGenerator is ScottPlot.TickGenerators.NumericAutomatic tickGen)
+                {
+                    tickGen.LabelFormatter = new Func<double, string>(value => $"10^{value:F0}");
+                }
             }
             else
             {
                 plotY = filteredY;
-                DetailPlot.Plot.SetAxisLimitsY(0, double.NaN);
+                DetailPlot.Plot.Axes.SetLimits(bottom: 0, top: null);
             }
 
-            var scatter = DetailPlot.Plot.AddScatter(filteredX, plotY);
-            scatter.Color = _seriesColor;
+            var scatter = DetailPlot.Plot.Add.Scatter(filteredX, plotY);
+            scatter.Color = new ScottPlot.Color(_seriesColor.R, _seriesColor.G, _seriesColor.B, _seriesColor.A);
             scatter.LineWidth = 2;
             scatter.MarkerSize = 4;
 
@@ -107,7 +120,7 @@ namespace BaselineMode.WPF.Presentation.Views.Flux
             DetailPlot.Plot.XLabel("Cumulative Time (s)");
             DetailPlot.Plot.YLabel(_isLogScale ? "Flux Density (log₁₀)" : "Flux Density (count/m²·s)");
 
-            DetailPlot.Plot.SetAxisLimits(xMin: 0);
+            DetailPlot.Plot.Axes.SetLimits(left: 0);
             DetailPlot.Refresh();
         }
     }

@@ -1,6 +1,9 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScottPlot;
+using ScottPlot.Avalonia;
 using System.Diagnostics;
+using BaselineMode.WPF.Core.Helpers;
+using System.Linq;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Flux
 {
@@ -24,8 +27,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         /// <summary>Y-axis data: flux density (count/m²·s).</summary>
         public double[]? YData { get; set; }
 
-        /// <summary>Reference to the WpfPlot control for direct rendering.</summary>
-        public WpfPlot? PlotControl { get; set; }
+        /// <summary>Reference to the AvaPlot control for direct rendering.</summary>
+        public AvaPlot? PlotControl { get; set; }
 
         /// <summary>
         /// Renders scatter plot of flux density vs time with theme colors.
@@ -54,10 +57,10 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
         }
 
         /// <summary>
-        /// Renders the scatter plot to a specific WpfPlot control.
+        /// Renders the scatter plot to a specific AvaPlot control.
         /// </summary>
         public void RenderTo(
-            WpfPlot targetPlot,
+            AvaPlot targetPlot,
             System.Drawing.Color figBg,
             System.Drawing.Color dataBg,
             System.Drawing.Color foreColor,
@@ -72,14 +75,17 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
             if (targetPlot == null) return;
             targetPlot.Plot.Clear();
 
-            // Apply style
-            targetPlot.Plot.Style(ScottPlot.Style.Gray1);
-            targetPlot.Plot.Style(figureBackground: figBg, dataBackground: dataBg);
-            targetPlot.Plot.XAxis.Label(color: foreColor);
-            targetPlot.Plot.YAxis.Label(color: foreColor);
-            targetPlot.Plot.XAxis.TickLabelStyle(color: foreColor);
-            targetPlot.Plot.YAxis.TickLabelStyle(color: foreColor);
-            targetPlot.Plot.Title($"Particle Flux Density: {LayerName}", color: foreColor);
+            // Apply style - Theme colors
+            targetPlot.Plot.FigureBackground.Color = ColorHelper.ToScottPlotColor(figBg);
+            targetPlot.Plot.DataBackground.Color = ColorHelper.ToScottPlotColor(dataBg);
+
+            var fgColor = ColorHelper.ToScottPlotColor(foreColor);
+            targetPlot.Plot.Axes.Color(fgColor);
+            targetPlot.Plot.Axes.Title.Label.ForeColor = fgColor;
+            targetPlot.Plot.Axes.Bottom.Label.ForeColor = fgColor;
+            targetPlot.Plot.Axes.Left.Label.ForeColor = fgColor;
+
+            targetPlot.Plot.Title($"Particle Flux Density: {LayerName}");
 
             if (XData != null && YData != null && XData.Length > 0 && YData.Length > 0)
             {
@@ -94,41 +100,39 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Flux
                         plotYData[i] = YData[i] > 0 ? System.Math.Log10(YData[i]) : -10;
                     }
 
-                    var scatter = targetPlot.Plot.AddScatter(XData, plotYData);
-                    scatter.Color = seriesColor;
-                    scatter.LineWidth = 1 * widthMultiplier;
+                    var scatter = targetPlot.Plot.Add.Scatter(XData, plotYData);
+                    scatter.Color = ColorHelper.ToScottPlotColor(seriesColor);
+                    scatter.LineWidth = (float)(1 * widthMultiplier);
                     scatter.MarkerSize = (float)(3 * widthMultiplier);
-                    scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
+                    scatter.MarkerShape = ScottPlot.MarkerShape.FilledCircle;
 
-                    targetPlot.Plot.YAxis.TickLabelFormat(value => $"10^{value:F0}");
+                    // Manual tick formatter if needed, but simple for now
                 }
                 else
                 {
                     plotYData = YData;
 
-                    var scatter = targetPlot.Plot.AddScatter(XData, plotYData);
-                    scatter.Color = seriesColor;
-                    scatter.LineWidth = 1 * widthMultiplier;
+                    var scatter = targetPlot.Plot.Add.Scatter(XData, plotYData);
+                    scatter.Color = ColorHelper.ToScottPlotColor(seriesColor);
+                    scatter.LineWidth = (float)(1 * widthMultiplier);
                     scatter.MarkerSize = (float)(3 * widthMultiplier);
-                    scatter.MarkerShape = ScottPlot.MarkerShape.filledCircle;
+                    scatter.MarkerShape = ScottPlot.MarkerShape.FilledCircle;
 
-                    targetPlot.Plot.SetAxisLimitsY(0, double.NaN);
+                    targetPlot.Plot.Axes.SetLimits(bottom: 0);
                 }
 
                 // Set axis limits
-                if (xMax.HasValue)
-                    targetPlot.Plot.SetAxisLimits(xMin: xMin, xMax: xMax.Value);
-                else
-                    targetPlot.Plot.SetAxisLimits(xMin: xMin);
+                double finalXMax = xMax ?? (XData.Length > 0 ? XData.Max() : 1);
+                targetPlot.Plot.Axes.SetLimits(left: xMin, right: finalXMax);
 
-                targetPlot.Plot.XLabel(xLabel ?? "Cumulative Time (s)");
-                targetPlot.Plot.YLabel(yLabel ?? (isLogScale ? "Flux Density (log₁₀)" : "Flux Density (count/m²·s)"));
+                targetPlot.Plot.Axes.Bottom.Label.Text = xLabel ?? "Cumulative Time (s)";
+                targetPlot.Plot.Axes.Left.Label.Text = yLabel ?? (isLogScale ? "Flux Density (log??)" : "Flux Density (count/m??s)");
             }
             else
             {
                 // No data placeholder
-                targetPlot.Plot.AddText("No Data", 0, 0, size: 24, color: System.Drawing.Color.Gray);
-                targetPlot.Plot.SetAxisLimits(-1, 1, -1, 1);
+                targetPlot.Plot.Add.Text("No Data", 0, 0);
+                targetPlot.Plot.Axes.SetLimits(-1, 1, -1, 1);
             }
 
             targetPlot.Refresh();

@@ -364,6 +364,55 @@ namespace BaselineMode.WPF.Infrastructure.Services
                 result.Resolution = (result.FWHM / result.Mu) * 100.0;
         }
 
+        public (double[] counts, double[] binEdges) CalculateHistogram(double[] data, double min, double max, int binCount)
+        {
+            double[] counts = new double[binCount];
+            double[] binEdges = new double[binCount + 1];
+            double binSize = (max - min) / binCount;
+
+            for (int i = 0; i <= binCount; i++)
+                binEdges[i] = min + i * binSize;
+
+            double invBinSize = 1.0 / binSize; // Optimization
+
+            foreach (var d in data)
+            {
+                if (d >= min && d < max)
+                {
+                    int bin = (int)((d - min) * invBinSize);
+                    if (bin >= 0 && bin < binCount)
+                    {
+                        counts[bin]++;
+                    }
+                }
+            }
+            return (counts, binEdges);
+        }
+
+        public double[] GenerateGaussianCurve(double[] x, double A, double mu, double sigma)
+        {
+            double[] y = new double[x.Length];
+            double denom = 2 * sigma * sigma;
+            for (int i = 0; i < x.Length; i++)
+            {
+                double exponent = -Math.Pow(x[i] - mu, 2) / denom;
+                y[i] = A * Math.Exp(exponent);
+            }
+            return y;
+        }
+
+        public double[] GenerateLorentzianCurve(double[] x, double A, double mu, double sigma)
+        {
+            double[] y = new double[x.Length];
+            for (int i = 0; i < x.Length; i++)
+            {
+                y[i] = CalculateLorentzianValue(x[i], A, mu, sigma);
+            }
+            return y;
+        }
+
+
+
         protected virtual void Dispose(bool disposing) { if (!_disposed) _disposed = true; }
         public void Dispose() { Dispose(true); GC.SuppressFinalize(this); }
     }

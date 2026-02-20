@@ -3,6 +3,7 @@ using System.IO;
 using BaselineMode.WPF.Core.Interfaces;
 using BaselineMode.WPF.Core.Interfaces.Observation;
 using BaselineMode.WPF.Core.Models.Observation;
+using BaselineMode.WPF.Core.Interfaces.Shared;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,7 +22,8 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         IMathService mathService,
         IFileService fileService,
         IFileHelper fileHelper,
-        ILoggerService logger) : SharedViewModelBase
+        ILoggerService logger,
+        IDialogService dialogService) : SharedViewModelBase
     {
         private readonly IObservationDataProcessor _dataProcessor = dataProcessor;
         private readonly IObservationExcelHelper _excelHelper = excelHelper;
@@ -30,6 +32,7 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         private readonly IFileService _fileService = fileService;
         private readonly IFileHelper _fileHelper = fileHelper;
         private readonly ILoggerService _logger = logger;
+        private readonly IDialogService _dialogService = dialogService;
 
         public IObservationDataProcessor DataProcessor => _dataProcessor;
         public IObservationExcelHelper ExcelHelper => _excelHelper;
@@ -59,17 +62,17 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
 
         // Graph Settings
         [ObservableProperty]
-        private System.Windows.Media.Color _selectedGraphBackground = System.Windows.Media.Colors.Gray;
+        private Avalonia.Media.Color _selectedGraphBackground = Avalonia.Media.Colors.Gray;
 
         [ObservableProperty]
-        private System.Windows.Media.Color _selectedDSSDColor = System.Windows.Media.Colors.Orange;
+        private Avalonia.Media.Color _selectedDSSDColor = Avalonia.Media.Colors.Orange;
 
         [ObservableProperty]
-        private System.Windows.Media.Color _selectedBGOColor = System.Windows.Media.Colors.Cyan;
+        private Avalonia.Media.Color _selectedBGOColor = Avalonia.Media.Colors.Cyan;
 
-        partial void OnSelectedGraphBackgroundChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
-        partial void OnSelectedDSSDColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
-        partial void OnSelectedBGOColorChanged(System.Windows.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnSelectedGraphBackgroundChanged(Avalonia.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnSelectedDSSDColorChanged(Avalonia.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
+        partial void OnSelectedBGOColorChanged(Avalonia.Media.Color value) => RequestPlotUpdate?.Invoke(this, EventArgs.Empty);
 
         [ObservableProperty]
         private double _barWidthMultiplier = 1.0;
@@ -119,17 +122,17 @@ namespace BaselineMode.WPF.Presentation.ViewModels.Observation
         public event EventHandler? RequestPlotUpdate;
 
         [RelayCommand]
-        private void BrowseOutputDirectory()
+        private async Task BrowseOutputDirectoryAsync()
         {
-            var dialog = new OpenFolderDialog { Title = "Select Output Root Folder" };
-            if (dialog.ShowDialog() == true)
-                OutputDirectoryPath = dialog.FolderName;
+            var folderPath = await _dialogService.OpenFolderAsync("Select Output Root Folder");
+            if (folderPath != null)
+                OutputDirectoryPath = folderPath;
         }
 
         [RelayCommand]
-        private void SelectFiles()
+        private async Task SelectFiles()
         {
-            var files = _fileService.OpenFileDialog("Text files (*.txt)|*.txt|All files (*.*)|*.*", true);
+            var files = await _dialogService.OpenFilesAsync("Select files", true, "Text files (*.txt)|*.txt|All files (*.*)|*.*");
             if (files != null && files.Length > 0)
                 LoadFiles(files);
         }

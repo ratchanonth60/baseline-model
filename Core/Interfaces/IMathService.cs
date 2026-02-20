@@ -73,5 +73,12 @@ namespace BaselineMode.WPF.Core.Interfaces
         /// Generate HEMG curve from parameters
         /// </summary>
         double[] GenerateHemgCurve(double[] x, double[] parameters);
+        /// <summary>
+        /// Calculate histogram from data
+        /// </summary>
+        (double[] counts, double[] binEdges) CalculateHistogram(double[] data, double min, double max, int binCount);
+
+        double[] GenerateGaussianCurve(double[] x, double A, double mu, double sigma);
+        double[] GenerateLorentzianCurve(double[] x, double A, double mu, double sigma);
     }
 }
