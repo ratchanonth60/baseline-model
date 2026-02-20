@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using BaselineMode.WPF.Core.Helpers;
 using BaselineMode.WPF.Presentation.ViewModels.Shared;
-using BaselineMode.WPF.Presentation.Views.Calibration;
+using BaselineMode.WPF.Views.Calibration;
 using CommunityToolkit.Mvvm.Input;
 
 namespace BaselineMode.WPF.Presentation.ViewModels.Calibration

@@ -45,7 +45,7 @@ namespace BaselineMode.WPF.Views.Shared
 
         private void LaunchBaselineMode()
         {
-            var mainWindow = new MainWindow();
+            var mainWindow = new BaselineMainWindow();
             mainWindow.Show();
             this.Close();
         }
